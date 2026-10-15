@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Camera, MessageSquareHeart, Building2 } from 'lucide-react';
+import { Home, Camera, MessageSquareHeart, Building2, Settings } from 'lucide-react';
 
 export default function Navigation() {
   const pathname = usePathname();
@@ -16,21 +16,27 @@ export default function Navigation() {
       isEmergency: false,
     },
     {
-      label: 'SOS',
-      href: '/sos',
-      icon: Camera,
-      isEmergency: true,
-    },
-    {
       label: 'Rafa',
       href: '/rafa',
       icon: MessageSquareHeart,
       isEmergency: false,
     },
     {
+      label: 'SOS',
+      href: '/sos',
+      icon: Camera,
+      isEmergency: true,
+    },
+    {
       label: 'Clinics',
       href: '/facilities',
       icon: Building2,
+      isEmergency: false,
+    },
+    {
+      label: 'Settings',
+      href: '/settings',
+      icon: Settings,
       isEmergency: false,
     },
   ];
@@ -40,7 +46,7 @@ export default function Navigation() {
       aria-label="Primary navigation"
       className="fixed bottom-0 left-0 right-0 z-40 bg-page/90 backdrop-blur-xl border-t border-border pb-[env(safe-area-inset-bottom,0px)]"
     >
-      <div className="max-w-md mx-auto px-4 h-16 flex items-center justify-around">
+      <div className="max-w-md mx-auto px-2 h-16 flex items-center justify-around">
         {navItems.map((item) => {
           const isActive = pathname === item.href;
           const Icon = item.icon;

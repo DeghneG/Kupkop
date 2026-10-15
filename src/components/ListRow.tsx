@@ -22,36 +22,36 @@ interface ListRowProps {
 }
 
 export function ListRow({ incident, onClick, isLast = false }: ListRowProps) {
-  // Status indicator config
+  // Status indicator config with tinted background pill
   const renderStatus = () => {
     switch (incident.state) {
       case 'claimed':
         return (
-          <span className="inline-flex items-center gap-1.5 text-[14px] font-semibold text-claimed-fg">
-            <Lock className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[12px] font-semibold bg-claimed-bg text-claimed-fg">
+            <Lock className="w-3 h-3 shrink-0" aria-hidden="true" />
             <span>Claimed</span>
           </span>
         );
       case 'healing':
       case 'admitted':
         return (
-          <span className="inline-flex items-center gap-1.5 text-[14px] font-semibold text-healing-fg">
-            <HeartPulse className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[12px] font-semibold bg-healing-bg text-healing-fg">
+            <HeartPulse className="w-3 h-3 shrink-0" aria-hidden="true" />
             <span>{incident.state === 'admitted' ? 'Admitted' : 'Healing'}</span>
           </span>
         );
       case 'resolved':
         return (
-          <span className="inline-flex items-center gap-1.5 text-[14px] font-semibold text-resolved-fg">
-            <CheckCircle2 className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[12px] font-semibold bg-resolved-bg text-resolved-fg">
+            <CheckCircle2 className="w-3 h-3 shrink-0" aria-hidden="true" />
             <span>Resolved</span>
           </span>
         );
       case 'reported':
       default:
         return (
-          <span className="inline-flex items-center gap-1.5 text-[14px] font-semibold text-reported-fg">
-            <AlertCircle className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[12px] font-semibold bg-reported-bg text-reported-fg">
+            <AlertCircle className="w-3 h-3 shrink-0" aria-hidden="true" />
             <span>Reported</span>
           </span>
         );
@@ -64,17 +64,20 @@ export function ListRow({ incident, onClick, isLast = false }: ListRowProps) {
         type="button"
         onClick={onClick}
         aria-label={`View emergency report for ${incident.animal}`}
-        className="w-full min-h-[72px] py-3.5 px-4 flex items-center gap-3.5 text-left active:opacity-60 transition-opacity cursor-pointer focus:outline-none focus:bg-surface-muted/50"
+        className="w-full min-h-[76px] py-3.5 px-4 flex items-center gap-3.5 text-left hover:bg-surface-muted/40 active:opacity-75 transition-colors cursor-pointer focus:outline-none focus:bg-surface-muted/60"
       >
-        {/* Left: 56px circular blurred thumbnail */}
-        <div className="w-14 h-14 rounded-full overflow-hidden bg-surface-muted border border-border shrink-0 flex items-center justify-center relative">
-          <div className="w-full h-full flex flex-col items-center justify-center blur-sm scale-110">
-            <Camera className="w-5 h-5 text-fg-muted" aria-hidden="true" />
+        {/* Left: 64px rounded rectangular photo preview with emergency blur */}
+        <div className="w-16 h-16 rounded-[14px] overflow-hidden bg-surface-muted border border-border shrink-0 flex items-center justify-center relative">
+          <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-surface-muted to-border/40 blur-sm scale-110">
+            <Camera className="w-5 h-5 text-fg-muted/60" aria-hidden="true" />
+          </div>
+          <div className="absolute inset-0 flex items-center justify-center">
+            <Camera className="w-4 h-4 text-fg-muted" aria-hidden="true" />
           </div>
         </div>
 
-        {/* Right Details Column (3 lines) */}
-        <div className="flex-1 min-w-0 space-y-0.5">
+        {/* Right Details Column */}
+        <div className="flex-1 min-w-0 space-y-1">
           {/* Line 1: Animal name with right-aligned timestamp */}
           <div className="flex items-baseline justify-between gap-2">
             <h3 className="text-[16px] font-semibold text-fg truncate leading-snug">
@@ -90,17 +93,17 @@ export function ListRow({ incident, onClick, isLast = false }: ListRowProps) {
             {incident.type} · {incident.distance}
           </p>
 
-          {/* Line 3: Status icon + text */}
+          {/* Line 3: Status icon + tinted pill */}
           <div className="pt-0.5 leading-none">
             {renderStatus()}
           </div>
         </div>
       </button>
 
-      {/* iOS Inset Hairline Divider (starts after thumbnail) */}
+      {/* iOS Inset Hairline Divider (starts after thumbnail: 16px pad + 64px thumb = 80px) */}
       {!isLast && (
         <div
-          className="ml-[74px] border-b border-border"
+          className="ml-[80px] border-b border-border"
           aria-hidden="true"
         />
       )}
@@ -114,8 +117,8 @@ export function ListRowSkeleton() {
     <div className="space-y-0" aria-label="Loading incidents" role="status">
       {[1, 2, 3].map((i, idx) => (
         <div key={i} className="relative">
-          <div className="w-full min-h-[72px] py-3.5 px-4 flex items-center gap-3.5">
-            <div className="w-14 h-14 rounded-full bg-surface-muted animate-pulse shrink-0" />
+          <div className="w-full min-h-[76px] py-3.5 px-4 flex items-center gap-3.5">
+            <div className="w-16 h-16 rounded-[14px] bg-surface-muted animate-pulse shrink-0" />
             <div className="flex-1 space-y-2">
               <div className="flex justify-between items-center">
                 <div className="w-28 h-4 rounded bg-surface-muted animate-pulse" />
@@ -125,7 +128,7 @@ export function ListRowSkeleton() {
               <div className="w-20 h-3.5 rounded bg-surface-muted animate-pulse" />
             </div>
           </div>
-          {idx < 2 && <div className="ml-[74px] border-b border-border" />}
+          {idx < 2 && <div className="ml-[80px] border-b border-border" />}
         </div>
       ))}
     </div>

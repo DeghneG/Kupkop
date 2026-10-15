@@ -57,5 +57,16 @@
   6. Removed visual clutter from Home: Rafa cards, partner clinic cards, DEV bar, and inline action buttons are eliminated from the main feed view.
 - **Context:** Street animal emergency response requires immediate clarity, single-focus calm under stress, and standard native iOS interaction patterns.
 
+### D-009: 5-Tab Symmetrical Navigation and Option A Home Layout Overhaul
+- **Date:** 2026-10-16
+- **Decision:**
+  1. Bottom navigation converted to 5 symmetrical tabs: `Home | Rafa | SOS | Clinics | Settings` with SOS elevated as the central 56px red round button.
+  2. Created dedicated `/settings` page (`src/app/settings/page.tsx`) as the permanent home for Supabase Auth, Appearance (3-option iOS segmented control `[ System | Light | Dark ]`), DEV ONLY (mock role) selector, and About KupKop info.
+  3. Overhauled Home page (`src/app/page.tsx`) to Option A:
+     - Clean brand header: `[K]` logo chip, "KupKop", "Street Animal Emergency Network", and `<ThemeToggle />` on the right (eliminating redundant profile button).
+     - Card Hero: A surface card (`rounded-[20px] p-5 bg-surface border border-border shadow-sm`) containing "Found an injured street animal?", 56px red emergency button "Report emergency" with Camera icon, helper text, and 4 quick triage shortcut chips (`Bleeding`, `Hit-and-run`, `Fracture`, `Trapped`) linking directly to `/sos?triage=<type>`.
+     - Nearby Feed: Upgraded thumbnails from 56px circular dark blobs to 64px rounded rectangular photo previews (`rounded-[14px]`) with emergency blur and camera icon, tinted status pill indicators (`bg-reported-bg text-reported-fg`, `bg-claimed-bg text-claimed-fg`), and `ml-[80px]` inset hairline dividers.
+- **Context:** User requested 5 bottom tabs (`Home | Rafa | SOS | Clinics | Settings`) and expressed discontent with the plain unboxed home hero, preferring an organized, rich card layout with instant triage shortcuts and clear navigation.
+
 
 
