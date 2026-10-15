@@ -7,6 +7,7 @@ import { ListRow, ListRowSkeleton, EmptyIncidentsState, IncidentData } from '@/c
 import DetailSheet from '@/components/DetailSheet';
 import ProfileSheet from '@/components/ProfileSheet';
 import AuthModal from '@/components/AuthModal';
+import ThemeToggle from '@/components/ThemeToggle';
 
 type MockRole = 'citizen' | 'volunteer' | 'facility' | 'admin';
 
@@ -86,16 +87,22 @@ export default function HomePage() {
           </p>
         </div>
 
-        {/* Profile Avatar Button (44px, opens Profile Sheet) */}
-        <button
-          ref={profileBtnRef}
-          type="button"
-          onClick={() => setIsProfileOpen(true)}
-          className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full bg-surface border border-border flex items-center justify-center text-fg hover:bg-surface-muted transition-colors cursor-pointer shrink-0 focus:outline-none focus:ring-2 focus:ring-accent"
-          aria-label="Open profile and settings"
-        >
-          <User className="w-5 h-5 text-fg-muted" aria-hidden="true" />
-        </button>
+        {/* Header Action Controls */}
+        <div className="flex items-center gap-2">
+          {/* Quick Theme Toggle (Light / Dark) */}
+          <ThemeToggle />
+
+          {/* Profile Avatar Button (44px, opens Profile Sheet) */}
+          <button
+            ref={profileBtnRef}
+            type="button"
+            onClick={() => setIsProfileOpen(true)}
+            className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full bg-surface border border-border flex items-center justify-center text-fg hover:bg-surface-muted transition-colors cursor-pointer shrink-0 focus:outline-none focus:ring-2 focus:ring-accent"
+            aria-label="Open profile and settings"
+          >
+            <User className="w-5 h-5 text-fg-muted" aria-hidden="true" />
+          </button>
+        </div>
       </header>
 
       {/* 2. Hero: NO card, NO box around it, 32px vertical space */}

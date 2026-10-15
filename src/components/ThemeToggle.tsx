@@ -53,7 +53,7 @@ export default function ThemeToggle() {
       type="button"
       onClick={toggleTheme}
       aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-      className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-xl flex items-center justify-center text-fg-muted hover:text-fg bg-surface hover:bg-surface-muted transition-all active:scale-95 border border-border shadow-sm focus:outline-none focus:ring-2 focus:ring-accent cursor-pointer shrink-0"
+      className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full flex items-center justify-center text-fg-muted hover:text-fg bg-surface hover:bg-surface-muted transition-all active:scale-95 border border-border shadow-sm focus:outline-none focus:ring-2 focus:ring-accent cursor-pointer shrink-0"
     >
       {!mounted ? (
         <span className="w-5 h-5" aria-hidden="true" />
