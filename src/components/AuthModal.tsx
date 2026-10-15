@@ -107,7 +107,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
           <div className="space-y-4">
             <div>
               <h2 id="auth-modal-title" className="text-[22px] font-semibold tracking-tight text-fg">
-                Sign in to KupKop
+                Sign in to <span className="font-brand font-bold">KupKop</span>
               </h2>
               <p className="text-[14px] text-fg-muted mt-0.5">
                 Save reports, claim rescues, and track animals.

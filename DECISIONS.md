@@ -43,6 +43,7 @@
   3. Navigation tabs standardized as `Feed`, `SOS`, `Rafa`, `Clinics` with >= 12px labels and 48px tap targets.
   4. Test-role dropdown is DEV ONLY (mock role for local prototype testing) and must be removed before real Supabase Auth/RLS integration.
   5. Adopted Apple Weather / Severe Alert palette: Deep Storm Slate (`#0c1424` canvas / `#162138` elevated cards / `#223152` hairline borders in dark) and Atmosphere Daylight (`#f0f4fa` canvas / `#ffffff` cards / `#ccd7e8` borders in light) with Apple Severe Alert Red (`#ff453a`), Apple Radar Cyan (`#30b0c7` / `#40c8e0`), native San Francisco font stack with subpixel antialiasing and `tabular-nums`.
+  6. Brand wordmark uses Bricolage Grotesque (`font-brand`) for `KupKop` and the app icon letter `K`, creating an expressive, unmistakably distinct street animal emergency identity while keeping all UI and body text in clean native Apple San Francisco.
 - **Context:** Mobile-web street animal emergency usability requires instant readability, honest copy, high contrast under daylight and nighttime conditions, and a native iOS feel.
 
 

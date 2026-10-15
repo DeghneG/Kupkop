@@ -126,11 +126,11 @@ export default function HomePage() {
       {/* Main Header */}
       <header className="flex items-center justify-between gap-3 pt-1">
         <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-xl bg-[#ff453a] text-white flex items-center justify-center font-bold text-lg shadow-sm shrink-0">
+          <div className="w-9 h-9 rounded-xl bg-[#ff453a] text-white flex items-center justify-center font-bold text-lg shadow-sm shrink-0 font-brand">
             K
           </div>
           <div>
-            <h1 className="text-[22px] font-semibold tracking-[-0.025em] leading-none text-[#0b132b] dark:text-white">
+            <h1 className="text-[23px] font-bold tracking-tight leading-none text-[#0b132b] dark:text-white font-brand">
               KupKop
             </h1>
             <p className="text-[12px] text-[#5a6b85] dark:text-[#8e9bb0] font-normal mt-0.5">

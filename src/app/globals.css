@@ -88,6 +88,11 @@
   --color-status-healing-fg: var(--status-healing-fg);
   --color-status-resolved-bg: var(--status-resolved-bg);
   --color-status-resolved-fg: var(--status-resolved-fg);
+  --font-brand: var(--font-bricolage), -apple-system, sans-serif;
+}
+
+.font-brand {
+  font-family: var(--font-bricolage), -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 body {
