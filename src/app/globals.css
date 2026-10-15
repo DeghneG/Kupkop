@@ -4,22 +4,84 @@
 
 :root {
   color-scheme: light;
-  --surface: #fafafa;
+  /* Apple Maps / Transit Grouped Palette (Light) */
+  --surface: #eef2f6;
   --surface-card: #ffffff;
-  --surface-muted: #f4f4f5;
-  --border: #e4e4e7;
-  --fg: #18181b;
-  --fg-muted: #52525b;
+  --surface-muted: #e2e8f0;
+  --surface-tint: #f8fafc;
+  --border: #cbd5e1;
+  --border-subtle: #e2e8f0;
+  --fg: #0f172a;
+  --fg-secondary: #334155;
+  --fg-muted: #64748b;
+
+  /* Solid Apple Colors (Light) */
+  --emergency-red: #ff3b30;
+  --emergency-red-hover: #e0342a;
+  --rafa-teal: #00c7be;
+  --status-reported-bg: #fee2e2;
+  --status-reported-fg: #dc2626;
+  --status-reported-border: #fca5a5;
+  --status-claimed-bg: #fef3c7;
+  --status-claimed-fg: #d97706;
+  --status-claimed-border: #fcd34d;
+  --status-healing-bg: #e0f2fe;
+  --status-healing-fg: #0284c7;
+  --status-healing-border: #7dd3fc;
+  --status-resolved-bg: #dcfce7;
+  --status-resolved-fg: #16a34a;
+  --status-resolved-border: #86efac;
 }
 
 .dark, [data-theme="dark"] {
   color-scheme: dark;
-  --surface: #09090b;
-  --surface-card: #18181b;
-  --surface-muted: #27272a;
-  --border: #27272a;
-  --fg: #fafafa;
-  --fg-muted: #a1a1aa;
+  /* Apple Maps / Transit Grouped Palette (Dark) */
+  --surface: #0a101d;
+  --surface-card: #141c2e;
+  --surface-muted: #1b253d;
+  --surface-tint: #182238;
+  --border: #1f2b45;
+  --border-subtle: #243250;
+  --fg: #ffffff;
+  --fg-secondary: #cbd5e1;
+  --fg-muted: #94a3b8;
+
+  /* Solid Apple Colors (Dark) */
+  --emergency-red: #ff3b30;
+  --emergency-red-hover: #ff5247;
+  --rafa-teal: #30d1c7;
+  --status-reported-bg: #2b1014;
+  --status-reported-fg: #ff453a;
+  --status-reported-border: #4d161e;
+  --status-claimed-bg: #261a05;
+  --status-claimed-fg: #ff9f0a;
+  --status-claimed-border: #4d3308;
+  --status-healing-bg: #0d1e3a;
+  --status-healing-fg: #38bdf8;
+  --status-healing-border: #1b3a69;
+  --status-resolved-bg: #0a2418;
+  --status-resolved-fg: #34d399;
+  --status-resolved-border: #124d33;
+}
+
+@theme {
+  --color-surface: var(--surface);
+  --color-surface-card: var(--surface-card);
+  --color-surface-muted: var(--surface-muted);
+  --color-surface-tint: var(--surface-tint);
+  --color-border: var(--border);
+  --color-border-subtle: var(--border-subtle);
+  --color-fg: var(--fg);
+  --color-fg-secondary: var(--fg-secondary);
+  --color-fg-muted: var(--fg-muted);
+  --color-status-reported-bg: var(--status-reported-bg);
+  --color-status-reported-fg: var(--status-reported-fg);
+  --color-status-claimed-bg: var(--status-claimed-bg);
+  --color-status-claimed-fg: var(--status-claimed-fg);
+  --color-status-healing-bg: var(--status-healing-bg);
+  --color-status-healing-fg: var(--status-healing-fg);
+  --color-status-resolved-bg: var(--status-resolved-bg);
+  --color-status-resolved-fg: var(--status-resolved-fg);
 }
 
 body {

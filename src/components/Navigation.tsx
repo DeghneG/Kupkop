@@ -38,7 +38,7 @@ export default function Navigation() {
   return (
     <nav
       aria-label="Primary navigation"
-      className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border-t border-zinc-200 dark:border-zinc-800 pb-[env(safe-area-inset-bottom,0px)]"
+      className="fixed bottom-0 left-0 right-0 z-40 bg-[#eef2f6]/90 dark:bg-[#0a101d]/90 backdrop-blur-xl border-t border-[#cbd5e1] dark:border-[#1f2b45] pb-[env(safe-area-inset-bottom,0px)]"
     >
       <div className="max-w-md mx-auto px-4 h-16 flex items-center justify-around">
         {navItems.map((item) => {
@@ -51,14 +51,14 @@ export default function Navigation() {
                 key={item.href}
                 href={item.href}
                 id="nav-sos-button"
-                className="relative -top-3 flex flex-col items-center justify-center group focus:outline-none focus:ring-2 focus:ring-red-500 rounded-full"
+                className="relative -top-3 flex flex-col items-center justify-center group focus:outline-none focus:ring-2 focus:ring-[#ff3b30] rounded-full"
                 aria-label="Emergency SOS Camera - Report Animal Incident"
               >
                 {/* Guaranteed saturated red emergency button */}
-                <div className="w-14 h-14 min-w-[48px] min-h-[48px] rounded-full bg-red-600 hover:bg-red-700 text-white flex items-center justify-center shadow-lg shadow-red-600/30 transition-transform active:scale-95 border-none">
+                <div className="w-14 h-14 min-w-[48px] min-h-[48px] rounded-full bg-[#ff3b30] hover:bg-[#e0342a] text-white flex items-center justify-center shadow-lg shadow-red-500/25 transition-transform active:scale-95 border-none">
                   <Icon className="w-6 h-6 text-white" aria-hidden="true" />
                 </div>
-                <span className="text-[12px] font-semibold text-red-600 dark:text-red-400 mt-0.5">
+                <span className="text-[12px] font-semibold text-[#ff3b30] mt-0.5">
                   SOS
                 </span>
               </Link>
@@ -71,8 +71,8 @@ export default function Navigation() {
               href={item.href}
               className={`flex flex-col items-center justify-center min-w-[48px] min-h-[48px] px-2 rounded-xl transition-colors ${
                 isActive
-                  ? 'text-zinc-950 dark:text-zinc-50 font-semibold'
-                  : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200 font-normal'
+                  ? 'text-[#0f172a] dark:text-white font-semibold'
+                  : 'text-[#64748b] hover:text-[#0f172a] dark:text-[#94a3b8] dark:hover:text-white font-normal'
               }`}
             >
               <Icon className="w-5 h-5 mb-0.5" aria-hidden="true" />

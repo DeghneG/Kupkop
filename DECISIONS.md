@@ -42,5 +42,6 @@
   2. Triage tags are neutral outlined (`border-border`), while status pills are colored (`Reported` = red, `Claimed` = amber, `Admitted/Healing` = blue, `Resolved` = green), verified >= 4.5:1 contrast in both themes.
   3. Navigation tabs standardized as `Feed`, `SOS`, `Rafa`, `Clinics` with >= 12px labels and 48px tap targets.
   4. Test-role dropdown is DEV ONLY (mock role for local prototype testing) and must be removed before real Supabase Auth/RLS integration.
-- **Context:** Mobile-web street animal emergency usability requires instant readability, honest copy, and high contrast under daylight and nighttime conditions.
+  5. Adopted Apple Maps / Transit palette: Deep Apple Navy (`#0a101d` canvas / `#141c2e` cards in dark) and Silver Mist (`#eef2f6` canvas / `#ffffff` cards in light) with Apple System Red (`#ff3b30`), Apple Transit Mint (`#00c7be`), and frosted glass materials (`backdrop-blur-xl`).
+- **Context:** Mobile-web street animal emergency usability requires instant readability, honest copy, high contrast under daylight and nighttime conditions, and a native iOS feel.
 
