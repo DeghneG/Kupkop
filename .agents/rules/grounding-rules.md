@@ -164,7 +164,8 @@ Set from my answers. Tone and language are defaults.
 - If a skill's advice depends on a library version, check it against
   package.json (section 3) before applying it.
 - If no installed skill fits the task, say so. Do not pretend one does.
-- My own agents: ui-ux-reviewer, schema-security-reviewer, and qa-tester are
-  REPORT ONLY (they never edit files). The two reviewers never run commands;
-  qa-tester may run build, lint, or test commands only after I approve each
-  one. The weekly-review workflow may change only PLAN.md and DECISIONS.md.
+- My own agents: ui-ux-reviewer, schema-security-reviewer, logic-reviewer, and
+  qa-tester are REPORT ONLY (they never edit files). The three reviewers never
+  run commands; qa-tester may run build, lint, or test commands only after I
+  approve each one. The weekly-review workflow may change only PLAN.md and
+  DECISIONS.md.
