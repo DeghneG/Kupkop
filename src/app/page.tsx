@@ -126,14 +126,14 @@ export default function HomePage() {
       {/* Main Header */}
       <header className="flex items-center justify-between gap-3 pt-1">
         <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-xl bg-[#ff3b30] text-white flex items-center justify-center font-bold text-lg shadow-sm shrink-0">
+          <div className="w-9 h-9 rounded-xl bg-[#ff453a] text-white flex items-center justify-center font-bold text-lg shadow-sm shrink-0">
             K
           </div>
           <div>
-            <h1 className="text-[22px] font-semibold tracking-tight leading-none text-[#0f172a] dark:text-white">
+            <h1 className="text-[22px] font-semibold tracking-[-0.025em] leading-none text-[#0b132b] dark:text-white">
               KupKop
             </h1>
-            <p className="text-[12px] text-[#64748b] dark:text-[#94a3b8] font-normal mt-0.5">
+            <p className="text-[12px] text-[#5a6b85] dark:text-[#8e9bb0] font-normal mt-0.5">
               Street Animal Emergency
             </p>
           </div>
@@ -142,14 +142,14 @@ export default function HomePage() {
         <div className="flex items-center gap-2.5">
           {/* Sign In / User Status */}
           {user ? (
-            <div className="flex items-center gap-2 bg-[#e2e8f0] dark:bg-[#141c2e] px-3 py-1.5 rounded-xl border border-[#cbd5e1] dark:border-[#1f2b45]">
-              <span className="text-[12px] font-semibold text-[#0f172a] dark:text-white truncate max-w-[85px]">
+            <div className="flex items-center gap-2 bg-[#e2eaf4] dark:bg-[#162138] px-3 py-1.5 rounded-xl border border-[#ccd7e8] dark:border-[#223152]">
+              <span className="text-[12px] font-semibold text-[#0b132b] dark:text-white truncate max-w-[85px]">
                 {user.email?.split('@')[0]}
               </span>
               <button
                 type="button"
                 onClick={handleSignOut}
-                className="text-[12px] font-semibold text-[#64748b] dark:text-[#94a3b8] hover:text-[#0f172a] dark:hover:text-white underline cursor-pointer"
+                className="text-[12px] font-semibold text-[#5a6b85] dark:text-[#8e9bb0] hover:text-[#0b132b] dark:hover:text-white underline cursor-pointer"
               >
                 Sign out
               </button>
@@ -158,7 +158,7 @@ export default function HomePage() {
             <button
               type="button"
               onClick={() => setIsAuthOpen(true)}
-              className="whitespace-nowrap min-h-[40px] px-3.5 rounded-xl border border-[#cbd5e1] dark:border-[#1f2b45] bg-white dark:bg-[#141c2e] hover:bg-[#eef2f6] dark:hover:bg-[#1b253d] text-[#0f172a] dark:text-white font-semibold text-[12px] shadow-[0_1px_2px_rgba(0,0,0,0.04)] active:scale-95 transition-all cursor-pointer shrink-0"
+              className="whitespace-nowrap min-h-[40px] px-3.5 rounded-xl border border-[#ccd7e8] dark:border-[#223152] bg-white dark:bg-[#162138] hover:bg-[#f0f4fa] dark:hover:bg-[#1e2d4d] text-[#0b132b] dark:text-white font-semibold text-[12px] shadow-[0_1px_2px_rgba(0,0,0,0.04)] active:scale-95 transition-all cursor-pointer shrink-0"
             >
               Sign In
             </button>
@@ -168,23 +168,23 @@ export default function HomePage() {
         </div>
       </header>
 
-      {/* Secondary Utility Row: Apple Transit Segmented Capsule */}
-      <div className="flex items-center justify-between gap-2 bg-[#e2e8f0] dark:bg-[#141c2e] border border-[#cbd5e1] dark:border-[#1f2b45] rounded-2xl px-3.5 py-2 text-[12px]">
-        <div className="flex items-center gap-1.5 text-[#334155] dark:text-[#cbd5e1] truncate">
-          <MapPin className="w-4 h-4 text-[#64748b] dark:text-[#94a3b8] shrink-0" aria-hidden="true" />
+      {/* Secondary Utility Row: Apple Weather Segmented Capsule */}
+      <div className="flex items-center justify-between gap-2 bg-[#e2eaf4] dark:bg-[#162138] border border-[#ccd7e8] dark:border-[#223152] rounded-2xl px-3.5 py-2 text-[12px]">
+        <div className="flex items-center gap-1.5 text-[#2c3a58] dark:text-[#cdd7e5] truncate">
+          <MapPin className="w-4 h-4 text-[#5a6b85] dark:text-[#8e9bb0] shrink-0" aria-hidden="true" />
           <span className="font-normal truncate">Location not set</span>
         </div>
 
         {/* DEV ONLY mock role dropdown */}
         <div className="flex items-center gap-1.5 shrink-0">
-          <label htmlFor="mock-role-select" className="text-[11px] text-[#64748b] dark:text-[#94a3b8] font-normal">
+          <label htmlFor="mock-role-select" className="text-[11px] text-[#5a6b85] dark:text-[#8e9bb0] font-normal">
             DEV:
           </label>
           <select
             id="mock-role-select"
             value={mockRole}
             onChange={(e) => setMockRole(e.target.value as any)}
-            className="text-[11px] font-semibold bg-white dark:bg-[#1b253d] text-[#0f172a] dark:text-white border border-[#cbd5e1] dark:border-[#243250] rounded-lg px-2 py-0.5 outline-none focus:ring-1 focus:ring-[#ff3b30] cursor-pointer"
+            className="text-[11px] font-semibold bg-white dark:bg-[#1e2d4d] text-[#0b132b] dark:text-white border border-[#ccd7e8] dark:border-[#2a3c63] rounded-lg px-2 py-0.5 outline-none focus:ring-1 focus:ring-[#ff453a] cursor-pointer"
           >
             <option value="citizen">Citizen</option>
             <option value="volunteer">Volunteer</option>
@@ -194,26 +194,26 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* SOS Hero: Apple Inset Grouped Card */}
+      {/* SOS Hero: Apple Weather Alert Card */}
       <section
         aria-labelledby="sos-heading"
-        className="rounded-2xl border border-[#cbd5e1] dark:border-[#1f2b45] bg-white dark:bg-[#141c2e] p-4 space-y-2.5 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-none"
+        className="rounded-2xl border border-[#ccd7e8] dark:border-[#223152] bg-white dark:bg-[#162138] p-4 space-y-2.5 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-none"
       >
-        <h2 id="sos-heading" className="text-[16px] font-semibold text-[#0f172a] dark:text-white">
+        <h2 id="sos-heading" className="text-[16px] font-semibold tracking-[-0.015em] text-[#0b132b] dark:text-white">
           Found an injured street animal?
         </h2>
 
-        {/* Apple System Red Emergency Action */}
+        {/* Apple Weather Severe Alert Red Button */}
         <Link
           href="/sos"
           id="hero-sos-trigger-button"
-          className="w-full min-h-[48px] bg-[#ff3b30] hover:bg-[#e0342a] active:scale-[0.98] text-white font-semibold text-[16px] rounded-xl flex items-center justify-center gap-2 shadow-sm transition-transform border-none focus:outline-none focus:ring-2 focus:ring-[#ff3b30]"
+          className="w-full min-h-[48px] bg-[#ff453a] hover:bg-[#e03b31] active:scale-[0.98] text-white font-semibold text-[16px] rounded-xl flex items-center justify-center gap-2 shadow-sm transition-transform border-none focus:outline-none focus:ring-2 focus:ring-[#ff453a]"
         >
           <Camera className="w-5 h-5 text-white" aria-hidden="true" />
           <span>Report Emergency</span>
         </Link>
 
-        <p className="text-[12px] text-[#64748b] dark:text-[#94a3b8] font-normal pt-0.5">
+        <p className="text-[12px] text-[#5a6b85] dark:text-[#8e9bb0] font-normal pt-0.5">
           Take a live photo. We add your location and time automatically.
         </p>
       </section>
@@ -221,18 +221,18 @@ export default function HomePage() {
       {/* Rafa: Apple Inset Grouped Card with Triage Chips */}
       <section
         aria-label="Rafa First-Aid Guidance"
-        className="rounded-2xl border border-[#cbd5e1] dark:border-[#1f2b45] bg-white dark:bg-[#141c2e] p-4 space-y-3 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-none"
+        className="rounded-2xl border border-[#ccd7e8] dark:border-[#223152] bg-white dark:bg-[#162138] p-4 space-y-3 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-none"
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-[#00c7be] dark:text-[#30d1c7] shrink-0" aria-hidden="true" />
-            <h2 className="text-[14px] font-semibold text-[#0f172a] dark:text-white">
+            <Sparkles className="w-5 h-5 text-[#30b0c7] dark:text-[#40c8e0] shrink-0" aria-hidden="true" />
+            <h2 className="text-[14px] font-semibold tracking-[-0.01em] text-[#0b132b] dark:text-white">
               Rafa first-aid helper
             </h2>
           </div>
           <Link
             href="/rafa"
-            className="text-[12px] font-semibold text-[#00c7be] dark:text-[#30d1c7] hover:underline flex items-center gap-0.5"
+            className="text-[12px] font-semibold text-[#30b0c7] dark:text-[#40c8e0] hover:underline flex items-center gap-0.5"
           >
             <span>Ask Rafa</span>
             <ChevronRight className="w-3.5 h-3.5" aria-hidden="true" />
@@ -243,19 +243,19 @@ export default function HomePage() {
         <div className="flex gap-2 overflow-x-auto pb-1 text-[12px]">
           <Link
             href="/rafa?q=bleeding"
-            className="shrink-0 rounded-full border border-[#cbd5e1] dark:border-[#1f2b45] bg-[#eef2f6] dark:bg-[#1b253d] hover:bg-[#e2e8f0] dark:hover:bg-[#243250] px-3 py-1 text-[12px] font-normal text-[#334155] dark:text-[#cbd5e1] transition-colors"
+            className="shrink-0 rounded-full border border-[#ccd7e8] dark:border-[#223152] bg-[#f0f4fa] dark:bg-[#1e2d4d] hover:bg-[#e2eaf4] dark:hover:bg-[#25375c] px-3 py-1 text-[12px] font-normal text-[#2c3a58] dark:text-[#cdd7e5] transition-colors"
           >
             Bleeding
           </Link>
           <Link
             href="/rafa?q=scared-dog"
-            className="shrink-0 rounded-full border border-[#cbd5e1] dark:border-[#1f2b45] bg-[#eef2f6] dark:bg-[#1b253d] hover:bg-[#e2e8f0] dark:hover:bg-[#243250] px-3 py-1 text-[12px] font-normal text-[#334155] dark:text-[#cbd5e1] transition-colors"
+            className="shrink-0 rounded-full border border-[#ccd7e8] dark:border-[#223152] bg-[#f0f4fa] dark:bg-[#1e2d4d] hover:bg-[#e2eaf4] dark:hover:bg-[#25375c] px-3 py-1 text-[12px] font-normal text-[#2c3a58] dark:text-[#cdd7e5] transition-colors"
           >
             Scared / aggressive dog
           </Link>
           <Link
             href="/rafa?q=moving-safely"
-            className="shrink-0 rounded-full border border-[#cbd5e1] dark:border-[#1f2b45] bg-[#eef2f6] dark:bg-[#1b253d] hover:bg-[#e2e8f0] dark:hover:bg-[#243250] px-3 py-1 text-[12px] font-normal text-[#334155] dark:text-[#cbd5e1] transition-colors"
+            className="shrink-0 rounded-full border border-[#ccd7e8] dark:border-[#223152] bg-[#f0f4fa] dark:bg-[#1e2d4d] hover:bg-[#e2eaf4] dark:hover:bg-[#25375c] px-3 py-1 text-[12px] font-normal text-[#2c3a58] dark:text-[#cdd7e5] transition-colors"
           >
             Moving safely
           </Link>
@@ -264,7 +264,7 @@ export default function HomePage() {
 
       {/* Active Incidents Feed */}
       <section aria-labelledby="feed-heading" className="space-y-3">
-        <h2 id="feed-heading" className="text-[16px] font-semibold text-[#0f172a] dark:text-white">
+        <h2 id="feed-heading" className="text-[16px] font-semibold text-[#0b132b] dark:text-white">
           Active incidents
         </h2>
 
@@ -275,29 +275,29 @@ export default function HomePage() {
             return (
               <article
                 key={incident.id}
-                className="bg-white dark:bg-[#141c2e] border border-[#cbd5e1] dark:border-[#1f2b45] rounded-2xl p-4 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-none space-y-3"
+                className="bg-white dark:bg-[#162138] border border-[#ccd7e8] dark:border-[#223152] rounded-2xl p-4 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-none space-y-3"
               >
                 {/* Top Row: Case ID, Neutral Outlined Triage Tag, Colored Status Pill */}
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
-                    <span className="font-mono font-semibold text-[12px] px-2.5 py-0.5 rounded-full bg-[#eef2f6] dark:bg-[#1b253d] text-[#0f172a] dark:text-white border border-[#cbd5e1] dark:border-[#243250]">
+                    <span className="font-mono font-semibold text-[12px] tabular-nums px-2.5 py-0.5 rounded-full bg-[#f0f4fa] dark:bg-[#1e2d4d] text-[#0b132b] dark:text-white border border-[#ccd7e8] dark:border-[#2a3c63]">
                       {incident.shortId}
                     </span>
                     {/* Neutral outlined triage tag with SVG icon */}
-                    <span className="inline-flex items-center gap-1 rounded-full border border-[#cbd5e1] dark:border-[#243250] bg-[#eef2f6] dark:bg-[#1b253d] px-2.5 py-0.5 text-[12px] font-normal text-[#334155] dark:text-[#cbd5e1]">
-                      <Activity className="w-3 h-3 text-[#64748b] dark:text-[#94a3b8]" aria-hidden="true" />
+                    <span className="inline-flex items-center gap-1 rounded-full border border-[#ccd7e8] dark:border-[#2a3c63] bg-[#f0f4fa] dark:bg-[#1e2d4d] px-2.5 py-0.5 text-[12px] font-normal text-[#2c3a58] dark:text-[#cdd7e5]">
+                      <Activity className="w-3 h-3 text-[#5a6b85] dark:text-[#8e9bb0]" aria-hidden="true" />
                       <span>{incident.type}</span>
                     </span>
                   </div>
 
                   {/* Status Pill: Tinted background + readable text + icon */}
                   {isClaimed ? (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[12px] font-semibold bg-[#fef3c7] dark:bg-[#261a05] text-[#d97706] dark:text-[#ff9f0a] border border-[#fcd34d] dark:border-[#4d3308]">
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[12px] font-semibold bg-[#fef3c7] dark:bg-[#2b1b06] text-[#d97706] dark:text-[#ff9f0a] border border-[#fcd34d] dark:border-[#523408]">
                       <Lock className="w-3 h-3" aria-hidden="true" />
                       <span>Claimed</span>
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[12px] font-semibold bg-[#fee2e2] dark:bg-[#2b1014] text-[#dc2626] dark:text-[#ff453a] border border-[#fca5a5] dark:border-[#4d161e]">
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[12px] font-semibold bg-[#fee2e2] dark:bg-[#2e1215] text-[#dc2626] dark:text-[#ff453a] border border-[#fca5a5] dark:border-[#54191e]">
                       <AlertCircle className="w-3 h-3" aria-hidden="true" />
                       <span>Reported</span>
                     </span>
@@ -307,14 +307,14 @@ export default function HomePage() {
                 {/* Middle Row: ~80px Thumbnail + Location & Animal Details */}
                 <div className="flex gap-3 items-center">
                   {/* ~80px blurred thumbnail with tap to reveal */}
-                  <div className="relative w-20 h-20 shrink-0 rounded-xl overflow-hidden bg-[#eef2f6] dark:bg-[#1b253d] border border-[#cbd5e1] dark:border-[#243250] flex items-center justify-center">
+                  <div className="relative w-20 h-20 shrink-0 rounded-xl overflow-hidden bg-[#f0f4fa] dark:bg-[#1e2d4d] border border-[#ccd7e8] dark:border-[#2a3c63] flex items-center justify-center">
                     <div
-                      className={`w-full h-full bg-[#eef2f6] dark:bg-[#1b253d] flex flex-col items-center justify-center transition-all ${
+                      className={`w-full h-full bg-[#f0f4fa] dark:bg-[#1e2d4d] flex flex-col items-center justify-center transition-all ${
                         incident.blurred ? 'blur-md' : 'blur-0'
                       }`}
                     >
-                      <Camera className="w-6 h-6 text-[#64748b] dark:text-[#94a3b8]" aria-hidden="true" />
-                      <span className="text-[11px] text-[#64748b] dark:text-[#94a3b8] font-normal mt-1">Photo</span>
+                      <Camera className="w-6 h-6 text-[#5a6b85] dark:text-[#8e9bb0]" aria-hidden="true" />
+                      <span className="text-[11px] text-[#5a6b85] dark:text-[#8e9bb0] font-normal mt-1">Photo</span>
                     </div>
 
                     <button
@@ -333,14 +333,14 @@ export default function HomePage() {
 
                   {/* Incident Information */}
                   <div className="flex-1 min-w-0 space-y-1">
-                    <p className="text-[14px] font-semibold text-[#0f172a] dark:text-white truncate">
+                    <p className="text-[14px] font-semibold text-[#0b132b] dark:text-white truncate">
                       {incident.animal}
                     </p>
-                    <div className="flex items-center gap-1 text-[12px] text-[#64748b] dark:text-[#94a3b8] truncate">
-                      <MapPin className="w-3.5 h-3.5 shrink-0 text-[#64748b] dark:text-[#94a3b8]" aria-hidden="true" />
+                    <div className="flex items-center gap-1 text-[12px] text-[#5a6b85] dark:text-[#8e9bb0] truncate">
+                      <MapPin className="w-3.5 h-3.5 shrink-0 text-[#5a6b85] dark:text-[#8e9bb0]" aria-hidden="true" />
                       <span className="truncate">{incident.location}</span>
                     </div>
-                    <div className="flex items-center gap-2 text-[12px] text-[#64748b] dark:text-[#94a3b8]">
+                    <div className="flex items-center gap-2 text-[12px] text-[#5a6b85] dark:text-[#8e9bb0] tabular-nums">
                       <span>{incident.distance}</span>
                       <span>•</span>
                       <div className="flex items-center gap-0.5">
@@ -352,9 +352,9 @@ export default function HomePage() {
                 </div>
 
                 {/* Bottom Action Row */}
-                <div className="pt-2 border-t border-[#eef2f6] dark:border-[#1f2b45] flex items-center justify-between gap-2">
+                <div className="pt-2 border-t border-[#ccd7e8] dark:border-[#223152] flex items-center justify-between gap-2">
                   {isClaimed ? (
-                    <div className="flex-1 flex items-center gap-1.5 text-[12px] font-normal text-[#64748b] dark:text-[#94a3b8]">
+                    <div className="flex-1 flex items-center gap-1.5 text-[12px] font-normal text-[#5a6b85] dark:text-[#8e9bb0]">
                       <Lock className="w-3.5 h-3.5 text-[#ff9500] dark:text-[#ff9f0a]" aria-hidden="true" />
                       <span>Claimed by a volunteer</span>
                     </div>
@@ -362,12 +362,12 @@ export default function HomePage() {
                     <>
                       {/* Primary Claim Action or Citizen prompt */}
                       {mockRole === 'citizen' ? (
-                        <div className="flex-1 text-[12px] text-[#64748b] dark:text-[#94a3b8] font-normal">
+                        <div className="flex-1 text-[12px] text-[#5a6b85] dark:text-[#8e9bb0] font-normal">
                           <span>Citizen view: </span>
                           <button
                             type="button"
                             onClick={() => alert('Volunteer application mock: in prototype, request admin role approval.')}
-                            className="font-semibold text-[#0f172a] dark:text-white underline hover:text-[#ff3b30] cursor-pointer"
+                            className="font-semibold text-[#0b132b] dark:text-white underline hover:text-[#ff453a] cursor-pointer"
                           >
                             Become a volunteer to claim
                           </button>
@@ -376,7 +376,7 @@ export default function HomePage() {
                         <button
                           type="button"
                           onClick={() => alert(`Mock: Claimed incident ${incident.shortId}.`)}
-                          className="flex-1 min-h-[44px] bg-[#ff3b30] hover:bg-[#e0342a] text-white font-semibold text-[14px] rounded-xl flex items-center justify-center gap-1.5 shadow-sm active:scale-[0.98] transition-transform cursor-pointer border-none"
+                          className="flex-1 min-h-[44px] bg-[#ff453a] hover:bg-[#e03b31] text-white font-semibold text-[14px] rounded-xl flex items-center justify-center gap-1.5 shadow-sm active:scale-[0.98] transition-transform cursor-pointer border-none"
                         >
                           <HeartHandshake className="w-4 h-4" aria-hidden="true" />
                           <span>Claim Rescue</span>
@@ -388,9 +388,9 @@ export default function HomePage() {
                         type="button"
                         onClick={showDisabledCallNotice}
                         aria-label="Call clinic (disabled in test mode)"
-                        className="min-h-[40px] px-3.5 rounded-xl border border-[#cbd5e1] dark:border-[#243250] bg-white dark:bg-[#1b253d] hover:bg-[#eef2f6] dark:hover:bg-[#243250] text-[#0f172a] dark:text-white font-semibold text-[12px] flex items-center gap-1.5 transition-colors active:scale-95 cursor-pointer"
+                        className="min-h-[40px] px-3.5 rounded-xl border border-[#ccd7e8] dark:border-[#2a3c63] bg-white dark:bg-[#1e2d4d] hover:bg-[#f0f4fa] dark:hover:bg-[#25375c] text-[#0b132b] dark:text-white font-semibold text-[12px] flex items-center gap-1.5 transition-colors active:scale-95 cursor-pointer"
                       >
-                        <Phone className="w-3.5 h-3.5 text-[#64748b] dark:text-[#94a3b8]" aria-hidden="true" />
+                        <Phone className="w-3.5 h-3.5 text-[#5a6b85] dark:text-[#8e9bb0]" aria-hidden="true" />
                         <span>Call</span>
                       </button>
                     </>
@@ -404,7 +404,7 @@ export default function HomePage() {
 
       {/* Facilities Preview */}
       <section aria-labelledby="facilities-heading" className="space-y-3">
-        <h2 id="facilities-heading" className="text-[16px] font-semibold text-[#0f172a] dark:text-white">
+        <h2 id="facilities-heading" className="text-[16px] font-semibold text-[#0b132b] dark:text-white">
           Partner clinics
         </h2>
 
@@ -415,16 +415,16 @@ export default function HomePage() {
           ].map((fac) => (
             <article
               key={fac.id}
-              className="bg-white dark:bg-[#141c2e] border border-[#cbd5e1] dark:border-[#1f2b45] rounded-2xl p-4 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-none flex items-center justify-between gap-2"
+              className="bg-white dark:bg-[#162138] border border-[#ccd7e8] dark:border-[#223152] rounded-2xl p-4 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-none flex items-center justify-between gap-2"
             >
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <h3 className="text-[14px] font-semibold text-[#0f172a] dark:text-white">{fac.name}</h3>
-                  <span className="rounded-full bg-[#eef2f6] dark:bg-[#1b253d] border border-[#cbd5e1] dark:border-[#243250] px-2 py-0.5 text-[12px] font-normal text-[#64748b] dark:text-[#94a3b8]">
+                  <h3 className="text-[14px] font-semibold text-[#0b132b] dark:text-white">{fac.name}</h3>
+                  <span className="rounded-full bg-[#f0f4fa] dark:bg-[#1e2d4d] border border-[#ccd7e8] dark:border-[#2a3c63] px-2 py-0.5 text-[12px] font-normal text-[#5a6b85] dark:text-[#8e9bb0]">
                     Listed Facility
                   </span>
                 </div>
-                <div className="flex items-center gap-2 text-[12px] text-[#64748b] dark:text-[#94a3b8]">
+                <div className="flex items-center gap-2 text-[12px] text-[#5a6b85] dark:text-[#8e9bb0]">
                   <span>{fac.dist}</span>
                   <span>•</span>
                   <span>{fac.active}</span>
@@ -435,9 +435,9 @@ export default function HomePage() {
                 type="button"
                 onClick={showDisabledCallNotice}
                 aria-label={`Call ${fac.name} (disabled in test mode)`}
-                className="min-h-[40px] px-3.5 rounded-xl border border-[#cbd5e1] dark:border-[#243250] bg-white dark:bg-[#1b253d] hover:bg-[#eef2f6] dark:hover:bg-[#243250] text-[#0f172a] dark:text-white font-semibold text-[12px] flex items-center gap-1.5 transition-colors active:scale-95 cursor-pointer"
+                className="min-h-[40px] px-3.5 rounded-xl border border-[#ccd7e8] dark:border-[#2a3c63] bg-white dark:bg-[#1e2d4d] hover:bg-[#f0f4fa] dark:hover:bg-[#25375c] text-[#0b132b] dark:text-white font-semibold text-[12px] flex items-center gap-1.5 transition-colors active:scale-95 cursor-pointer"
               >
-                <Phone className="w-3.5 h-3.5 text-[#64748b] dark:text-[#94a3b8]" aria-hidden="true" />
+                <Phone className="w-3.5 h-3.5 text-[#5a6b85] dark:text-[#8e9bb0]" aria-hidden="true" />
                 <span>Call</span>
               </button>
             </article>

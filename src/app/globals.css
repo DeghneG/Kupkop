@@ -4,21 +4,23 @@
 
 :root {
   color-scheme: light;
-  /* Apple Maps / Transit Grouped Palette (Light) */
-  --surface: #eef2f6;
+  /* Apple Weather / Severe Alert Grouped Palette (Light) */
+  --surface: #f0f4fa;
   --surface-card: #ffffff;
-  --surface-muted: #e2e8f0;
+  --surface-muted: #e2eaf4;
   --surface-tint: #f8fafc;
-  --border: #cbd5e1;
-  --border-subtle: #e2e8f0;
-  --fg: #0f172a;
-  --fg-secondary: #334155;
-  --fg-muted: #64748b;
+  --border: #ccd7e8;
+  --border-subtle: #dbe4f0;
+  --fg: #0b132b;
+  --fg-secondary: #2c3a58;
+  --fg-muted: #5a6b85;
 
-  /* Solid Apple Colors (Light) */
-  --emergency-red: #ff3b30;
-  --emergency-red-hover: #e0342a;
-  --rafa-teal: #00c7be;
+  /* Accent & Solid Apple Alert Colors (Light) */
+  --accent: #ff453a;
+  --accent-fg: #ffffff;
+  --emergency-red: #ff453a;
+  --emergency-red-hover: #e03b31;
+  --rafa-teal: #30b0c7;
   --status-reported-bg: #fee2e2;
   --status-reported-fg: #dc2626;
   --status-reported-border: #fca5a5;
@@ -35,33 +37,35 @@
 
 .dark, [data-theme="dark"] {
   color-scheme: dark;
-  /* Apple Maps / Transit Grouped Palette (Dark) */
-  --surface: #0a101d;
-  --surface-card: #141c2e;
-  --surface-muted: #1b253d;
-  --surface-tint: #182238;
-  --border: #1f2b45;
-  --border-subtle: #243250;
+  /* Apple Weather / Severe Alert Grouped Palette (Dark) */
+  --surface: #0c1424;
+  --surface-card: #162138;
+  --surface-muted: #1e2d4d;
+  --surface-tint: #1c2742;
+  --border: #223152;
+  --border-subtle: #293a61;
   --fg: #ffffff;
-  --fg-secondary: #cbd5e1;
-  --fg-muted: #94a3b8;
+  --fg-secondary: #cdd7e5;
+  --fg-muted: #8e9bb0;
 
-  /* Solid Apple Colors (Dark) */
-  --emergency-red: #ff3b30;
-  --emergency-red-hover: #ff5247;
-  --rafa-teal: #30d1c7;
-  --status-reported-bg: #2b1014;
+  /* Accent & Solid Apple Alert Colors (Dark) */
+  --accent: #ff453a;
+  --accent-fg: #ffffff;
+  --emergency-red: #ff453a;
+  --emergency-red-hover: #ff5b52;
+  --rafa-teal: #40c8e0;
+  --status-reported-bg: #2e1215;
   --status-reported-fg: #ff453a;
-  --status-reported-border: #4d161e;
-  --status-claimed-bg: #261a05;
+  --status-reported-border: #54191e;
+  --status-claimed-bg: #2b1b06;
   --status-claimed-fg: #ff9f0a;
-  --status-claimed-border: #4d3308;
-  --status-healing-bg: #0d1e3a;
+  --status-claimed-border: #523408;
+  --status-healing-bg: #0e2342;
   --status-healing-fg: #38bdf8;
-  --status-healing-border: #1b3a69;
-  --status-resolved-bg: #0a2418;
+  --status-healing-border: #1d4478;
+  --status-resolved-bg: #0a281a;
   --status-resolved-fg: #34d399;
-  --status-resolved-border: #124d33;
+  --status-resolved-border: #135436;
 }
 
 @theme {
@@ -74,6 +78,8 @@
   --color-fg: var(--fg);
   --color-fg-secondary: var(--fg-secondary);
   --color-fg-muted: var(--fg-muted);
+  --color-accent: var(--accent);
+  --color-accent-fg: var(--accent-fg);
   --color-status-reported-bg: var(--status-reported-bg);
   --color-status-reported-fg: var(--status-reported-fg);
   --color-status-claimed-bg: var(--status-claimed-bg);
@@ -87,8 +93,10 @@
 body {
   background-color: var(--surface);
   color: var(--fg);
-  font-family: var(--font-inter), system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", var(--font-inter), system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 /* Reduced motion helper */
