@@ -38,7 +38,7 @@
 ### D-007: Phase 0 Shell UI System & Polish
 - **Date:** 2026-10-15
 - **Decision:** 
-  1. Light + dark theme system via semantic CSS variables and 44px header toggle with zero-flash pre-paint script (no external next-themes package).
+  1. Light + dark theme system via semantic CSS variables, Tailwind v4 `@custom-variant dark (&:where(.dark, .dark *));`, and 44px header toggle with zero-flash pre-paint script (no external next-themes package). Default base is daylight-readable white.
   2. Triage tags are neutral outlined (`border-border`), while status pills are colored (`Reported` = red, `Claimed` = amber, `Admitted/Healing` = blue, `Resolved` = green), verified >= 4.5:1 contrast in both themes.
   3. Navigation tabs standardized as `Feed`, `SOS`, `Rafa`, `Clinics` with >= 12px labels and 48px tap targets.
   4. Test-role dropdown is DEV ONLY (mock role for local prototype testing) and must be removed before real Supabase Auth/RLS integration.

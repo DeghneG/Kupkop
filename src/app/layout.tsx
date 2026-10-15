@@ -33,8 +33,8 @@ const themeScript = `
 (function() {
   try {
     var stored = localStorage.getItem('kupkop-theme');
-    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    var theme = stored === 'dark' || (!stored && prefersDark) ? 'dark' : 'light';
+    // Default to light mode (white base) unless explicitly saved as dark
+    var theme = stored === 'dark' ? 'dark' : 'light';
     if (theme === 'dark') {
       document.documentElement.classList.add('dark');
       document.documentElement.setAttribute('data-theme', 'dark');
@@ -58,9 +58,9 @@ export default function RootLayout({
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
-      <body className="min-h-full bg-surface text-fg font-sans flex flex-col items-center">
-        {/* Mobile viewport container */}
-        <div className="w-full max-w-md min-h-screen bg-surface-card border-x border-border shadow-sm flex flex-col relative pb-24">
+      <body className="min-h-full bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-50 font-sans flex flex-col items-center">
+        {/* Mobile viewport container with clean white card base */}
+        <div className="w-full max-w-md min-h-screen bg-white dark:bg-zinc-900 border-x border-zinc-200 dark:border-zinc-800 shadow-sm flex flex-col relative pb-24">
           <TestModeBanner />
           <main className="flex-1 flex flex-col">{children}</main>
           <Navigation />

@@ -12,20 +12,20 @@
 ### Doing (Max 2 cards)
 - [ ] Configure Supabase project (Auth with email + Google, storage buckets: `live-snaps`, `bills`, private `plate photos`).
   - *Done when:* Supabase client connects and authenticated session round-trip passes.
-
-### To Do (Phase 0 - Setup)
-- [ ] Setup initial database schema & RLS policies for `profiles`, `facilities`, `sos_reports`, `recovery_updates`.
-  - *Done when:* RLS policies block anonymous writes and prevent users from modifying `profiles.role`.
 - [ ] Configure Gemini API integration scaffold (`/api/chat` with rate limit and spend cap guardrails).
   - *Done when:* Test POST to `/api/chat` returns a calm, warm Rafa response.
+
+### To Do (Phase 0 - Setup)
 - [ ] Configure GSAP and `@gsap/react` motion setup with `prefers-reduced-motion` helper.
   - *Done when:* Sample transition respects reduced-motion toggle.
 
 ### Done
+- [x] Setup initial database schema & RLS policies for `profiles`, `facilities`, `sos_reports`, `recovery_updates`.
+  - *Result:* Live Postgres migration applied in Supabase. Anonymous reads verified on `facilities`, anonymous writes blocked with 401 on `sos_reports`, and role modification strictly locked by RLS.
 - [x] Initialize repository structure and development toolchain (Next.js, Tailwind, Supabase integration).
   - *Result:* App compiles with Turbopack, loads locally on port 3000, and displays TEST MODE banner and mobile layout.
 - [x] Create project agent specification (`AGENTS.md`) with Phase 0 setup context.
-- [x] Configure KupKop helper agents and skills (`ui-ux-reviewer`, `schema-security-reviewer`, `weekly-review`).
+- [x] Configure KupKop helper agents and skills (`ui-ux-reviewer`, `schema-security-reviewer`, `weekly-review`, `qa-tester`).
 - [x] Import reference skills (`ui-ux-pro-max`, `supabase`).
 
 ### Later (Backlog / Deferred)

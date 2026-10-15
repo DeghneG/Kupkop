@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   color-scheme: light;
   --surface: #fafafa;
@@ -8,19 +10,6 @@
   --border: #e4e4e7;
   --fg: #18181b;
   --fg-muted: #52525b;
-  --accent: #dc2626;
-  --accent-fg: #ffffff;
-  --accent-text: #b91c1c;
-
-  /* Status Colors (Light: 4.5:1+ verified) */
-  --status-reported-bg: #fee2e2;
-  --status-reported-fg: #991b1b;
-  --status-claimed-bg: #fef3c7;
-  --status-claimed-fg: #78350f;
-  --status-admitted-bg: #dbeafe;
-  --status-admitted-fg: #1e40af;
-  --status-resolved-bg: #d1fae5;
-  --status-resolved-fg: #065f46;
 }
 
 .dark, [data-theme="dark"] {
@@ -31,40 +20,6 @@
   --border: #27272a;
   --fg: #fafafa;
   --fg-muted: #a1a1aa;
-  --accent: #dc2626;
-  --accent-fg: #ffffff;
-  --accent-text: #f87171;
-
-  /* Status Colors (Dark: 4.5:1+ verified) */
-  --status-reported-bg: #450a0a;
-  --status-reported-fg: #fca5a5;
-  --status-claimed-bg: #451a03;
-  --status-claimed-fg: #fcd34d;
-  --status-admitted-bg: #172554;
-  --status-admitted-fg: #93c5fd;
-  --status-resolved-bg: #022c22;
-  --status-resolved-fg: #6ee7b7;
-}
-
-@theme {
-  --color-surface: var(--surface);
-  --color-surface-card: var(--surface-card);
-  --color-surface-muted: var(--surface-muted);
-  --color-border: var(--border);
-  --color-fg: var(--fg);
-  --color-fg-muted: var(--fg-muted);
-  --color-accent: var(--accent);
-  --color-accent-fg: var(--accent-fg);
-  --color-accent-text: var(--accent-text);
-
-  --color-status-reported-bg: var(--status-reported-bg);
-  --color-status-reported-fg: var(--status-reported-fg);
-  --color-status-claimed-bg: var(--status-claimed-bg);
-  --color-status-claimed-fg: var(--status-claimed-fg);
-  --color-status-admitted-bg: var(--status-admitted-bg);
-  --color-status-admitted-fg: var(--status-admitted-fg);
-  --color-status-resolved-bg: var(--status-resolved-bg);
-  --color-status-resolved-fg: var(--status-resolved-fg);
 }
 
 body {
