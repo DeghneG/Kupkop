@@ -10,8 +10,19 @@ export default function ThemeToggle() {
   useEffect(() => {
     setMounted(true);
     try {
-      const isDark = document.documentElement.classList.contains('dark');
+      const stored = localStorage.getItem('kupkop-theme');
+      // Default to light unless explicitly saved as 'dark'
+      const isDark = stored ? stored === 'dark' : document.documentElement.classList.contains('dark');
       setTheme(isDark ? 'dark' : 'light');
+      if (isDark) {
+        document.documentElement.classList.add('dark');
+        document.documentElement.setAttribute('data-theme', 'dark');
+        document.documentElement.style.colorScheme = 'dark';
+      } else {
+        document.documentElement.classList.remove('dark');
+        document.documentElement.setAttribute('data-theme', 'light');
+        document.documentElement.style.colorScheme = 'light';
+      }
     } catch {
       // Ignore reading error if DOM is not ready
     }
