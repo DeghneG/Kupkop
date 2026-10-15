@@ -53,14 +53,14 @@ export default function ThemeToggle() {
       type="button"
       onClick={toggleTheme}
       aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-      className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-xl flex items-center justify-center text-[#5a6b85] hover:text-[#0b132b] dark:text-[#8e9bb0] dark:hover:text-white bg-white dark:bg-[#162138] hover:bg-[#f0f4fa] dark:hover:bg-[#1e2d4d] transition-all active:scale-95 border border-[#ccd7e8] dark:border-[#223152] shadow-sm focus:outline-none focus:ring-2 focus:ring-[#ff453a] cursor-pointer shrink-0"
+      className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-xl flex items-center justify-center text-fg-muted hover:text-fg bg-surface hover:bg-surface-muted transition-all active:scale-95 border border-border shadow-sm focus:outline-none focus:ring-2 focus:ring-accent cursor-pointer shrink-0"
     >
       {!mounted ? (
         <span className="w-5 h-5" aria-hidden="true" />
       ) : theme === 'dark' ? (
         <Sun className="w-5 h-5 text-amber-400" aria-hidden="true" />
       ) : (
-        <Moon className="w-5 h-5 text-zinc-600" aria-hidden="true" />
+        <Moon className="w-5 h-5 text-fg-muted" aria-hidden="true" />
       )}
     </button>
   );

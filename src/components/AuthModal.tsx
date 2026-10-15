@@ -117,7 +117,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
             {errorMsg && (
               <div
                 role="alert"
-                className="flex items-start gap-2 p-3 rounded-xl bg-status-reported-bg text-status-reported-fg text-[12px] font-medium"
+                className="flex items-start gap-2 p-3 rounded-xl bg-reported-bg text-reported-fg border border-reported-fg/20 text-[12px] font-medium"
               >
                 <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
                 <span>{errorMsg}</span>

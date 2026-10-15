@@ -4,90 +4,67 @@
 
 :root {
   color-scheme: light;
-  /* Apple Weather / Severe Alert Grouped Palette (Light) */
-  --surface: #f0f4fa;
-  --surface-card: #ffffff;
-  --surface-muted: #e2eaf4;
-  --surface-tint: #f8fafc;
-  --border: #ccd7e8;
-  --border-subtle: #dbe4f0;
-  --fg: #0b132b;
-  --fg-secondary: #2c3a58;
-  --fg-muted: #5a6b85;
-
-  /* Accent & Solid Apple Alert Colors (Light) */
-  --accent: #ff453a;
-  --accent-fg: #ffffff;
-  --emergency-red: #ff453a;
-  --emergency-red-hover: #e03b31;
-  --rafa-teal: #30b0c7;
-  --status-reported-bg: #fee2e2;
-  --status-reported-fg: #dc2626;
-  --status-reported-border: #fca5a5;
-  --status-claimed-bg: #fef3c7;
-  --status-claimed-fg: #d97706;
-  --status-claimed-border: #fcd34d;
-  --status-healing-bg: #e0f2fe;
-  --status-healing-fg: #0284c7;
-  --status-healing-border: #7dd3fc;
-  --status-resolved-bg: #dcfce7;
-  --status-resolved-fg: #16a34a;
-  --status-resolved-border: #86efac;
+  --page: #F2F2F7;
+  --surface: #FFFFFF;
+  --surface-muted: #F2F2F7;
+  --border: #E5E5EA;
+  --fg: #1C1C1E;
+  --fg-muted: #6C6C70;
+  --accent: #E0201B;        /* emergency fill, white label */
+  --accent-fg: #FFFFFF;
+  --action: #0071E3;        /* filled neutral buttons, white label */
+  --link: #0066CC;          /* text links */
+  --rafa: #00758A;          /* Rafa icon and text only */
+  --reported-bg: #FFE5E7;  --reported-fg: #B3000F;
+  --claimed-bg:  #FFF1D0;  --claimed-fg:  #8A4B00;
+  --healing-bg:  #E6EFFF;  --healing-fg:  #0040DD;
+  --resolved-bg: #E2F6E7;  --resolved-fg: #1D7A34;
+  --banner-bg: #FFF4D6;    --banner-fg: #7A4A00;
 }
 
-.dark, [data-theme="dark"] {
+[data-theme="dark"], .dark {
   color-scheme: dark;
-  /* Apple Weather / Severe Alert Grouped Palette (Dark) */
-  --surface: #0c1424;
-  --surface-card: #162138;
-  --surface-muted: #1e2d4d;
-  --surface-tint: #1c2742;
-  --border: #223152;
-  --border-subtle: #293a61;
-  --fg: #ffffff;
-  --fg-secondary: #cdd7e5;
-  --fg-muted: #8e9bb0;
-
-  /* Accent & Solid Apple Alert Colors (Dark) */
-  --accent: #ff453a;
-  --accent-fg: #ffffff;
-  --emergency-red: #ff453a;
-  --emergency-red-hover: #ff5b52;
-  --rafa-teal: #40c8e0;
-  --status-reported-bg: #2e1215;
-  --status-reported-fg: #ff453a;
-  --status-reported-border: #54191e;
-  --status-claimed-bg: #2b1b06;
-  --status-claimed-fg: #ff9f0a;
-  --status-claimed-border: #523408;
-  --status-healing-bg: #0e2342;
-  --status-healing-fg: #38bdf8;
-  --status-healing-border: #1d4478;
-  --status-resolved-bg: #0a281a;
-  --status-resolved-fg: #34d399;
-  --status-resolved-border: #135436;
+  --page: #000000;
+  --surface: #1C1C1E;
+  --surface-muted: #2C2C2E;
+  --border: #38383A;
+  --fg: #FFFFFF;
+  --fg-muted: #AEAEB2;
+  --accent: #E0201B;
+  --accent-fg: #FFFFFF;
+  --action: #0071E3;
+  --link: #0A84FF;
+  --rafa: #4FC3D9;
+  --reported-bg: #3A1518;  --reported-fg: #FF9A93;
+  --claimed-bg:  #3A2A08;  --claimed-fg:  #FFC95C;
+  --healing-bg:  #0F2A4D;  --healing-fg:  #7DB8FF;
+  --resolved-bg: #0F3320;  --resolved-fg: #6EE08C;
+  --banner-bg: #3A2A08;    --banner-fg: #FFC95C;
 }
 
 @theme {
+  --color-page: var(--page);
   --color-surface: var(--surface);
-  --color-surface-card: var(--surface-card);
+  --color-surface-card: var(--surface);
   --color-surface-muted: var(--surface-muted);
-  --color-surface-tint: var(--surface-tint);
   --color-border: var(--border);
-  --color-border-subtle: var(--border-subtle);
   --color-fg: var(--fg);
-  --color-fg-secondary: var(--fg-secondary);
   --color-fg-muted: var(--fg-muted);
   --color-accent: var(--accent);
   --color-accent-fg: var(--accent-fg);
-  --color-status-reported-bg: var(--status-reported-bg);
-  --color-status-reported-fg: var(--status-reported-fg);
-  --color-status-claimed-bg: var(--status-claimed-bg);
-  --color-status-claimed-fg: var(--status-claimed-fg);
-  --color-status-healing-bg: var(--status-healing-bg);
-  --color-status-healing-fg: var(--status-healing-fg);
-  --color-status-resolved-bg: var(--status-resolved-bg);
-  --color-status-resolved-fg: var(--status-resolved-fg);
+  --color-action: var(--action);
+  --color-link: var(--link);
+  --color-rafa: var(--rafa);
+  --color-reported-bg: var(--reported-bg);
+  --color-reported-fg: var(--reported-fg);
+  --color-claimed-bg: var(--claimed-bg);
+  --color-claimed-fg: var(--claimed-fg);
+  --color-healing-bg: var(--healing-bg);
+  --color-healing-fg: var(--healing-fg);
+  --color-resolved-bg: var(--resolved-bg);
+  --color-resolved-fg: var(--resolved-fg);
+  --color-banner-bg: var(--banner-bg);
+  --color-banner-fg: var(--banner-fg);
   --font-brand: var(--font-bricolage), -apple-system, sans-serif;
 }
 
@@ -96,7 +73,7 @@
 }
 
 body {
-  background-color: var(--surface);
+  background-color: var(--page);
   color: var(--fg);
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", var(--font-inter), system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;

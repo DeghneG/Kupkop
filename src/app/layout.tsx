@@ -64,9 +64,9 @@ export default function RootLayout({
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
-      <body className="min-h-full bg-[#f0f4fa] dark:bg-[#0c1424] text-[#0b132b] dark:text-white font-sans flex flex-col items-center">
-        {/* Mobile viewport container styled as Apple Weather Grouped Canvas */}
-        <div className="w-full max-w-md min-h-screen bg-[#f0f4fa] dark:bg-[#0c1424] border-x border-[#ccd7e8] dark:border-[#223152] shadow-sm flex flex-col relative pb-24 transition-colors duration-150">
+      <body className="min-h-full bg-page text-fg font-sans flex flex-col items-center">
+        {/* Mobile viewport container */}
+        <div className="w-full max-w-md min-h-screen bg-page border-x border-border shadow-sm flex flex-col relative pb-24 transition-colors duration-150">
           <TestModeBanner />
           <main className="flex-1 flex flex-col">{children}</main>
           <Navigation />

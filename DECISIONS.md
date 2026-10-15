@@ -42,8 +42,20 @@
   2. Triage tags are neutral outlined (`border-border`), while status pills are colored (`Reported` = red, `Claimed` = amber, `Admitted/Healing` = blue, `Resolved` = green), verified >= 4.5:1 contrast in both themes.
   3. Navigation tabs standardized as `Feed`, `SOS`, `Rafa`, `Clinics` with >= 12px labels and 48px tap targets.
   4. Test-role dropdown is DEV ONLY (mock role for local prototype testing) and must be removed before real Supabase Auth/RLS integration.
-  5. Adopted Apple Weather / Severe Alert palette: Deep Storm Slate (`#0c1424` canvas / `#162138` elevated cards / `#223152` hairline borders in dark) and Atmosphere Daylight (`#f0f4fa` canvas / `#ffffff` cards / `#ccd7e8` borders in light) with Apple Severe Alert Red (`#ff453a`), Apple Radar Cyan (`#30b0c7` / `#40c8e0`), native San Francisco font stack with subpixel antialiasing and `tabular-nums`.
+  5. Standardized on Apple System tokens: Page (`#F2F2F7` light / `#000000` dark), Surface (`#FFFFFF` light / `#1C1C1E` dark), Surface-Muted (`#F2F2F7` light / `#2C2C2E` dark), Border (`#E5E5EA` light / `#38383A` dark), Text (`#1C1C1E` light / `#FFFFFF` dark), Text-Muted (`#6C6C70` light / `#AEAEB2` dark), Emergency Accent (`#E0201B`), Neutral Action (`#0071E3`), Link (`#0066CC` light / `#0A84FF` dark), Rafa (`#00758A` light / `#4FC3D9` dark), and verified status colors (Reported, Claimed, Healing, Resolved, Test Banner). All UI components strictly use semantic token utilities instead of hardcoded hex values.
   6. Brand wordmark uses Bricolage Grotesque (`font-brand`) for `KupKop` and the app icon letter `K`, creating an expressive, unmistakably distinct street animal emergency identity while keeping all UI and body text in clean native Apple San Francisco.
 - **Context:** Mobile-web street animal emergency usability requires instant readability, honest copy, high contrast under daylight and nighttime conditions, and a native iOS feel.
+
+### D-008: SOS-First Airy iOS Layout Redesign
+- **Date:** 2026-10-15
+- **Decision:**
+  1. SOS-first Home screen: Unboxed hero with full-width 64px emergency button, 32px vertical breathing room, and centered honest caption.
+  2. Bottom navigation Feed tab renamed to "Home" with Home icon.
+  3. Active incidents list converted to a single grouped iOS Messages-style container with 56px circular thumbnails and inset hairline dividers.
+  4. Actions (Claim, Call, photo reveal) moved into an accessible GSAP-animated Detail bottom sheet dialog.
+  5. Theme switching (3-option System/Light/Dark segmented control), Supabase Auth sign-in, and DEV role selector consolidated into an accessible Profile bottom sheet dialog triggered by a 44px circular header button.
+  6. Removed visual clutter from Home: Rafa cards, partner clinic cards, DEV bar, and inline action buttons are eliminated from the main feed view.
+- **Context:** Street animal emergency response requires immediate clarity, single-focus calm under stress, and standard native iOS interaction patterns.
+
 
 
