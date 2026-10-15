@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
-import { Camera, MapPin, Clock, ArrowLeft, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Camera, MapPin, Clock, ArrowLeft, Shield, AlertCircle } from 'lucide-react';
 
 export default function SOSCameraPage() {
   const [animal, setAnimal] = useState<'dog' | 'cat' | 'other'>('dog');
@@ -20,118 +20,116 @@ export default function SOSCameraPage() {
   };
 
   return (
-    <div className="flex flex-col flex-1 bg-black text-white px-4 py-4 min-h-[calc(100vh-80px)] relative">
+    <div className="flex flex-col flex-1 px-4 py-4 space-y-4">
       {/* Shutter flash overlay */}
       {shutterFlashing && (
         <div className="fixed inset-0 bg-white z-50 pointer-events-none transition-opacity duration-150" />
       )}
 
       {/* Top Header */}
-      <div className="flex items-center justify-between py-2">
+      <div className="flex items-center justify-between">
         <Link
           href="/"
-          className="flex items-center gap-1.5 text-zinc-400 hover:text-white min-w-[48px] min-h-[48px]"
+          className="flex items-center gap-1 text-fg-muted hover:text-fg min-w-[44px] min-h-[44px] text-[12px] font-semibold"
           aria-label="Back to Feed"
         >
-          <ArrowLeft className="w-5 h-5" />
-          <span className="text-xs font-bold">Back</span>
+          <ArrowLeft className="w-4 h-4" aria-hidden="true" />
+          <span>Back</span>
         </Link>
         <div className="text-center">
-          <h1 className="text-sm font-black tracking-wide text-rose-500 uppercase">
+          <h1 className="text-[16px] font-semibold text-fg">
             Live SOS Camera
           </h1>
-          <p className="text-[10px] text-zinc-400">Step 1 of 2: Snap & Dispatch</p>
+          <p className="text-[12px] text-fg-muted">Snap & Dispatch</p>
         </div>
-        <div className="w-10" />
+        <div className="w-11" />
       </div>
 
-      {/* Viewfinder Frame */}
-      <div className="relative flex-1 rounded-2xl border-2 border-dashed border-rose-500/50 bg-zinc-900/80 overflow-hidden flex flex-col items-center justify-between p-4 my-2">
-        {/* Viewfinder Overlays */}
-        <div className="w-full flex items-center justify-between text-[11px] text-zinc-300 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/10">
+      {/* Viewfinder Frame: 1px border, soft shadow, no glow */}
+      <div className="relative flex-1 min-h-[260px] rounded-2xl border border-dashed border-border bg-surface-muted overflow-hidden flex flex-col items-center justify-between p-4 shadow-sm">
+        {/* Viewfinder Header Badges */}
+        <div className="w-full flex items-center justify-between text-[12px] bg-surface-card border border-border px-3 py-1.5 rounded-xl text-fg-muted">
           <div className="flex items-center gap-1">
-            <MapPin className="w-3.5 h-3.5 text-rose-400" />
-            <span className="font-mono">14.6342° N, 121.0734° E</span>
+            <MapPin className="w-3.5 h-3.5 text-accent-text" aria-hidden="true" />
+            <span className="font-mono text-[12px]">Location pending</span>
           </div>
-          <div className="flex items-center gap-1 text-emerald-400 font-mono">
-            <Clock className="w-3.5 h-3.5" />
-            <span>SERVER TIMESTAMP</span>
+          <div className="flex items-center gap-1 font-mono text-[12px] text-fg">
+            <Clock className="w-3.5 h-3.5" aria-hidden="true" />
+            <span>Server time</span>
           </div>
         </div>
 
-        {/* Viewfinder Center Guide */}
+        {/* Viewfinder Center Content */}
         <div className="flex flex-col items-center justify-center text-center space-y-2 pointer-events-none">
-          <div className="w-20 h-20 rounded-full border border-rose-500/40 flex items-center justify-center">
-            <Camera className="w-10 h-10 text-rose-500/60" />
+          <div className="w-16 h-16 rounded-full border border-border bg-surface-card flex items-center justify-center shadow-sm">
+            <Camera className="w-8 h-8 text-fg-muted" aria-hidden="true" />
           </div>
-          <p className="text-xs text-zinc-300 font-medium max-w-[220px]">
+          <p className="text-[12px] text-fg-muted font-normal max-w-[220px]">
             {captured
-              ? 'Snapshot captured with server timestamp!'
-              : 'Aim camera directly at the animal. No gallery uploads allowed.'}
+              ? 'Photo captured with server timestamp.'
+              : 'Aim directly at animal. Live camera only.'}
           </p>
         </div>
 
         {/* Security Rule Note */}
         <div className="text-center">
-          <p className="text-[10px] text-zinc-400">
-            🔒 Live camera only • GPS locked • Server-side timestamp
+          <p className="text-[12px] text-fg-muted">
+            Live camera only • No gallery uploads
           </p>
         </div>
       </div>
 
-      {/* Animal & Severity Quick Selection (Thumb-zone) */}
-      <div className="space-y-3 py-2">
+      {/* Animal Selection */}
+      <div className="space-y-3">
         <div className="grid grid-cols-3 gap-2">
           {(['dog', 'cat', 'other'] as const).map((type) => (
             <button
               key={type}
               type="button"
               onClick={() => setAnimal(type)}
-              className={`min-h-[48px] rounded-xl text-xs font-bold capitalize transition-colors border ${
+              className={`min-h-[44px] rounded-xl text-[12px] font-semibold capitalize transition-colors border ${
                 animal === type
-                  ? 'bg-rose-600 text-white border-rose-500'
-                  : 'bg-zinc-900 text-zinc-300 border-zinc-800 hover:border-zinc-700'
+                  ? 'bg-accent text-accent-fg border-accent'
+                  : 'bg-surface-card text-fg border-border hover:bg-surface-muted'
               }`}
             >
-              {type === 'dog' ? '🐕 Aspin' : type === 'cat' ? '🐈 Puspin' : '🐾 Other'}
+              {type === 'dog' ? 'Dog' : type === 'cat' ? 'Cat' : 'Other'}
             </button>
           ))}
         </div>
 
+        {/* Urgency Selection */}
         <div className="grid grid-cols-3 gap-2">
           {[
-            { id: 'hit_and_run', label: 'Hit & Run', desc: 'Critical' },
-            { id: 'fracture', label: 'Fracture', desc: 'Urgent' },
-            { id: 'sick_mange', label: 'Sick / Mange', desc: 'Moderate' },
+            { id: 'hit_and_run', label: 'Hit & run' },
+            { id: 'fracture', label: 'Fracture' },
+            { id: 'sick_mange', label: 'Sick / mange' },
           ].map((item) => (
             <button
               key={item.id}
               type="button"
               onClick={() => setUrgency(item.id as any)}
-              className={`min-h-[48px] rounded-xl p-1 text-center transition-colors border ${
+              className={`min-h-[44px] rounded-xl text-[12px] font-semibold transition-colors border ${
                 urgency === item.id
-                  ? 'bg-zinc-100 text-zinc-950 border-white'
-                  : 'bg-zinc-900 text-zinc-300 border-zinc-800 hover:border-zinc-700'
+                  ? 'bg-fg text-surface border-fg'
+                  : 'bg-surface-card text-fg border-border hover:bg-surface-muted'
               }`}
             >
-              <div className="text-[11px] font-bold leading-tight">{item.label}</div>
-              <div className="text-[9px] text-zinc-500 uppercase">{item.desc}</div>
+              {item.label}
             </button>
           ))}
         </div>
 
-        {/* Shutter Button */}
+        {/* Shutter Button: 48px+ filled primary */}
         <div className="pt-2 flex justify-center">
           <button
             type="button"
             id="shutter-button"
             onClick={handleCapture}
-            className="w-20 h-20 rounded-full bg-rose-600 active:scale-95 border-4 border-white shadow-xl shadow-rose-600/40 flex items-center justify-center focus:outline-none focus:ring-4 focus:ring-rose-500 transition-transform"
+            className="w-16 h-16 min-w-[48px] min-h-[48px] rounded-full bg-accent text-accent-fg active:scale-95 shadow-sm flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-accent transition-transform"
             aria-label="Capture emergency photo and dispatch"
           >
-            <div className="w-14 h-14 rounded-full bg-white flex items-center justify-center">
-              <Camera className="w-7 h-7 text-rose-600" />
-            </div>
+            <Camera className="w-7 h-7" aria-hidden="true" />
           </button>
         </div>
       </div>

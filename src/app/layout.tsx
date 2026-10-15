@@ -27,8 +27,26 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
   viewportFit: 'cover',
-  themeColor: '#e11d48',
 };
+
+const themeScript = `
+(function() {
+  try {
+    var stored = localStorage.getItem('kupkop-theme');
+    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var theme = stored === 'dark' || (!stored && prefersDark) ? 'dark' : 'light';
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+      document.documentElement.setAttribute('data-theme', 'dark');
+      document.documentElement.style.colorScheme = 'dark';
+    } else {
+      document.documentElement.classList.remove('dark');
+      document.documentElement.setAttribute('data-theme', 'light');
+      document.documentElement.style.colorScheme = 'light';
+    }
+  } catch (e) {}
+})();
+`;
 
 export default function RootLayout({
   children,
@@ -36,10 +54,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${inter.variable} h-full antialiased`}>
-      <body className="min-h-full bg-zinc-100 dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 font-sans flex flex-col items-center">
+    <html lang="en" className={`${inter.variable} h-full antialiased`} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+      </head>
+      <body className="min-h-full bg-surface text-fg font-sans flex flex-col items-center">
         {/* Mobile viewport container */}
-        <div className="w-full max-w-md min-h-screen bg-white dark:bg-black shadow-xl flex flex-col relative pb-20">
+        <div className="w-full max-w-md min-h-screen bg-surface-card border-x border-border shadow-sm flex flex-col relative pb-24">
           <TestModeBanner />
           <main className="flex-1 flex flex-col">{children}</main>
           <Navigation />

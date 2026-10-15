@@ -34,3 +34,13 @@
 - **Date:** 2026-10-14
 - **Decision:** Established 3 specialized helper agents/workflows: `ui-ux-reviewer` (review-only mobile accessibility/GSAP), `schema-security-reviewer` (review-only Supabase RLS/auth leaks), and `weekly-review` (strict 10 hr/week scope guardian).
 - **Context:** Maintain high code quality and strict scope control under constrained weekly development budget.
+
+### D-007: Phase 0 Shell UI System & Polish
+- **Date:** 2026-10-15
+- **Decision:** 
+  1. Light + dark theme system via semantic CSS variables and 44px header toggle with zero-flash pre-paint script (no external next-themes package).
+  2. Triage tags are neutral outlined (`border-border`), while status pills are colored (`Reported` = red, `Claimed` = amber, `Admitted/Healing` = blue, `Resolved` = green), verified >= 4.5:1 contrast in both themes.
+  3. Navigation tabs standardized as `Feed`, `SOS`, `Rafa`, `Clinics` with >= 12px labels and 48px tap targets.
+  4. Test-role dropdown is DEV ONLY (mock role for local prototype testing) and must be removed before real Supabase Auth/RLS integration.
+- **Context:** Mobile-web street animal emergency usability requires instant readability, honest copy, and high contrast under daylight and nighttime conditions.
+
