@@ -1,0 +1,9 @@
+{
+  "name": "KupKop Street Animal Emergency Network",
+  "short_name": "KupKop",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#e11d48",
+  "description": "Mobile web network for street animal emergencies, live camera SOS dispatch, and recovery tracking."
+}

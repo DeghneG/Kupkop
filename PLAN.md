@@ -10,12 +10,10 @@
 ## Kanban Board
 
 ### Doing (Max 2 cards)
-- [ ] Initialize repository structure and development toolchain (Next.js, Tailwind, Supabase integration).
-  - *Done when:* App loads locally and in mobile browser viewport with TEST MODE banner visible.
-
-### To Do (Phase 0 - Setup)
 - [ ] Configure Supabase project (Auth with email + Google, storage buckets: `live-snaps`, `bills`, private `plate photos`).
   - *Done when:* Supabase client connects and authenticated session round-trip passes.
+
+### To Do (Phase 0 - Setup)
 - [ ] Setup initial database schema & RLS policies for `profiles`, `facilities`, `sos_reports`, `recovery_updates`.
   - *Done when:* RLS policies block anonymous writes and prevent users from modifying `profiles.role`.
 - [ ] Configure Gemini API integration scaffold (`/api/chat` with rate limit and spend cap guardrails).
@@ -24,6 +22,8 @@
   - *Done when:* Sample transition respects reduced-motion toggle.
 
 ### Done
+- [x] Initialize repository structure and development toolchain (Next.js, Tailwind, Supabase integration).
+  - *Result:* App compiles with Turbopack, loads locally on port 3000, and displays TEST MODE banner and mobile layout.
 - [x] Create project agent specification (`AGENTS.md`) with Phase 0 setup context.
 - [x] Configure KupKop helper agents and skills (`ui-ux-reviewer`, `schema-security-reviewer`, `weekly-review`).
 - [x] Import reference skills (`ui-ux-pro-max`, `supabase`).
