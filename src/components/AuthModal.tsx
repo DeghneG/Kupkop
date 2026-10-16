@@ -39,7 +39,6 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
         setErrorMsg(error.message);
       } else {
         setSent(true);
-        if (onSuccess) onSuccess();
       }
     } catch (err: any) {
       setErrorMsg(err?.message || 'Failed to send sign-in link.');

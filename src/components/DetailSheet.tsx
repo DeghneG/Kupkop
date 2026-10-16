@@ -131,8 +131,6 @@ export default function DetailSheet({
     setTimeout(() => setCallNotice(null), 3000);
   };
 
-  const isClaimed = incident.state === 'claimed';
-
   const renderStatus = () => {
     switch (incident.state) {
       case 'claimed':
@@ -284,30 +282,37 @@ export default function DetailSheet({
 
           {/* Actions Section */}
           <div className="space-y-2.5 pt-2">
-            {isClaimed ? (
+            {incident.state === 'reported' ? (
+              mockRole === 'citizen' ? (
+                <div className="text-center py-2">
+                  <button
+                    type="button"
+                    onClick={() => alert('Volunteer application mock: in prototype, request admin approval in Settings.')}
+                    className="text-[14px] font-semibold text-link underline cursor-pointer"
+                  >
+                    Become a volunteer to claim
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => alert(`Mock: Claimed rescue ${incident.shortId}.`)}
+                  className="w-full min-h-[48px] bg-accent hover:opacity-90 active:scale-[0.98] text-accent-fg font-semibold text-[16px] rounded-[14px] flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer border-none"
+                >
+                  <HeartHandshake className="w-5 h-5" aria-hidden="true" />
+                  <span>Claim Rescue</span>
+                </button>
+              )
+            ) : incident.state === 'claimed' ? (
               <div className="w-full min-h-[48px] rounded-[14px] bg-surface-muted border border-border flex items-center justify-center gap-2 text-[14px] text-fg-muted font-normal">
                 <Lock className="w-4 h-4 text-claimed-fg" aria-hidden="true" />
                 <span>Claimed by a volunteer</span>
               </div>
-            ) : mockRole === 'citizen' ? (
-              <div className="text-center py-2">
-                <button
-                  type="button"
-                  onClick={() => alert('Volunteer application mock: in prototype, request admin approval in Profile.')}
-                  className="text-[14px] font-semibold text-link underline cursor-pointer"
-                >
-                  Become a volunteer to claim
-                </button>
-              </div>
             ) : (
-              <button
-                type="button"
-                onClick={() => alert(`Mock: Claimed rescue ${incident.shortId}.`)}
-                className="w-full min-h-[48px] bg-accent hover:opacity-90 active:scale-[0.98] text-accent-fg font-semibold text-[16px] rounded-[14px] flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer border-none"
-              >
-                <HeartHandshake className="w-5 h-5" aria-hidden="true" />
-                <span>Claim Rescue</span>
-              </button>
+              <div className="w-full min-h-[48px] rounded-[14px] bg-surface-muted border border-border flex items-center justify-center gap-2 text-[14px] text-fg-muted font-normal capitalize">
+                <CheckCircle2 className="w-4 h-4 text-healing-fg" aria-hidden="true" />
+                <span>Rescue status: {incident.state}</span>
+              </div>
             )}
 
             {/* Secondary Call button (Disabled in test mode) */}

@@ -11,18 +11,15 @@ export default function ThemeToggle() {
     setMounted(true);
     try {
       const stored = localStorage.getItem('kupkop-theme');
-      // Default to light unless explicitly saved as 'dark'
-      const isDark = stored ? stored === 'dark' : document.documentElement.classList.contains('dark');
-      setTheme(isDark ? 'dark' : 'light');
-      if (isDark) {
-        document.documentElement.classList.add('dark');
-        document.documentElement.setAttribute('data-theme', 'dark');
-        document.documentElement.style.colorScheme = 'dark';
+      let isDark = false;
+      if (stored === 'dark') {
+        isDark = true;
+      } else if (stored === 'light') {
+        isDark = false;
       } else {
-        document.documentElement.classList.remove('dark');
-        document.documentElement.setAttribute('data-theme', 'light');
-        document.documentElement.style.colorScheme = 'light';
+        isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
       }
+      setTheme(isDark ? 'dark' : 'light');
     } catch {
       // Ignore reading error if DOM is not ready
     }

@@ -39,9 +39,15 @@ const themeScript = `
 (function() {
   try {
     var stored = localStorage.getItem('kupkop-theme');
-    // Default to light mode (white base) unless explicitly saved as dark
-    var theme = stored === 'dark' ? 'dark' : 'light';
-    if (theme === 'dark') {
+    var isDark = false;
+    if (stored === 'dark') {
+      isDark = true;
+    } else if (stored === 'light') {
+      isDark = false;
+    } else {
+      isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
+    if (isDark) {
       document.documentElement.classList.add('dark');
       document.documentElement.setAttribute('data-theme', 'dark');
       document.documentElement.style.colorScheme = 'dark';
