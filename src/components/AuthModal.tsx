@@ -13,10 +13,12 @@ interface AuthModalProps {
 }
 
 export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
+  const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [isNonExistent, setIsNonExistent] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const backdropRef = useRef<HTMLDivElement>(null);
@@ -30,6 +32,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
     if (isOpen) {
       setSent(false);
       setErrorMsg(null);
+      setIsNonExistent(false);
     }
   }
 
@@ -112,21 +115,50 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
   const handleEmailSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim()) return;
+    const trimmed = email.trim().toLowerCase();
+    if (!trimmed) return;
 
     setLoading(true);
     setErrorMsg(null);
+    setIsNonExistent(false);
 
     try {
+      // 1. Verify that email has valid format and a real, deliverable domain (DNS MX check)
+      const validateRes = await fetch('/api/auth/validate-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: trimmed }),
+      });
+
+      const validateData = await validateRes.json();
+      if (!validateRes.ok || !validateData.valid) {
+        setErrorMsg(validateData.reason || 'Please enter a valid, existing email address.');
+        setLoading(false);
+        return;
+      }
+
+      // 2. Request OTP from Supabase (enforcing existing user when logging in)
       const { error } = await supabase.auth.signInWithOtp({
-        email: email.trim(),
+        email: trimmed,
         options: {
+          shouldCreateUser: mode === 'signup',
           emailRedirectTo: `${window.location.origin}/auth/callback`,
         },
       });
 
       if (error) {
-        setErrorMsg(error.message);
+        // When in login mode and the user does not exist in Supabase auth
+        if (
+          mode === 'login' &&
+          (error.status === 422 ||
+            error.code === 'otp_disabled' ||
+            error.message?.toLowerCase().includes('signups not allowed'))
+        ) {
+          setErrorMsg('This email does not exist. Please check your spelling or sign up.');
+          setIsNonExistent(true);
+        } else {
+          setErrorMsg(error.message);
+        }
       } else {
         setSent(true);
       }
@@ -228,11 +260,46 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
           <div className="space-y-4">
             <div className="pr-10">
               <h2 id="auth-modal-title" className="text-[22px] font-semibold tracking-tight text-fg font-brand">
-                Sign in to <span className="text-fg">KupKop</span>
+                {mode === 'login' ? 'Log in to ' : 'Sign up for '}
+                <span className="text-fg">KupKop</span>
               </h2>
               <p className="text-[14px] text-fg-muted mt-0.5">
                 Save reports, claim rescues, and track animal recovery.
               </p>
+            </div>
+
+            {/* Segmented Mode Selector: Log In vs Sign Up */}
+            <div className="flex p-1 bg-surface-muted rounded-full border border-border">
+              <button
+                type="button"
+                onClick={() => {
+                  setMode('login');
+                  setErrorMsg(null);
+                  setIsNonExistent(false);
+                }}
+                className={`flex-1 py-1.5 text-[13px] font-semibold rounded-full transition-all cursor-pointer ${
+                  mode === 'login'
+                    ? 'bg-surface text-fg shadow-xs border border-border'
+                    : 'text-fg-muted hover:text-fg border border-transparent'
+                }`}
+              >
+                Log In
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setMode('signup');
+                  setErrorMsg(null);
+                  setIsNonExistent(false);
+                }}
+                className={`flex-1 py-1.5 text-[13px] font-semibold rounded-full transition-all cursor-pointer ${
+                  mode === 'signup'
+                    ? 'bg-surface text-fg shadow-xs border border-border'
+                    : 'text-fg-muted hover:text-fg border border-transparent'
+                }`}
+              >
+                Sign Up
+              </button>
             </div>
 
             {errorMsg && (
@@ -241,7 +308,22 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                 className="flex items-start gap-2 p-3 rounded-xl bg-reported-bg text-reported-fg border border-reported-fg/20 text-[12px] font-medium"
               >
                 <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                <span>{errorMsg}</span>
+                <div className="space-y-1">
+                  <div>{errorMsg}</div>
+                  {isNonExistent && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMode('signup');
+                        setErrorMsg(null);
+                        setIsNonExistent(false);
+                      }}
+                      className="text-[12px] font-semibold underline text-link hover:opacity-80 cursor-pointer block"
+                    >
+                      Create a new account instead →
+                    </button>
+                  )}
+                </div>
               </div>
             )}
 
@@ -256,7 +338,10 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                   type="email"
                   required
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    if (isNonExistent) setIsNonExistent(false);
+                  }}
                   placeholder="name@example.com"
                   className="w-full min-h-[48px] px-3.5 text-[14px] bg-surface-muted text-fg rounded-xl border border-border outline-none focus:ring-2 focus:ring-action"
                 />
@@ -273,7 +358,9 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                 ) : (
                   <Mail className="w-4 h-4" />
                 )}
-                <span>Send Magic Link</span>
+                <span>
+                  {mode === 'login' ? 'Log In with Magic Link' : 'Sign Up with Magic Link'}
+                </span>
               </button>
             </form>
 
