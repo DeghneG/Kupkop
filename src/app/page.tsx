@@ -70,7 +70,7 @@ export default function HomePage() {
       <header className="flex items-center justify-between pb-1">
         <div>
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-accent text-accent-fg flex items-center justify-center font-bold text-[16px] shadow-sm shrink-0 font-brand">
+            <div className="w-8 h-8 rounded-xl bg-fg text-page flex items-center justify-center font-bold text-[16px] shadow-sm shrink-0 font-brand">
               K
             </div>
             <h1 className="text-[22px] font-bold tracking-tight leading-none text-fg font-brand">

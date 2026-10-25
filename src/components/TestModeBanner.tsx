@@ -15,7 +15,7 @@ export default function TestModeBanner() {
             <strong className="font-semibold uppercase tracking-wider text-[11px]">Test mode</strong> — Not connected to 911 or real responders.
           </span>
         </div>
-        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-banner-fg text-banner-bg shrink-0 uppercase tracking-wider">
+        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-banner-fg/15 text-banner-fg border border-banner-fg/25 shrink-0 uppercase tracking-wider">
           Phase 0
         </span>
       </div>

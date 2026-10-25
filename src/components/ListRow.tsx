@@ -58,6 +58,26 @@ export function ListRow({ incident, onClick, isLast = false }: ListRowProps) {
     }
   };
 
+  // Renders triage severity with only the word "Critical" in red-700/red-400 font-semibold
+  const renderTypeText = (type: string) => {
+    if (!type.includes('Critical')) {
+      return type;
+    }
+    const parts = type.split('Critical');
+    return (
+      <>
+        {parts.map((part, index) => (
+          <React.Fragment key={index}>
+            {part}
+            {index < parts.length - 1 && (
+              <span className="text-reported-fg font-semibold">Critical</span>
+            )}
+          </React.Fragment>
+        ))}
+      </>
+    );
+  };
+
   return (
     <div className="relative">
       <button
@@ -90,7 +110,7 @@ export function ListRow({ incident, onClick, isLast = false }: ListRowProps) {
 
           {/* Line 2: Plain text triage · distance */}
           <p className="text-[14px] font-normal text-fg-muted truncate leading-snug">
-            {incident.type} · {incident.distance}
+            {renderTypeText(incident.type)} · {incident.distance}
           </p>
 
           {/* Line 3: Status icon + tinted pill */}

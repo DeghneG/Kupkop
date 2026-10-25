@@ -75,14 +75,23 @@ export default function Navigation() {
             <Link
               key={item.href}
               href={item.href}
-              className={`flex flex-col items-center justify-center min-w-[48px] min-h-[48px] px-2 rounded-xl transition-colors ${
-                isActive
-                  ? 'text-fg font-semibold'
-                  : 'text-fg-muted hover:text-fg font-normal'
+              className={`group flex flex-col items-center justify-center min-w-[48px] min-h-[48px] px-2 rounded-xl transition-colors ${
+                isActive ? 'text-fg font-semibold' : 'font-normal'
               }`}
             >
-              <Icon className="w-5 h-5 mb-0.5" aria-hidden="true" />
-              <span className="text-[12px]">{item.label}</span>
+              <Icon
+                className={`w-5 h-5 mb-0.5 transition-colors ${
+                  isActive ? 'text-fg' : 'text-fg-muted/70 group-hover:text-fg'
+                }`}
+                aria-hidden="true"
+              />
+              <span
+                className={`text-[12px] transition-colors ${
+                  isActive ? 'text-fg font-semibold' : 'text-fg-muted group-hover:text-fg'
+                }`}
+              >
+                {item.label}
+              </span>
             </Link>
           );
         })}
