@@ -16,7 +16,7 @@ export default function TestModeBanner() {
           </span>
         </div>
         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-banner-fg/15 text-banner-fg border border-banner-fg/25 shrink-0 uppercase tracking-wider">
-          Phase 0
+          Phase 1
         </span>
       </div>
     </aside>

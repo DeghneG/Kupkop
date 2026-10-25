@@ -1,7 +1,7 @@
 # KupKop Development Plan
 
 ## Current Status
-- **Current Phase:** Phase 0 - Setup
+- **Current Phase:** Phase 1 - SOS
 - **Weekly Capacity:** Max 10 hrs/week
 - **Testing Rule:** Every task must have a "done when" testable on a real phone.
 
