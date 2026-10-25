@@ -18,6 +18,7 @@ import {
   HeartHandshake,
   Navigation,
   ExternalLink,
+  FileText,
 } from 'lucide-react';
 import { IncidentData } from './ListRow';
 import { formatCoordinates } from '@/lib/sos/utils';
@@ -289,6 +290,19 @@ export default function DetailSheet({
               </div>
             </div>
           </div>
+
+          {/* On-Scene Description & Landmark */}
+          {incident.description && (
+            <div className="bg-surface-muted rounded-[16px] p-3.5 space-y-1.5 border border-border">
+              <div className="flex items-center gap-1.5 text-[12px] font-semibold text-fg-muted uppercase tracking-wider">
+                <FileText className="w-3.5 h-3.5 text-fg-muted shrink-0" aria-hidden="true" />
+                <span>Scene Details & Landmark</span>
+              </div>
+              <p className="text-[14px] text-fg font-normal leading-relaxed pl-5">
+                {incident.description}
+              </p>
+            </div>
+          )}
 
           {/* Disabled Notice Toast */}
           {callNotice && (

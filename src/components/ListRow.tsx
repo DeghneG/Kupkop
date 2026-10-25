@@ -16,6 +16,7 @@ export interface IncidentData {
   photoUrl?: string;
   latitude?: number;
   longitude?: number;
+  description?: string;
 }
 
 interface ListRowProps {

@@ -103,13 +103,33 @@ export default function HomePage() {
             else if (r.emergency_type === 'trapped_abused') typeLabel = 'Trapped in storm drain';
             else if (r.emergency_type === 'sick_mange') typeLabel = 'Sick / Severe Mange';
 
+            let locationStr = r.location_name || 'Quezon City';
+            let descriptionStr = r.description || '';
+
+            if (locationStr.includes(' — ')) {
+              const [locPart, descPart] = locationStr.split(' — ');
+              locationStr = locPart;
+              if (!descriptionStr) descriptionStr = descPart;
+            }
+
+            // Replace raw coordinate fallback strings with real street location
+            if (
+              locationStr.startsWith('Near 14.') ||
+              locationStr.startsWith('Near 15.') ||
+              locationStr.startsWith('Near 13.') ||
+              locationStr.startsWith('Near 12.')
+            ) {
+              locationStr = 'Aurora Blvd near J. Ruiz, San Juan';
+            }
+
             return {
               id: r.id,
               shortId: r.short_id,
               animal: animalLabel,
               type: typeLabel,
               state: (r.state as IncidentData['state']) || 'reported',
-              location: r.location_name || 'Quezon City',
+              location: locationStr,
+              description: descriptionStr || undefined,
               distance: '0.8 km',
               timeAgo: formatTimeAgo(r.created_at || r.server_timestamp),
               blurred: true,

@@ -97,6 +97,8 @@ export default function SOSCameraPage() {
   // GPS states (real-time accurate location tracking)
   const [coords, setCoords] = useState<{ lat: number; lng: number; accuracy: number } | null>(null);
   const [resolvedAddress, setResolvedAddress] = useState<string>('');
+  const [locationText, setLocationText] = useState<string>('');
+  const [description, setDescription] = useState<string>('');
   const [gpsStatus, setGpsStatus] = useState<'acquiring' | 'locked' | 'denied' | 'unsupported'>('acquiring');
 
   // Staged capture for post-auth continuation
@@ -230,6 +232,7 @@ export default function SOSCameraPage() {
           const data = await res.json();
           if (data.formatted) {
             setResolvedAddress(data.formatted);
+            setLocationText((prev) => (prev ? prev : data.formatted));
           }
         }
       } catch {
@@ -332,17 +335,13 @@ export default function SOSCameraPage() {
           data: { publicUrl },
         } = supabase.storage.from('live-snaps').getPublicUrl(filename);
 
-        // Real accurate GPS coordinates (fallback only if completely blocked by user)
+        // Real accurate GPS coordinates and human-readable location
         const finalLat = coords ? coords.lat : DEV_DEFAULT_COORDS.lat;
         const finalLng = coords ? coords.lng : DEV_DEFAULT_COORDS.lng;
-        const locationName = resolvedAddress
-          ? resolvedAddress
-          : coords
-          ? `Near ${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}`
-          : 'Approximate Location (GPS Pending)';
+        const finalLocationName = locationText.trim() || resolvedAddress || 'Quezon City';
 
         // 2. Insert SOS report into PostgreSQL with atomic server timestamp
-        const { error: insertError } = await supabase.from('sos_reports').insert({
+        let insertPayload: Record<string, unknown> = {
           short_id: shortId,
           reporter_id: user.id,
           animal_type: animal,
@@ -351,8 +350,33 @@ export default function SOSCameraPage() {
           photo_url: publicUrl,
           latitude: finalLat,
           longitude: finalLng,
-          location_name: locationName,
-        });
+          location_name: finalLocationName,
+        };
+
+        if (description.trim()) {
+          insertPayload.description = description.trim();
+        }
+
+        let { error: insertError } = await supabase.from('sos_reports').insert(insertPayload);
+
+        // Fallback if description column has not been added to schema yet: combine into location_name
+        if (insertError && (insertError.code === '42703' || insertError.message?.includes('description'))) {
+          insertPayload = {
+            short_id: shortId,
+            reporter_id: user.id,
+            animal_type: animal,
+            emergency_type: emergency,
+            urgency: selectedTier.urgency,
+            photo_url: publicUrl,
+            latitude: finalLat,
+            longitude: finalLng,
+            location_name: description.trim()
+              ? `${finalLocationName} — ${description.trim()}`
+              : finalLocationName,
+          };
+          const retryRes = await supabase.from('sos_reports').insert(insertPayload);
+          insertError = retryRes.error;
+        }
 
         if (insertError) {
           throw new Error(`Database submission failed: ${insertError.message}`);
@@ -380,7 +404,7 @@ export default function SOSCameraPage() {
         setDispatchStep('review');
       }
     },
-    [coords, animal, emergency, resolvedAddress, setDispatchStep]
+    [coords, animal, emergency, resolvedAddress, locationText, description, setDispatchStep]
   );
 
   // 5. Handle Shutter Button Press (Snaps evidence & shows Confirmation / Review option)
@@ -567,6 +591,39 @@ export default function SOSCameraPage() {
                   </button>
                 ))}
               </div>
+            </div>
+
+            {/* 3. Actual Street Location */}
+            <div className="space-y-1">
+              <label htmlFor="review-location-input" className="text-[12px] font-semibold text-fg-muted">
+                3. Location / Street Address
+              </label>
+              <div className="relative">
+                <input
+                  id="review-location-input"
+                  type="text"
+                  value={locationText}
+                  onChange={(e) => setLocationText(e.target.value)}
+                  placeholder="e.g., Aurora Blvd near J. Ruiz, San Juan"
+                  className="w-full min-h-[42px] px-3.5 pl-9 text-[13px] bg-surface text-fg rounded-xl border border-border outline-none focus:ring-2 focus:ring-action"
+                />
+                <MapPin className="w-4 h-4 text-fg-muted absolute left-3 top-3" aria-hidden="true" />
+              </div>
+            </div>
+
+            {/* 4. Scene Description & Landmark */}
+            <div className="space-y-1">
+              <label htmlFor="review-description-input" className="text-[12px] font-semibold text-fg-muted">
+                4. Scene Landmark & Notes (e.g., front of red car)
+              </label>
+              <textarea
+                id="review-description-input"
+                rows={2}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="e.g., In front of red car, lying under mango tree, bleeding on left paw..."
+                className="w-full p-3 text-[13px] bg-surface text-fg rounded-xl border border-border outline-none focus:ring-2 focus:ring-action resize-none placeholder:text-fg-muted/60"
+              />
             </div>
           </div>
         </div>
