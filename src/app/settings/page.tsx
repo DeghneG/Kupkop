@@ -5,34 +5,16 @@ import { User, Sun, Moon, Laptop, ShieldAlert, LogOut, LogIn, Info } from 'lucid
 import { createClient } from '@/lib/supabase/client';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 import AuthModal from '@/components/AuthModal';
-
-type ThemeMode = 'system' | 'light' | 'dark';
-type MockRole = 'citizen' | 'volunteer' | 'facility' | 'admin';
+import { useThemeMode, useMockRole, MockRole } from '@/lib/storage';
 
 export default function SettingsPage() {
-  const [themeMode, setThemeMode] = useState<ThemeMode>('system');
+  const [themeMode, handleThemeChange] = useThemeMode();
   const [user, setUser] = useState<SupabaseUser | null>(null);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
-  const [mockRole, setMockRole] = useState<MockRole>('citizen');
+  const [mockRole, handleRoleChange] = useMockRole();
 
-  // Read initial theme, auth state, and mock role on mount
+  // Listen to Supabase auth state changes
   useEffect(() => {
-    try {
-      const storedTheme = localStorage.getItem('kupkop-theme');
-      if (storedTheme === 'dark' || storedTheme === 'light') {
-        setThemeMode(storedTheme);
-      } else {
-        setThemeMode('system');
-      }
-
-      const storedRole = localStorage.getItem('kupkop-mock-role') as MockRole | null;
-      if (storedRole && ['citizen', 'volunteer', 'facility', 'admin'].includes(storedRole)) {
-        setMockRole(storedRole);
-      }
-    } catch {
-      setThemeMode('system');
-    }
-
     const supabase = createClient();
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
@@ -46,45 +28,6 @@ export default function SettingsPage() {
 
     return () => subscription.unsubscribe();
   }, []);
-
-  const handleThemeChange = (mode: ThemeMode) => {
-    setThemeMode(mode);
-
-    try {
-      let isDark = false;
-      if (mode === 'dark') {
-        isDark = true;
-        localStorage.setItem('kupkop-theme', 'dark');
-      } else if (mode === 'light') {
-        isDark = false;
-        localStorage.setItem('kupkop-theme', 'light');
-      } else {
-        localStorage.setItem('kupkop-theme', 'system');
-        isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      }
-
-      if (isDark) {
-        document.documentElement.classList.add('dark');
-        document.documentElement.setAttribute('data-theme', 'dark');
-        document.documentElement.style.colorScheme = 'dark';
-      } else {
-        document.documentElement.classList.remove('dark');
-        document.documentElement.setAttribute('data-theme', 'light');
-        document.documentElement.style.colorScheme = 'light';
-      }
-    } catch (err) {
-      console.warn('Could not save theme preference to localStorage', err);
-    }
-  };
-
-  const handleRoleChange = (role: MockRole) => {
-    setMockRole(role);
-    try {
-      localStorage.setItem('kupkop-mock-role', role);
-    } catch (err) {
-      console.warn('Could not save mock role to localStorage', err);
-    }
-  };
 
   const handleSignOut = async () => {
     const supabase = createClient();

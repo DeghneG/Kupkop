@@ -12,14 +12,15 @@
 ### Doing (Max 2 cards)
 - [ ] Configure Supabase project (Auth with email + Google, storage buckets: `live-snaps`, `bills`, private `plate photos`).
   - *Done when:* Supabase client connects and authenticated session round-trip passes.
-- [ ] Configure Gemini API integration scaffold (`/api/chat` with rate limit and spend cap guardrails).
-  - *Done when:* Test POST to `/api/chat` returns a calm, warm Rafa response.
 
 ### To Do (Phase 0 - Setup)
-- [ ] Configure GSAP and `@gsap/react` motion setup with `prefers-reduced-motion` helper.
-  - *Done when:* Sample transition respects reduced-motion toggle.
+*(All Phase 0 setup tasks in progress or completed)*
 
 ### Done
+- [x] Configure Gemini API integration scaffold (`/api/chat` with rate limit and spend cap guardrails).
+  - *Result:* Created `src/lib/gemini/rafa.ts` and `/api/chat` route with 10 req/min rate limiter, 500-char message cap, 350 max tokens, bilingual system prompt, graceful local mock fallback, and connected `src/app/rafa/page.tsx`. Verified via test POST.
+- [x] Configure GSAP and `@gsap/react` motion setup with `prefers-reduced-motion` helper.
+  - *Result:* `safeAnimate` helper in `src/lib/motion/gsap.ts` and GSAP sheet transitions in `DetailSheet` and `AuthModal` respecting `prefers-reduced-motion: reduce`.
 - [x] Setup initial database schema & RLS policies for `profiles`, `facilities`, `sos_reports`, `recovery_updates`.
   - *Result:* Live Postgres migration applied in Supabase. Anonymous reads verified on `facilities`, anonymous writes blocked with 401 on `sos_reports`, and role modification strictly locked by RLS.
 - [x] Initialize repository structure and development toolchain (Next.js, Tailwind, Supabase integration).

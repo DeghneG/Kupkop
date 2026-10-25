@@ -5,9 +5,12 @@ import Link from 'next/link';
 import { Camera, MapPin, Clock, ArrowLeft } from 'lucide-react';
 import ThemeToggle from '@/components/ThemeToggle';
 
+type AnimalType = 'dog' | 'cat' | 'other';
+type UrgencyType = 'hit_and_run' | 'fracture' | 'sick_mange';
+
 export default function SOSCameraPage() {
-  const [animal, setAnimal] = useState<'dog' | 'cat' | 'other'>('dog');
-  const [urgency, setUrgency] = useState<'hit_and_run' | 'fracture' | 'sick_mange'>('hit_and_run');
+  const [animal, setAnimal] = useState<AnimalType>('dog');
+  const [urgency, setUrgency] = useState<UrgencyType>('hit_and_run');
   const [shutterFlashing, setShutterFlashing] = useState(false);
   const [captured, setCaptured] = useState(false);
 
@@ -101,15 +104,17 @@ export default function SOSCameraPage() {
 
         {/* Urgency Selection */}
         <div className="grid grid-cols-3 gap-2">
-          {[
-            { id: 'hit_and_run', label: 'Hit & run' },
-            { id: 'fracture', label: 'Fracture' },
-            { id: 'sick_mange', label: 'Sick / mange' },
-          ].map((item) => (
+          {(
+            [
+              { id: 'hit_and_run', label: 'Hit & run' },
+              { id: 'fracture', label: 'Fracture' },
+              { id: 'sick_mange', label: 'Sick / mange' },
+            ] as const
+          ).map((item) => (
             <button
               key={item.id}
               type="button"
-              onClick={() => setUrgency(item.id as any)}
+              onClick={() => setUrgency(item.id)}
               className={`min-h-[44px] rounded-[14px] text-[12px] font-semibold transition-all border cursor-pointer ${
                 urgency === item.id
                   ? 'bg-fg text-surface border-fg shadow-sm'

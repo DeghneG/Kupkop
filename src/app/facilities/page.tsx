@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Building2, Phone, Clock, MapPin } from 'lucide-react';
+import { ArrowLeft, Phone, Clock, MapPin } from 'lucide-react';
 
 interface FacilityItem {
   id: string;

@@ -1,14 +1,12 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
 import { X, User, Sun, Moon, Laptop, ShieldAlert, LogOut, LogIn } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
-
-type ThemeMode = 'system' | 'light' | 'dark';
-type MockRole = 'citizen' | 'volunteer' | 'facility' | 'admin';
+import { useThemeMode, MockRole } from '@/lib/storage';
 
 interface ProfileSheetProps {
   isOpen: boolean;
@@ -32,22 +30,11 @@ export default function ProfileSheet({
   const sheetRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
 
-  const [themeMode, setThemeMode] = useState<ThemeMode>('system');
+  const [themeMode, handleThemeChange] = useThemeMode();
   const [user, setUser] = useState<SupabaseUser | null>(null);
 
-  // Read initial theme and auth on mount
+  // Read auth on mount
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem('kupkop-theme');
-      if (stored === 'dark' || stored === 'light') {
-        setThemeMode(stored);
-      } else {
-        setThemeMode('system');
-      }
-    } catch {
-      setThemeMode('system');
-    }
-
     const supabase = createClient();
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
@@ -62,6 +49,38 @@ export default function ProfileSheet({
     return () => subscription.unsubscribe();
   }, []);
 
+  // Animate out and return focus to trigger element
+  const handleClose = useCallback(() => {
+    if (!sheetRef.current || !backdropRef.current) {
+      onClose();
+      triggerElement?.focus();
+      return;
+    }
+
+    const isReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (isReduced) {
+      onClose();
+      triggerElement?.focus();
+      return;
+    }
+
+    gsap.to(backdropRef.current, {
+      opacity: 0,
+      duration: 0.2,
+      ease: 'power2.in',
+    });
+
+    gsap.to(sheetRef.current, {
+      y: '100%',
+      duration: 0.25,
+      ease: 'power3.in',
+      onComplete: () => {
+        onClose();
+        triggerElement?.focus();
+      },
+    });
+  }, [onClose, triggerElement]);
+
   // Handle escape key
   useEffect(() => {
     if (!isOpen) return;
@@ -73,7 +92,7 @@ export default function ProfileSheet({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen]);
+  }, [isOpen, handleClose]);
 
   // Animate in using GSAP with prefers-reduced-motion check
   useGSAP(
@@ -107,69 +126,6 @@ export default function ProfileSheet({
     },
     { dependencies: [isOpen], scope: containerRef }
   );
-
-  // Animate out and return focus to trigger element
-  const handleClose = () => {
-    if (!sheetRef.current || !backdropRef.current) {
-      onClose();
-      triggerElement?.focus();
-      return;
-    }
-
-    const isReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (isReduced) {
-      onClose();
-      triggerElement?.focus();
-      return;
-    }
-
-    gsap.to(backdropRef.current, {
-      opacity: 0,
-      duration: 0.2,
-      ease: 'power2.in',
-    });
-
-    gsap.to(sheetRef.current, {
-      y: '100%',
-      duration: 0.25,
-      ease: 'power3.in',
-      onComplete: () => {
-        onClose();
-        triggerElement?.focus();
-      },
-    });
-  };
-
-  const handleThemeChange = (mode: ThemeMode) => {
-    setThemeMode(mode);
-
-    try {
-      let isDark = false;
-      if (mode === 'dark') {
-        isDark = true;
-        localStorage.setItem('kupkop-theme', 'dark');
-      } else if (mode === 'light') {
-        isDark = false;
-        localStorage.setItem('kupkop-theme', 'light');
-      } else {
-        // System preference
-        localStorage.setItem('kupkop-theme', 'system');
-        isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      }
-
-      if (isDark) {
-        document.documentElement.classList.add('dark');
-        document.documentElement.setAttribute('data-theme', 'dark');
-        document.documentElement.style.colorScheme = 'dark';
-      } else {
-        document.documentElement.classList.remove('dark');
-        document.documentElement.setAttribute('data-theme', 'light');
-        document.documentElement.style.colorScheme = 'light';
-      }
-    } catch (err) {
-      console.warn('Could not save theme preference to localStorage', err);
-    }
-  };
 
   const handleSignOut = async () => {
     const supabase = createClient();

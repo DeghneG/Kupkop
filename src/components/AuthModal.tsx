@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
 import { createClient } from '@/lib/supabase/client';
@@ -23,13 +23,43 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const sheetRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
 
-  // Reset internal states when opened
-  useEffect(() => {
+  // Reset internal states when opened (render-phase adjustment without cascading effect)
+  const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
+  if (isOpen !== prevIsOpen) {
+    setPrevIsOpen(isOpen);
     if (isOpen) {
       setSent(false);
       setErrorMsg(null);
     }
-  }, [isOpen]);
+  }
+
+  // GSAP animated exit
+  const handleClose = useCallback(() => {
+    if (!sheetRef.current || !backdropRef.current) {
+      onClose();
+      return;
+    }
+
+    const isReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (isReduced) {
+      onClose();
+      return;
+    }
+
+    gsap.to(backdropRef.current, {
+      opacity: 0,
+      duration: 0.18,
+      ease: 'power2.in',
+    });
+
+    gsap.to(sheetRef.current, {
+      y: '100%',
+      opacity: 0.5,
+      duration: 0.24,
+      ease: 'power3.in',
+      onComplete: onClose,
+    });
+  }, [onClose]);
 
   // Escape key listener
   useEffect(() => {
@@ -42,7 +72,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen]);
+  }, [isOpen, handleClose]);
 
   // GSAP animated entrance respecting prefers-reduced-motion
   useGSAP(
@@ -75,34 +105,6 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
     },
     { dependencies: [isOpen], scope: containerRef }
   );
-
-  // GSAP animated exit
-  const handleClose = () => {
-    if (!sheetRef.current || !backdropRef.current) {
-      onClose();
-      return;
-    }
-
-    const isReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (isReduced) {
-      onClose();
-      return;
-    }
-
-    gsap.to(backdropRef.current, {
-      opacity: 0,
-      duration: 0.18,
-      ease: 'power2.in',
-    });
-
-    gsap.to(sheetRef.current, {
-      y: '100%',
-      opacity: 0.5,
-      duration: 0.24,
-      ease: 'power3.in',
-      onComplete: onClose,
-    });
-  };
 
   if (!isOpen) return null;
 

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
 import {
@@ -40,11 +40,45 @@ export default function DetailSheet({
   const [isPhotoRevealed, setIsPhotoRevealed] = useState(false);
   const [callNotice, setCallNotice] = useState<string | null>(null);
 
-  // Reset photo reveal when incident changes
-  useEffect(() => {
+  // Reset photo reveal and notice when incident changes (render-phase adjustment without cascading effect)
+  const [prevIncidentId, setPrevIncidentId] = useState(incident?.id);
+  if (incident?.id !== prevIncidentId) {
+    setPrevIncidentId(incident?.id);
     setIsPhotoRevealed(false);
     setCallNotice(null);
-  }, [incident?.id]);
+  }
+
+  // Animate out and return focus to trigger element
+  const handleClose = useCallback(() => {
+    if (!sheetRef.current || !backdropRef.current) {
+      onClose();
+      triggerElement?.focus();
+      return;
+    }
+
+    const isReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (isReduced) {
+      onClose();
+      triggerElement?.focus();
+      return;
+    }
+
+    gsap.to(backdropRef.current, {
+      opacity: 0,
+      duration: 0.2,
+      ease: 'power2.in',
+    });
+
+    gsap.to(sheetRef.current, {
+      y: '100%',
+      duration: 0.25,
+      ease: 'power3.in',
+      onComplete: () => {
+        onClose();
+        triggerElement?.focus();
+      },
+    });
+  }, [onClose, triggerElement]);
 
   // Handle escape key
   useEffect(() => {
@@ -57,7 +91,7 @@ export default function DetailSheet({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [incident]);
+  }, [incident, handleClose]);
 
   // Animate in using GSAP with prefers-reduced-motion check
   useGSAP(
@@ -91,38 +125,6 @@ export default function DetailSheet({
     },
     { dependencies: [incident], scope: containerRef }
   );
-
-  // Animate out and return focus to trigger element
-  const handleClose = () => {
-    if (!sheetRef.current || !backdropRef.current) {
-      onClose();
-      triggerElement?.focus();
-      return;
-    }
-
-    const isReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (isReduced) {
-      onClose();
-      triggerElement?.focus();
-      return;
-    }
-
-    gsap.to(backdropRef.current, {
-      opacity: 0,
-      duration: 0.2,
-      ease: 'power2.in',
-    });
-
-    gsap.to(sheetRef.current, {
-      y: '100%',
-      duration: 0.25,
-      ease: 'power3.in',
-      onComplete: () => {
-        onClose();
-        triggerElement?.focus();
-      },
-    });
-  };
 
   if (!incident) return null;
 

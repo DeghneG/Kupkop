@@ -1,13 +1,12 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { Camera } from 'lucide-react';
 import { ListRow, EmptyIncidentsState, IncidentData } from '@/components/ListRow';
 import DetailSheet from '@/components/DetailSheet';
 import ThemeToggle from '@/components/ThemeToggle';
-
-type MockRole = 'citizen' | 'volunteer' | 'facility' | 'admin';
+import { useMockRole } from '@/lib/storage';
 
 const initialEmergencies: IncidentData[] = [
   {
@@ -56,19 +55,7 @@ export default function HomePage() {
   const [emergencies] = useState<IncidentData[]>(initialEmergencies);
   const [selectedIncident, setSelectedIncident] = useState<IncidentData | null>(null);
   const [activeTriggerEl, setActiveTriggerEl] = useState<HTMLElement | null>(null);
-  const [mockRole, setMockRole] = useState<MockRole>('citizen');
-
-  // Sync mock role from prototype settings if saved
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem('kupkop-mock-role') as MockRole | null;
-      if (stored && ['citizen', 'volunteer', 'facility', 'admin'].includes(stored)) {
-        setMockRole(stored);
-      }
-    } catch {
-      // Default to citizen
-    }
-  }, []);
+  const [mockRole] = useMockRole();
 
   const handleRowClick = (incident: IncidentData, e?: React.MouseEvent<HTMLElement>) => {
     if (e) {
