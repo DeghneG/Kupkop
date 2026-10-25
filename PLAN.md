@@ -10,13 +10,15 @@
 ## Kanban Board
 
 ### Doing (Max 2 cards)
-- [ ] Configure Supabase project (Auth with email + Google, storage buckets: `live-snaps`, `bills`, private `plate photos`).
-  - *Done when:* Supabase client connects and authenticated session round-trip passes.
+- [ ] Phase 1: Live SOS camera capture and GPS dispatch flow.
+  - *Done when:* Real report from a phone lands in the database with server timestamp, compressed live camera photo, and valid GPS.
 
 ### To Do (Phase 0 - Setup)
-*(All Phase 0 setup tasks in progress or completed)*
+*(All Phase 0 setup tasks completed)*
 
 ### Done
+- [x] Configure Supabase project (Auth with email + Google, storage buckets: `live-snaps`, `bills`, private `plate-photos`).
+  - *Result:* Live Postgres migration applied successfully. Tables (`profiles`, `facilities`, `sos_reports`, `recovery_updates`), RLS policies, trigger `on_auth_user_created`, and storage buckets (`live-snaps` public, `bills` & `plate-photos` private) verified via automated client tests.
 - [x] Configure Gemini API integration scaffold (`/api/chat` with rate limit and spend cap guardrails).
   - *Result:* Created `src/lib/gemini/rafa.ts` and `/api/chat` route with 10 req/min rate limiter, 500-char message cap, 350 max tokens, bilingual system prompt, graceful local mock fallback, and connected `src/app/rafa/page.tsx`. Verified via test POST.
 - [x] Configure GSAP and `@gsap/react` motion setup with `prefers-reduced-motion` helper.

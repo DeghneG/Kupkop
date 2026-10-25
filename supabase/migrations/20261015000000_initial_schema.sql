@@ -5,14 +5,28 @@
 -- RLS: Strict role protection (users cannot modify profiles.role)
 -- ==============================================================================
 
--- 1. Custom Types
-CREATE TYPE user_role AS ENUM ('citizen', 'volunteer', 'facility', 'admin');
-CREATE TYPE case_state AS ENUM ('reported', 'claimed', 'admitted', 'healing', 'resolved');
-CREATE TYPE emergency_urgency AS ENUM ('critical', 'urgent', 'moderate');
-CREATE TYPE emergency_type AS ENUM ('hit_and_run', 'bleeding', 'fracture', 'trapped_abused', 'sick_mange', 'other');
+-- 1. Custom Types (Idempotent creation via DO block)
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'user_role') THEN
+    CREATE TYPE user_role AS ENUM ('citizen', 'volunteer', 'facility', 'admin');
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'case_state') THEN
+    CREATE TYPE case_state AS ENUM ('reported', 'claimed', 'admitted', 'healing', 'resolved');
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'emergency_urgency') THEN
+    CREATE TYPE emergency_urgency AS ENUM ('critical', 'urgent', 'moderate');
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'emergency_type') THEN
+    CREATE TYPE emergency_type AS ENUM ('hit_and_run', 'bleeding', 'fracture', 'trapped_abused', 'sick_mange', 'other');
+  END IF;
+END $$;
 
 -- 2. Profiles Table (linked to Supabase auth.users)
-CREATE TABLE public.profiles (
+CREATE TABLE IF NOT EXISTS public.profiles (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   email TEXT NOT NULL,
   full_name TEXT,
@@ -24,7 +38,7 @@ CREATE TABLE public.profiles (
 );
 
 -- 3. Facilities Table (Listed clinics/shelters with 14-day inactivity clock)
-CREATE TABLE public.facilities (
+CREATE TABLE IF NOT EXISTS public.facilities (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
   address TEXT NOT NULL,
@@ -37,7 +51,7 @@ CREATE TABLE public.facilities (
 );
 
 -- 4. SOS Reports Table (Live camera emergencies with server-side timestamps)
-CREATE TABLE public.sos_reports (
+CREATE TABLE IF NOT EXISTS public.sos_reports (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   short_id TEXT NOT NULL UNIQUE, -- e.g. KK-4821
   reporter_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE RESTRICT,
@@ -58,7 +72,7 @@ CREATE TABLE public.sos_reports (
 );
 
 -- 5. Recovery Updates Table
-CREATE TABLE public.recovery_updates (
+CREATE TABLE IF NOT EXISTS public.recovery_updates (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   report_id UUID NOT NULL REFERENCES public.sos_reports(id) ON DELETE CASCADE,
   author_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE RESTRICT,
@@ -84,7 +98,8 @@ BEGIN
     NEW.email,
     COALESCE(NEW.raw_user_meta_data->>'full_name', ''),
     'citizen' -- Strictly hardcoded default, users can never self-assign roles
-  );
+  )
+  ON CONFLICT (id) DO NOTHING;
   RETURN NEW;
 END;
 $$;
@@ -117,19 +132,19 @@ AS $$
 $$;
 
 -- PROFILES POLICIES
--- Anyone authenticated can view profiles (to see responder names / reporters)
+DROP POLICY IF EXISTS "Profiles are viewable by authenticated users" ON public.profiles;
 CREATE POLICY "Profiles are viewable by authenticated users"
   ON public.profiles FOR SELECT
   TO authenticated
   USING (true);
 
--- Public can view basic profile info (e.g. for reported case feed)
+DROP POLICY IF EXISTS "Profiles basic viewable by anon" ON public.profiles;
 CREATE POLICY "Profiles basic viewable by anon"
   ON public.profiles FOR SELECT
   TO anon
   USING (true);
 
--- Users can update their own profile EXCEPT the role column (privilege escalation prevention)
+DROP POLICY IF EXISTS "Users can update own profile except role" ON public.profiles;
 CREATE POLICY "Users can update own profile except role"
   ON public.profiles FOR UPDATE
   TO authenticated
@@ -139,7 +154,7 @@ CREATE POLICY "Users can update own profile except role"
     AND role = (SELECT p.role FROM public.profiles p WHERE p.id = (SELECT auth.uid()))
   );
 
--- Admins can update any profile (e.g. approving volunteer or facility applications)
+DROP POLICY IF EXISTS "Admins can update any profile" ON public.profiles;
 CREATE POLICY "Admins can update any profile"
   ON public.profiles FOR UPDATE
   TO authenticated
@@ -147,13 +162,13 @@ CREATE POLICY "Admins can update any profile"
   WITH CHECK (public.is_admin());
 
 -- FACILITIES POLICIES
--- Anyone can view listed facilities
+DROP POLICY IF EXISTS "Facilities are viewable by everyone" ON public.facilities;
 CREATE POLICY "Facilities are viewable by everyone"
   ON public.facilities FOR SELECT
   TO anon, authenticated
   USING (true);
 
--- Only admins or the facility itself can update facility details
+DROP POLICY IF EXISTS "Admins can insert or modify facilities" ON public.facilities;
 CREATE POLICY "Admins can insert or modify facilities"
   ON public.facilities FOR ALL
   TO authenticated
@@ -161,19 +176,19 @@ CREATE POLICY "Admins can insert or modify facilities"
   WITH CHECK (public.is_admin());
 
 -- SOS REPORTS POLICIES
--- Anyone can view incident reports on the public feed
+DROP POLICY IF EXISTS "SOS reports are viewable by everyone" ON public.sos_reports;
 CREATE POLICY "SOS reports are viewable by everyone"
   ON public.sos_reports FOR SELECT
   TO anon, authenticated
   USING (true);
 
--- Authenticated users can insert emergency reports
+DROP POLICY IF EXISTS "Authenticated users can submit SOS reports" ON public.sos_reports;
 CREATE POLICY "Authenticated users can submit SOS reports"
   ON public.sos_reports FOR INSERT
   TO authenticated
   WITH CHECK ((SELECT auth.uid()) = reporter_id);
 
--- Reporters, assigned volunteers, and admins can update report status
+DROP POLICY IF EXISTS "Authorized users can update reports" ON public.sos_reports;
 CREATE POLICY "Authorized users can update reports"
   ON public.sos_reports FOR UPDATE
   TO authenticated
@@ -189,11 +204,13 @@ CREATE POLICY "Authorized users can update reports"
   );
 
 -- RECOVERY UPDATES POLICIES
+DROP POLICY IF EXISTS "Recovery updates viewable by everyone" ON public.recovery_updates;
 CREATE POLICY "Recovery updates viewable by everyone"
   ON public.recovery_updates FOR SELECT
   TO anon, authenticated
   USING (true);
 
+DROP POLICY IF EXISTS "Authenticated responders can insert updates" ON public.recovery_updates;
 CREATE POLICY "Authenticated responders can insert updates"
   ON public.recovery_updates FOR INSERT
   TO authenticated
@@ -213,22 +230,26 @@ VALUES
 ON CONFLICT (id) DO NOTHING;
 
 -- Storage RLS
+DROP POLICY IF EXISTS "Public live-snaps images are viewable by everyone" ON storage.objects;
 CREATE POLICY "Public live-snaps images are viewable by everyone"
   ON storage.objects FOR SELECT
   TO anon, authenticated
   USING (bucket_id = 'live-snaps');
 
+DROP POLICY IF EXISTS "Authenticated users can upload live-snaps" ON storage.objects;
 CREATE POLICY "Authenticated users can upload live-snaps"
   ON storage.objects FOR INSERT
   TO authenticated
   WITH CHECK (bucket_id = 'live-snaps');
 
+DROP POLICY IF EXISTS "Authenticated users can view and upload bills" ON storage.objects;
 CREATE POLICY "Authenticated users can view and upload bills"
   ON storage.objects FOR ALL
   TO authenticated
   USING (bucket_id = 'bills')
   WITH CHECK (bucket_id = 'bills');
 
+DROP POLICY IF EXISTS "Private plate photos viewable by reporter or admin" ON storage.objects;
 CREATE POLICY "Private plate photos viewable by reporter or admin"
   ON storage.objects FOR SELECT
   TO authenticated
@@ -240,6 +261,7 @@ CREATE POLICY "Private plate photos viewable by reporter or admin"
     )
   );
 
+DROP POLICY IF EXISTS "Authenticated users can upload private plate photos" ON storage.objects;
 CREATE POLICY "Authenticated users can upload private plate photos"
   ON storage.objects FOR INSERT
   TO authenticated
