@@ -94,8 +94,10 @@ export default function SOSCameraPage() {
     }
   }, [mediaStream, dispatchStep]);
 
-  // GPS states (Seamless default for dev without blocking)
-  const [coords, setCoords] = useState<{ lat: number; lng: number; accuracy: number }>(DEV_DEFAULT_COORDS);
+  // GPS states (real-time accurate location tracking)
+  const [coords, setCoords] = useState<{ lat: number; lng: number; accuracy: number } | null>(null);
+  const [resolvedAddress, setResolvedAddress] = useState<string>('');
+  const [gpsStatus, setGpsStatus] = useState<'acquiring' | 'locked' | 'denied' | 'unsupported'>('acquiring');
 
   // Staged capture for post-auth continuation
   const [stagedBlob, setStagedBlob] = useState<Blob | null>(null);
@@ -204,27 +206,72 @@ export default function SOSCameraPage() {
     setCameraError(null);
   };
 
-  // 3. Initialize GPS (silent background check, keeps default coords without erroring)
+  // 3. Initialize GPS with progressive accuracy (High accuracy first, network fallback, and continuous watch)
   const requestLocation = useCallback(() => {
-    if (!navigator.geolocation) return;
+    if (typeof window === 'undefined' || !navigator.geolocation) {
+      setGpsStatus('unsupported');
+      return;
+    }
 
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setCoords({
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-          accuracy: Math.round(position.coords.accuracy),
-        });
-      },
-      () => {
-        // Silent fallback to DEV_DEFAULT_COORDS without warning banner
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 6000,
-        maximumAge: 60000,
+    setGpsStatus('acquiring');
+
+    const handleSuccess = async (position: GeolocationPosition) => {
+      const lat = position.coords.latitude;
+      const lng = position.coords.longitude;
+      const acc = Math.round(position.coords.accuracy);
+
+      setCoords({ lat, lng, accuracy: acc });
+      setGpsStatus('locked');
+
+      // Reverse geocode to get human-readable street / district
+      try {
+        const res = await fetch(`/api/geocode/reverse?lat=${lat}&lng=${lng}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.formatted) {
+            setResolvedAddress(data.formatted);
+          }
+        }
+      } catch {
+        // Fallback silently if geocoding fails
       }
+    };
+
+    // First attempt: High accuracy GPS
+    navigator.geolocation.getCurrentPosition(
+      handleSuccess,
+      (err) => {
+        if (err.code === err.PERMISSION_DENIED) {
+          setGpsStatus('denied');
+        } else {
+          // If high accuracy times out (common on desktop/laptop WiFi), fallback to standard accuracy
+          navigator.geolocation.getCurrentPosition(
+            handleSuccess,
+            (fallbackErr) => {
+              if (fallbackErr.code === fallbackErr.PERMISSION_DENIED) {
+                setGpsStatus('denied');
+              } else {
+                setGpsStatus('denied');
+              }
+            },
+            { enableHighAccuracy: false, timeout: 10000, maximumAge: 0 }
+          );
+        }
+      },
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
     );
+
+    // Watch position for live movements and refined accuracy
+    try {
+      const watchId = navigator.geolocation.watchPosition(
+        handleSuccess,
+        () => {},
+        { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
+      );
+      return () => navigator.geolocation.clearWatch(watchId);
+    } catch {
+      // ignore watch registration failure
+    }
   }, []);
 
   useEffect(() => {
@@ -285,12 +332,14 @@ export default function SOSCameraPage() {
           data: { publicUrl },
         } = supabase.storage.from('live-snaps').getPublicUrl(filename);
 
-        // Fallback GPS coordinates if device location is unavailable (Manila center default)
-        const finalLat = coords ? coords.lat : 14.5995;
-        const finalLng = coords ? coords.lng : 120.9842;
-        const locationName = coords
+        // Real accurate GPS coordinates (fallback only if completely blocked by user)
+        const finalLat = coords ? coords.lat : DEV_DEFAULT_COORDS.lat;
+        const finalLng = coords ? coords.lng : DEV_DEFAULT_COORDS.lng;
+        const locationName = resolvedAddress
+          ? resolvedAddress
+          : coords
           ? `Near ${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}`
-          : 'Manila (GPS approximate)';
+          : 'Approximate Location (GPS Pending)';
 
         // 2. Insert SOS report into PostgreSQL with atomic server timestamp
         const { error: insertError } = await supabase.from('sos_reports').insert({
@@ -331,7 +380,7 @@ export default function SOSCameraPage() {
         setDispatchStep('review');
       }
     },
-    [coords, animal, emergency, setDispatchStep]
+    [coords, animal, emergency, resolvedAddress, setDispatchStep]
   );
 
   // 5. Handle Shutter Button Press (Snaps evidence & shows Confirmation / Review option)
@@ -427,15 +476,45 @@ export default function SOSCameraPage() {
             />
             {/* Overlay Badges */}
             <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between gap-2 text-[11px] font-mono text-white pointer-events-none">
-              <span className="bg-black/65 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/20 flex items-center gap-1">
+              <span className="bg-black/65 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/20 flex items-center gap-1.5">
                 <MapPin className="w-3 h-3 text-accent shrink-0" />
-                {coords ? `${coords.lat.toFixed(3)}°, ${coords.lng.toFixed(3)}°` : 'QC Default'}
+                {coords ? (
+                  <span>
+                    {coords.lat.toFixed(4)}°, {coords.lng.toFixed(4)}° (±{coords.accuracy}m)
+                  </span>
+                ) : (
+                  <span>Acquiring GPS...</span>
+                )}
               </span>
               <span className="bg-black/65 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/20 flex items-center gap-1">
                 <Clock className="w-3 h-3 text-zinc-400 shrink-0" />
                 {currentTime}
               </span>
             </div>
+          </div>
+
+          {/* Location Verification Banner */}
+          <div className="p-3 bg-surface-muted border-t border-border flex items-center justify-between gap-3 text-[12px]">
+            <div className="flex items-center gap-2 truncate">
+              <MapPin className="w-4 h-4 text-accent shrink-0" aria-hidden="true" />
+              <div className="truncate">
+                <p className="font-semibold text-fg truncate">
+                  {resolvedAddress || (coords ? `${coords.lat.toFixed(4)}°, ${coords.lng.toFixed(4)}°` : 'Acquiring device GPS...')}
+                </p>
+                {coords && (
+                  <p className="text-[11px] text-fg-muted font-mono">
+                    Accurate to within {coords.accuracy} meters
+                  </p>
+                )}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={requestLocation}
+              className="text-[11px] font-semibold text-link underline shrink-0 cursor-pointer"
+            >
+              Update GPS
+            </button>
           </div>
 
           <div className="p-3.5 space-y-3">
@@ -725,13 +804,31 @@ export default function SOSCameraPage() {
 
         {/* Viewfinder Header Badges */}
         <div className="relative z-10 w-full flex items-center justify-between p-3 gap-2">
-          {/* Seamless GPS Badge */}
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-mono bg-black/60 text-white border border-white/20 backdrop-blur-md shadow-sm">
-            <MapPin className="w-3.5 h-3.5 shrink-0 text-accent" aria-hidden="true" />
-            <span className="truncate max-w-[170px]">
-              {coords ? `${coords.lat.toFixed(3)}°, ${coords.lng.toFixed(3)}°` : 'Quezon City (Dev)'}
-            </span>
-          </div>
+          {/* Real Device GPS Badge */}
+          <button
+            type="button"
+            onClick={requestLocation}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-mono bg-black/60 text-white border border-white/20 backdrop-blur-md shadow-sm cursor-pointer"
+          >
+            {gpsStatus === 'acquiring' ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 shrink-0 text-amber-400 animate-spin" aria-hidden="true" />
+                <span>Acquiring GPS...</span>
+              </>
+            ) : gpsStatus === 'locked' && coords ? (
+              <>
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" aria-hidden="true" />
+                <span className="truncate max-w-[170px]">
+                  {coords.lat.toFixed(4)}°, {coords.lng.toFixed(4)}°
+                </span>
+              </>
+            ) : (
+              <>
+                <MapPin className="w-3.5 h-3.5 shrink-0 text-amber-400" aria-hidden="true" />
+                <span>Tap to allow GPS</span>
+              </>
+            )}
+          </button>
 
           {/* Live Atomic Clock Badge */}
           <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-mono bg-black/60 text-white border border-white/20 backdrop-blur-md shadow-sm">
