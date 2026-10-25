@@ -16,8 +16,11 @@ import {
   Clock,
   Phone,
   HeartHandshake,
+  Navigation,
+  ExternalLink,
 } from 'lucide-react';
 import { IncidentData } from './ListRow';
+import { formatCoordinates } from '@/lib/sos/utils';
 
 interface DetailSheetProps {
   incident: IncidentData | null;
@@ -127,6 +130,10 @@ export default function DetailSheet({
   );
 
   if (!incident) return null;
+
+  const mapLat = incident.latitude ?? 14.6198;
+  const mapLng = incident.longitude ?? 121.0526;
+  const formattedGps = formatCoordinates(mapLat, mapLng);
 
   const handleCallClick = () => {
     setCallNotice('Test mode: calls disabled.');
@@ -327,6 +334,48 @@ export default function DetailSheet({
               <Phone className="w-4 h-4 text-fg-muted" aria-hidden="true" />
               <span>Call</span>
             </button>
+          </div>
+
+          {/* Live Incident Scene Map (Under Call Button) */}
+          <div className="pt-2 space-y-2 border-t border-border">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-[14px] font-semibold text-fg">
+                <MapPin className="w-4 h-4 text-fg-muted" aria-hidden="true" />
+                <span>Live Scene Location</span>
+              </div>
+              <span className="font-mono text-[12px] text-fg-muted tabular-nums">
+                {formattedGps}
+              </span>
+            </div>
+
+            {/* Embedded Interactive Map Card */}
+            <div className="relative w-full h-48 rounded-[16px] overflow-hidden border border-border bg-surface-muted shadow-sm">
+              <iframe
+                title={`Live location map for ${incident.animal}`}
+                src={`https://www.openstreetmap.org/export/embed.html?bbox=${(mapLng - 0.005).toFixed(4)}%2C${(mapLat - 0.0035).toFixed(4)}%2C${(mapLng + 0.005).toFixed(4)}%2C${(mapLat + 0.0035).toFixed(4)}&layer=mapnik&marker=${mapLat}%2C${mapLng}`}
+                className="w-full h-full border-0 select-none"
+                loading="lazy"
+              />
+              {/* GPS status badge */}
+              <div className="absolute top-2.5 left-2.5 pointer-events-none">
+                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[12px] font-medium bg-surface/90 text-fg border border-border shadow-xs backdrop-blur-sm">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" aria-hidden="true" />
+                  <span>GPS Active</span>
+                </span>
+              </div>
+            </div>
+
+            {/* Directions Action */}
+            <a
+              href={`https://www.google.com/maps/search/?api=1&query=${mapLat},${mapLng}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full min-h-[44px] rounded-[14px] border border-border bg-surface hover:bg-surface-muted text-fg font-semibold text-[14px] flex items-center justify-center gap-2 transition-colors cursor-pointer"
+            >
+              <Navigation className="w-4 h-4 text-fg-muted" aria-hidden="true" />
+              <span>Open in Google Maps / Directions</span>
+              <ExternalLink className="w-3.5 h-3.5 text-fg-muted" aria-hidden="true" />
+            </a>
           </div>
         </div>
       </div>

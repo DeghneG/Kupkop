@@ -13,6 +13,8 @@ export interface IncidentData {
   timeAgo: string;
   state: 'reported' | 'claimed' | 'admitted' | 'healing' | 'resolved';
   blurred?: boolean;
+  latitude?: number;
+  longitude?: number;
 }
 
 interface ListRowProps {

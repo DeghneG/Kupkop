@@ -19,6 +19,8 @@ const initialEmergencies: IncidentData[] = [
     distance: '0.8 km',
     timeAgo: '4m ago',
     blurred: true,
+    latitude: 14.6198,
+    longitude: 121.0526,
   },
   {
     id: 'case-2',
@@ -30,6 +32,8 @@ const initialEmergencies: IncidentData[] = [
     distance: '1.4 km',
     timeAgo: '18m ago',
     blurred: true,
+    latitude: 14.6225,
+    longitude: 121.0331,
   },
   {
     id: 'case-3',
@@ -41,6 +45,8 @@ const initialEmergencies: IncidentData[] = [
     distance: '2.1 km',
     timeAgo: '32m ago',
     blurred: true,
+    latitude: 14.6305,
+    longitude: 121.0366,
   },
 ];
 
