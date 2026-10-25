@@ -79,21 +79,23 @@ export default function SOSCameraPage() {
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [shutterFlashing, setShutterFlashing] = useState(false);
 
-  // Bind media stream to video DOM element whenever either updates
-  useEffect(() => {
-    if (videoRef.current && mediaStream) {
-      videoRef.current.srcObject = mediaStream;
-      videoRef.current.play().catch(() => {});
-    }
-  }, [mediaStream]);
-
-  // GPS states (Seamless default for dev without blocking)
-  const [coords, setCoords] = useState<{ lat: number; lng: number; accuracy: number }>(DEV_DEFAULT_COORDS);
-
   // Dispatch lifecycle
   const [dispatchStep, setDispatchStep] = useState<'camera' | 'review' | 'uploading' | 'success'>('camera');
   const [dispatchError, setDispatchError] = useState<string | null>(null);
   const [dispatchedData, setDispatchedData] = useState<DispatchedReport | null>(null);
+
+  // Bind media stream to video DOM element whenever stream or screen view updates
+  useEffect(() => {
+    if (dispatchStep === 'camera' && videoRef.current && mediaStream) {
+      if (videoRef.current.srcObject !== mediaStream) {
+        videoRef.current.srcObject = mediaStream;
+      }
+      videoRef.current.play().catch(() => {});
+    }
+  }, [mediaStream, dispatchStep]);
+
+  // GPS states (Seamless default for dev without blocking)
+  const [coords, setCoords] = useState<{ lat: number; lng: number; accuracy: number }>(DEV_DEFAULT_COORDS);
 
   // Staged capture for post-auth continuation
   const [stagedBlob, setStagedBlob] = useState<Blob | null>(null);
@@ -329,7 +331,7 @@ export default function SOSCameraPage() {
         setDispatchStep('review');
       }
     },
-    [coords, animal, emergency]
+    [coords, animal, emergency, setDispatchStep]
   );
 
   // 5. Handle Shutter Button Press (Snaps evidence & shows Confirmation / Review option)
@@ -366,6 +368,17 @@ export default function SOSCameraPage() {
     setStagedPreview(null);
     setDispatchError(null);
     setDispatchStep('camera');
+
+    // Ensure the stream is alive and video element receives the tracks
+    const tracks = streamRef.current?.getTracks() || [];
+    const isAlive = tracks.length > 0 && tracks.some((t) => t.readyState === 'live');
+
+    if (cameraStatus === 'active' && !isAlive) {
+      startCamera(selectedCameraId);
+    } else if (cameraStatus === 'active' && videoRef.current && streamRef.current) {
+      videoRef.current.srcObject = streamRef.current;
+      videoRef.current.play().catch(() => {});
+    }
   };
 
   // 7. Resume Dispatch after successful auth modal completion
@@ -678,7 +691,13 @@ export default function SOSCameraPage() {
       <div className="relative flex-1 min-h-[290px] rounded-2xl border border-border bg-black overflow-hidden flex flex-col justify-between shadow-sm">
         {/* Real HTML5 Live Video Stream (Always mounted in DOM for ref stability) */}
         <video
-          ref={videoRef}
+          ref={(node) => {
+            videoRef.current = node;
+            if (node && mediaStream && node.srcObject !== mediaStream) {
+              node.srcObject = mediaStream;
+              node.play().catch(() => {});
+            }
+          }}
           playsInline
           autoPlay
           muted
