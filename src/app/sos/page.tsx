@@ -72,15 +72,26 @@ export default function SOSCameraPage() {
   // Camera states
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
+  const [availableCameras, setAvailableCameras] = useState<MediaDeviceInfo[]>([]);
+  const [selectedCameraId, setSelectedCameraId] = useState<string>('');
   const [cameraStatus, setCameraStatus] = useState<'starting' | 'active' | 'simulated' | 'denied' | 'unsupported'>('starting');
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [shutterFlashing, setShutterFlashing] = useState(false);
+
+  // Bind media stream to video DOM element whenever either updates
+  useEffect(() => {
+    if (videoRef.current && mediaStream) {
+      videoRef.current.srcObject = mediaStream;
+      videoRef.current.play().catch(() => {});
+    }
+  }, [mediaStream]);
 
   // GPS states (Seamless default for dev without blocking)
   const [coords, setCoords] = useState<{ lat: number; lng: number; accuracy: number }>(DEV_DEFAULT_COORDS);
 
   // Dispatch lifecycle
-  const [dispatchStep, setDispatchStep] = useState<'camera' | 'uploading' | 'success'>('camera');
+  const [dispatchStep, setDispatchStep] = useState<'camera' | 'review' | 'uploading' | 'success'>('camera');
   const [dispatchError, setDispatchError] = useState<string | null>(null);
   const [dispatchedData, setDispatchedData] = useState<DispatchedReport | null>(null);
 
@@ -110,11 +121,11 @@ export default function SOSCameraPage() {
     return () => clearInterval(timer);
   }, []);
 
-  // 2. Initialize Camera Stream (with 2-tier fallback: rear camera -> webcam -> simulated)
-  const startCamera = useCallback(async () => {
+  // 2. Initialize Camera Stream (with IR camera avoidance and multi-device selection)
+  const startCamera = useCallback(async (explicitDeviceId?: string) => {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       setCameraStatus('unsupported');
-      setCameraError('Camera API not accessible. Use simulated lens for local testing.');
+      setCameraError('Camera API not accessible on this browser.');
       return;
     }
 
@@ -123,46 +134,70 @@ export default function SOSCameraPage() {
         streamRef.current.getTracks().forEach((track) => track.stop());
       }
 
-      let stream: MediaStream;
+      // Enumerate available video inputs
+      let videoInputs: MediaDeviceInfo[] = [];
       try {
-        // Try rear environment camera first
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: 'environment' } },
-          audio: false,
-        });
+        const allDevices = await navigator.mediaDevices.enumerateDevices();
+        videoInputs = allDevices.filter((d) => d.kind === 'videoinput');
+        setAvailableCameras(videoInputs);
       } catch {
-        // Fallback to basic webcam (laptop/front camera)
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: true,
-          audio: false,
-        });
+        // Enumerate fallback
       }
 
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play().catch(() => {});
+      // Filter out Windows Hello IR/Infrared cameras that fail RGB streaming
+      const nonIrCameras = videoInputs.filter((d) => !/ir|infrared/i.test(d.label));
+      const targetCam = explicitDeviceId
+        ? videoInputs.find((d) => d.deviceId === explicitDeviceId)
+        : nonIrCameras[0] || videoInputs[0];
+
+      const isMobile =
+        typeof window !== 'undefined' &&
+        /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+
+      let videoConstraint: MediaTrackConstraints | boolean = true;
+      if (targetCam && targetCam.deviceId) {
+        videoConstraint = { deviceId: { exact: targetCam.deviceId } };
+        setSelectedCameraId(targetCam.deviceId);
+      } else if (isMobile) {
+        videoConstraint = { facingMode: { ideal: 'environment' } };
       }
+
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: videoConstraint,
+        audio: false,
+      });
+
+      streamRef.current = stream;
+      setMediaStream(stream);
       setCameraStatus('active');
+      setCameraError(null);
     } catch (err: unknown) {
       const error = err as Error;
       if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
         setCameraStatus('denied');
-        setCameraError('Camera access was denied.');
+        setCameraError('Camera access was denied in browser permissions.');
+      } else if (error.name === 'NotReadableError' || error.message?.includes('video source')) {
+        setCameraStatus('unsupported');
+        setCameraError('Camera is busy: Another app (Zoom, Teams, Discord, or Windows Camera) may be locking it.');
       } else {
         setCameraStatus('unsupported');
-        setCameraError('Camera unavailable on this desktop device.');
+        setCameraError(error.message || 'Camera is in use by another app or unavailable.');
       }
     }
   }, []);
 
-  const handleRetryCamera = () => {
+  const handleRetryCamera = (deviceId?: string) => {
     setCameraStatus('starting');
     setCameraError(null);
-    startCamera();
+    startCamera(deviceId || selectedCameraId);
   };
 
   const handleUseSimulatedCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+      setMediaStream(null);
+    }
     setCameraStatus('simulated');
     setCameraError(null);
   };
@@ -220,12 +255,12 @@ export default function SOSCameraPage() {
         data: { user },
       } = await supabase.auth.getUser();
 
-      // If user is not authenticated, prompt auth modal and stage payload
+      // If user is not authenticated, prompt auth modal and keep review screen
       if (!user) {
         setStagedBlob(imageBlob);
         setStagedPreview(previewUrl);
         setIsAuthModalOpen(true);
-        setDispatchStep('camera');
+        setDispatchStep('review');
         return;
       }
 
@@ -291,13 +326,13 @@ export default function SOSCameraPage() {
       } catch (err: unknown) {
         const error = err as Error;
         setDispatchError(error.message || 'Emergency dispatch failed. Please try again.');
-        setDispatchStep('camera');
+        setDispatchStep('review');
       }
     },
     [coords, animal, emergency]
   );
 
-  // 5. Handle Shutter Button Press
+  // 5. Handle Shutter Button Press (Snaps evidence & shows Confirmation / Review option)
   const handleShutterPress = async () => {
     if (cameraStatus !== 'active' && cameraStatus !== 'simulated') return;
 
@@ -312,14 +347,28 @@ export default function SOSCameraPage() {
           : createSimulatedFrame(animal, emergency);
 
       const { blob, previewUrl } = await compressVideoFrame(source, 1280, 0.75);
-      await executeDispatch(blob, previewUrl);
+      setStagedBlob(blob);
+      setStagedPreview(previewUrl);
+      setDispatchError(null);
+      setDispatchStep('review');
     } catch (err: unknown) {
       const error = err as Error;
       setDispatchError(error.message || 'Could not capture photo from lens.');
     }
   };
 
-  // 6. Resume Dispatch after successful auth modal completion
+  // 6. Handle Retake Photo (discards staged snap and returns to viewfinder)
+  const handleRetakePhoto = () => {
+    if (stagedPreview) {
+      URL.revokeObjectURL(stagedPreview);
+    }
+    setStagedBlob(null);
+    setStagedPreview(null);
+    setDispatchError(null);
+    setDispatchStep('camera');
+  };
+
+  // 7. Resume Dispatch after successful auth modal completion
   const handleAuthSuccess = () => {
     setIsAuthModalOpen(false);
     if (stagedBlob && stagedPreview) {
@@ -328,6 +377,154 @@ export default function SOSCameraPage() {
       setStagedPreview(null);
     }
   };
+
+  // ---------------------------------------------------------------------------
+  // RENDER: Review & Confirmation Screen (Option before posting)
+  // ---------------------------------------------------------------------------
+  if ((dispatchStep === 'review' || dispatchStep === 'uploading') && stagedPreview) {
+    return (
+      <div className="flex flex-col flex-1 px-4 pt-3 pb-8 space-y-3.5 max-w-lg mx-auto w-full">
+        {/* Top Bar */}
+        <div className="flex items-center justify-between pb-0.5">
+          <button
+            type="button"
+            disabled={dispatchStep === 'uploading'}
+            onClick={handleRetakePhoto}
+            className="flex items-center gap-1.5 text-fg-muted hover:text-fg min-w-[44px] min-h-[44px] text-[12px] font-semibold transition-colors cursor-pointer disabled:opacity-50"
+            aria-label="Retake Photo"
+          >
+            <ArrowLeft className="w-4 h-4" aria-hidden="true" />
+            <span>Retake</span>
+          </button>
+          <div className="text-center">
+            <h1 className="text-[16px] font-semibold text-fg">Confirm Emergency</h1>
+            <p className="text-[12px] text-fg-muted">Review before dispatch</p>
+          </div>
+          <ThemeToggle />
+        </div>
+
+        {/* Captured Photo Preview Card */}
+        <div className="bg-surface border border-border rounded-2xl overflow-hidden shadow-sm">
+          <div className="relative aspect-video w-full bg-black flex items-center justify-center">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={stagedPreview}
+              alt="Captured emergency evidence"
+              className="w-full h-full object-cover"
+            />
+            {/* Overlay Badges */}
+            <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between gap-2 text-[11px] font-mono text-white pointer-events-none">
+              <span className="bg-black/65 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/20 flex items-center gap-1">
+                <MapPin className="w-3 h-3 text-accent shrink-0" />
+                {coords ? `${coords.lat.toFixed(3)}°, ${coords.lng.toFixed(3)}°` : 'QC Default'}
+              </span>
+              <span className="bg-black/65 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/20 flex items-center gap-1">
+                <Clock className="w-3 h-3 text-zinc-400 shrink-0" />
+                {currentTime}
+              </span>
+            </div>
+          </div>
+
+          <div className="p-3.5 space-y-3">
+            {/* Animal Selection */}
+            <div className="space-y-1">
+              <label className="text-[12px] font-semibold text-fg-muted">1. Animal</label>
+              <div className="grid grid-cols-3 gap-2">
+                {(['dog', 'cat', 'other'] as const).map((type) => (
+                  <button
+                    key={type}
+                    type="button"
+                    disabled={dispatchStep === 'uploading'}
+                    onClick={() => setAnimal(type)}
+                    className={`min-h-[40px] rounded-xl text-[12px] font-semibold capitalize transition-all border cursor-pointer ${
+                      animal === type
+                        ? 'bg-fg text-surface border-fg shadow-sm'
+                        : 'bg-surface text-fg border-border hover:bg-surface-muted'
+                    }`}
+                  >
+                    {type}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Severity Selection */}
+            <div className="space-y-1">
+              <label className="text-[12px] font-semibold text-fg-muted">2. Severity Level</label>
+              <div className="grid grid-cols-3 gap-2">
+                {EMERGENCY_TIERS.map((tier) => (
+                  <button
+                    key={tier.id}
+                    type="button"
+                    disabled={dispatchStep === 'uploading'}
+                    onClick={() => setEmergency(tier.id)}
+                    className={`min-h-[40px] px-1 rounded-xl text-[12px] font-semibold transition-all border cursor-pointer flex flex-col items-center justify-center text-center leading-tight ${
+                      emergency === tier.id
+                        ? 'bg-fg text-surface border-fg shadow-sm'
+                        : 'bg-surface text-fg border-border hover:bg-surface-muted'
+                    }`}
+                  >
+                    <span>{tier.label.split('/')[0].trim()}</span>
+                    <span
+                      className={`text-[10px] font-medium mt-0.5 ${
+                        tier.urgency === 'critical' ? 'text-reported-fg font-bold' : 'text-fg-muted'
+                      }`}
+                    >
+                      {tier.urgencyLabel}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Dispatch Error Banner */}
+        {dispatchError && (
+          <div className="p-3 rounded-xl bg-reported-bg border border-reported-border text-reported-fg text-[12px] flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 shrink-0" aria-hidden="true" />
+            <span>{dispatchError}</span>
+          </div>
+        )}
+
+        {/* Confirmation Buttons: Dispatch or Retake */}
+        <div className="space-y-2 pt-1">
+          <button
+            type="button"
+            disabled={dispatchStep === 'uploading'}
+            onClick={() => stagedBlob && stagedPreview && executeDispatch(stagedBlob, stagedPreview)}
+            className="w-full min-h-[48px] rounded-xl bg-accent text-accent-fg font-semibold text-[14px] flex items-center justify-center gap-2 shadow-sm hover:opacity-95 active:scale-[0.99] disabled:opacity-60 transition-all cursor-pointer"
+          >
+            {dispatchStep === 'uploading' ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin text-accent-fg" aria-hidden="true" />
+                <span>Posting Emergency Report...</span>
+              </>
+            ) : (
+              <span>Dispatch Emergency Report</span>
+            )}
+          </button>
+
+          <button
+            type="button"
+            disabled={dispatchStep === 'uploading'}
+            onClick={handleRetakePhoto}
+            className="w-full min-h-[44px] rounded-xl border border-border bg-surface text-fg font-semibold text-[12px] flex items-center justify-center gap-1.5 hover:bg-surface-muted disabled:opacity-60 transition-colors cursor-pointer"
+          >
+            <RotateCcw className="w-3.5 h-3.5 text-fg-muted" aria-hidden="true" />
+            <span>Retake Photo</span>
+          </button>
+        </div>
+
+        {/* Auth Modal for unauthenticated citizen */}
+        <AuthModal
+          isOpen={isAuthModalOpen}
+          onClose={() => setIsAuthModalOpen(false)}
+          onSuccess={handleAuthSuccess}
+        />
+      </div>
+    );
+  }
 
   // ---------------------------------------------------------------------------
   // RENDER: Success / Confirmation Screen
@@ -479,16 +676,16 @@ export default function SOSCameraPage() {
 
       {/* Viewfinder Frame */}
       <div className="relative flex-1 min-h-[290px] rounded-2xl border border-border bg-black overflow-hidden flex flex-col justify-between shadow-sm">
-        {/* Real HTML5 Live Video Stream */}
-        {cameraStatus === 'active' && (
-          <video
-            ref={videoRef}
-            playsInline
-            autoPlay
-            muted
-            className="absolute inset-0 w-full h-full object-cover"
-          />
-        )}
+        {/* Real HTML5 Live Video Stream (Always mounted in DOM for ref stability) */}
+        <video
+          ref={videoRef}
+          playsInline
+          autoPlay
+          muted
+          className={`absolute inset-0 w-full h-full object-cover ${
+            cameraStatus === 'active' ? 'block z-0' : 'hidden'
+          }`}
+        />
 
         {/* Simulated Lens Viewfinder (Desktop Dev Mode) */}
         {cameraStatus === 'simulated' && (
@@ -542,21 +739,41 @@ export default function SOSCameraPage() {
                 {cameraError || 'Use the dev simulated lens to test the emergency flow on your desktop.'}
               </p>
             </div>
+            {availableCameras.length > 1 && (
+              <div className="w-full max-w-[240px] text-left">
+                <label className="text-[11px] font-medium text-fg-muted">Switch Camera Device:</label>
+                <select
+                  value={selectedCameraId}
+                  onChange={(e) => {
+                    setSelectedCameraId(e.target.value);
+                    handleRetryCamera(e.target.value);
+                  }}
+                  className="w-full mt-1 bg-surface-card text-fg border border-border rounded-xl text-[12px] p-2.5 cursor-pointer font-medium shadow-sm"
+                >
+                  {availableCameras.map((cam, idx) => (
+                    <option key={cam.deviceId || idx} value={cam.deviceId}>
+                      {cam.label || `Camera Device ${idx + 1}`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             {cameraStatus !== 'starting' && (
               <div className="flex flex-col gap-2 w-full max-w-[220px]">
+                <button
+                  type="button"
+                  onClick={() => handleRetryCamera()}
+                  className="min-h-[44px] px-4 rounded-xl border border-border bg-surface text-fg font-semibold text-[12px] hover:bg-surface-muted transition-colors cursor-pointer"
+                >
+                  Retry Camera Access
+                </button>
                 <button
                   type="button"
                   onClick={handleUseSimulatedCamera}
                   className="min-h-[44px] px-4 rounded-xl bg-fg text-surface font-semibold text-[12px] hover:opacity-90 active:scale-95 transition-all cursor-pointer shadow-sm"
                 >
                   Use Dev Simulated Lens
-                </button>
-                <button
-                  type="button"
-                  onClick={handleRetryCamera}
-                  className="min-h-[44px] px-4 rounded-xl border border-border bg-surface text-fg font-semibold text-[12px] hover:bg-surface-muted transition-colors cursor-pointer"
-                >
-                  Retry Camera Access
                 </button>
               </div>
             )}
