@@ -214,14 +214,25 @@ export default function DetailSheet({
         <div className="overflow-y-auto px-5 pb-6 space-y-4">
           {/* Large Photo with Reveal Toggle */}
           <div className="relative w-full h-52 rounded-[18px] overflow-hidden bg-surface-muted border border-border flex items-center justify-center">
-            <div
-              className={`w-full h-full flex flex-col items-center justify-center transition-all duration-300 ${
-                isPhotoRevealed ? 'blur-0' : 'blur-md scale-105'
-              }`}
-            >
-              <Camera className="w-12 h-12 text-fg-muted" aria-hidden="true" />
-              <span className="text-[12px] text-fg-muted font-normal mt-1">Live camera snapshot</span>
-            </div>
+            {incident.photoUrl ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={incident.photoUrl}
+                alt={`Live camera snapshot of ${incident.animal}`}
+                className={`w-full h-full object-cover transition-all duration-300 ${
+                  isPhotoRevealed ? 'blur-0' : 'blur-md scale-105'
+                }`}
+              />
+            ) : (
+              <div
+                className={`w-full h-full flex flex-col items-center justify-center transition-all duration-300 ${
+                  isPhotoRevealed ? 'blur-0' : 'blur-md scale-105'
+                }`}
+              >
+                <Camera className="w-12 h-12 text-fg-muted" aria-hidden="true" />
+                <span className="text-[12px] text-fg-muted font-normal mt-1">Live camera snapshot</span>
+              </div>
+            )}
 
             {/* Tap to Reveal / Re-blur button */}
             <button

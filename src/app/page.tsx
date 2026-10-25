@@ -1,12 +1,26 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Camera } from 'lucide-react';
 import { ListRow, EmptyIncidentsState, IncidentData } from '@/components/ListRow';
 import DetailSheet from '@/components/DetailSheet';
 import ThemeToggle from '@/components/ThemeToggle';
 import { useMockRole } from '@/lib/storage';
+import { createClient } from '@/lib/supabase/client';
+
+function formatTimeAgo(dateString?: string | null): string {
+  if (!dateString) return 'Just now';
+  const diffMs = Date.now() - new Date(dateString).getTime();
+  const diffSec = Math.floor(diffMs / 1000);
+  if (diffSec < 60) return 'Just now';
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h ago`;
+  const diffDays = Math.floor(diffHr / 24);
+  return `${diffDays}d ago`;
+}
 
 const initialEmergencies: IncidentData[] = [
   {
@@ -58,10 +72,83 @@ const triageShortcuts = [
 ];
 
 export default function HomePage() {
-  const [emergencies] = useState<IncidentData[]>(initialEmergencies);
+  const [emergencies, setEmergencies] = useState<IncidentData[]>(initialEmergencies);
   const [selectedIncident, setSelectedIncident] = useState<IncidentData | null>(null);
   const [activeTriggerEl, setActiveTriggerEl] = useState<HTMLElement | null>(null);
   const [mockRole] = useMockRole();
+
+  useEffect(() => {
+    const supabase = createClient();
+
+    const fetchLiveReports = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('sos_reports')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (!error && data && data.length > 0) {
+          const liveIncidents: IncidentData[] = data.map((r) => {
+            const animalLabel =
+              r.animal_type === 'dog'
+                ? 'Injured Dog'
+                : r.animal_type === 'cat'
+                ? 'Injured Cat'
+                : 'Injured Animal';
+
+            let typeLabel = 'Emergency';
+            if (r.emergency_type === 'hit_and_run') typeLabel = 'Hit-and-run · Critical';
+            else if (r.emergency_type === 'bleeding') typeLabel = 'Bleeding · Critical';
+            else if (r.emergency_type === 'fracture') typeLabel = 'Fracture / Limping';
+            else if (r.emergency_type === 'trapped_abused') typeLabel = 'Trapped in storm drain';
+            else if (r.emergency_type === 'sick_mange') typeLabel = 'Sick / Severe Mange';
+
+            return {
+              id: r.id,
+              shortId: r.short_id,
+              animal: animalLabel,
+              type: typeLabel,
+              state: (r.state as IncidentData['state']) || 'reported',
+              location: r.location_name || 'Quezon City',
+              distance: '0.8 km',
+              timeAgo: formatTimeAgo(r.created_at || r.server_timestamp),
+              blurred: true,
+              photoUrl: r.photo_url || undefined,
+              latitude: r.latitude ?? 14.6091,
+              longitude: r.longitude ?? 121.0223,
+            };
+          });
+
+          // Prepend real reports before mock items (avoiding duplicates)
+          setEmergencies(() => {
+            const liveShortIds = new Set(liveIncidents.map((i) => i.shortId));
+            const remainingMocks = initialEmergencies.filter((m) => !liveShortIds.has(m.shortId));
+            return [...liveIncidents, ...remainingMocks];
+          });
+        }
+      } catch (err) {
+        console.error('Failed to load live reports:', err);
+      }
+    };
+
+    fetchLiveReports();
+
+    // Listen for new dispatches in real-time
+    const channel = supabase
+      .channel('sos_reports_feed')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'sos_reports' },
+        () => {
+          fetchLiveReports();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   const handleRowClick = (incident: IncidentData, e?: React.MouseEvent<HTMLElement>) => {
     if (e) {

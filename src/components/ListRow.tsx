@@ -13,6 +13,7 @@ export interface IncidentData {
   timeAgo: string;
   state: 'reported' | 'claimed' | 'admitted' | 'healing' | 'resolved';
   blurred?: boolean;
+  photoUrl?: string;
   latitude?: number;
   longitude?: number;
 }
@@ -90,11 +91,20 @@ export function ListRow({ incident, onClick, isLast = false }: ListRowProps) {
       >
         {/* Left: 64px rounded rectangular photo preview with emergency blur */}
         <div className="w-16 h-16 rounded-[14px] overflow-hidden bg-surface-muted border border-border shrink-0 flex items-center justify-center relative">
-          <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-surface-muted to-border/40 blur-sm scale-110">
-            <Camera className="w-5 h-5 text-fg-muted/60" aria-hidden="true" />
-          </div>
-          <div className="absolute inset-0 flex items-center justify-center">
-            <Camera className="w-4 h-4 text-fg-muted" aria-hidden="true" />
+          {incident.photoUrl ? (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              src={incident.photoUrl}
+              alt={`Evidence for ${incident.animal}`}
+              className="w-full h-full object-cover blur-[2px] scale-105"
+            />
+          ) : (
+            <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-surface-muted to-border/40 blur-sm scale-110">
+              <Camera className="w-5 h-5 text-fg-muted/60" aria-hidden="true" />
+            </div>
+          )}
+          <div className="absolute inset-0 flex items-center justify-center bg-black/10">
+            <Camera className="w-4 h-4 text-white drop-shadow" aria-hidden="true" />
           </div>
         </div>
 
