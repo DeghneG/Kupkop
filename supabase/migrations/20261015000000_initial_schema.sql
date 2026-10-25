@@ -109,6 +109,48 @@ CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
+-- Trigger: Enforce tamper-proof server timestamp on sos_reports
+CREATE OR REPLACE FUNCTION public.enforce_sos_server_timestamp()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  NEW.server_timestamp = clock_timestamp();
+  NEW.created_at = clock_timestamp();
+  NEW.updated_at = clock_timestamp();
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_enforce_sos_server_timestamp ON public.sos_reports;
+CREATE TRIGGER trg_enforce_sos_server_timestamp
+  BEFORE INSERT ON public.sos_reports
+  FOR EACH ROW
+  EXECUTE FUNCTION public.enforce_sos_server_timestamp();
+
+-- Trigger: Prevent unauthorized role tampering on profiles
+CREATE OR REPLACE FUNCTION public.prevent_role_tampering()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF (NEW.role IS DISTINCT FROM OLD.role) AND NOT public.is_admin() THEN
+    RAISE EXCEPTION 'Role modification denied: Users cannot alter their own role.';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_prevent_role_tampering ON public.profiles;
+CREATE TRIGGER trg_prevent_role_tampering
+  BEFORE UPDATE ON public.profiles
+  FOR EACH ROW
+  EXECUTE FUNCTION public.prevent_role_tampering();
+
 -- ------------------------------------------------------------------------------
 -- Row Level Security (RLS) Policies
 -- ------------------------------------------------------------------------------
@@ -131,18 +173,24 @@ AS $$
   );
 $$;
 
--- PROFILES POLICIES
+-- PROFILES POLICIES (Users read their own full profile; Admins read all)
 DROP POLICY IF EXISTS "Profiles are viewable by authenticated users" ON public.profiles;
-CREATE POLICY "Profiles are viewable by authenticated users"
-  ON public.profiles FOR SELECT
-  TO authenticated
-  USING (true);
-
 DROP POLICY IF EXISTS "Profiles basic viewable by anon" ON public.profiles;
-CREATE POLICY "Profiles basic viewable by anon"
+DROP POLICY IF EXISTS "Users can view own full profile or admin" ON public.profiles;
+CREATE POLICY "Users can view own full profile or admin"
   ON public.profiles FOR SELECT
-  TO anon
-  USING (true);
+  TO anon, authenticated
+  USING (
+    (SELECT auth.uid()) = id
+    OR public.is_admin()
+  );
+
+-- Secure public profile view (Masks email and phone from public scraping)
+CREATE OR REPLACE VIEW public.public_profiles AS
+  SELECT id, full_name, role, is_verified, created_at
+  FROM public.profiles;
+
+GRANT SELECT ON public.public_profiles TO anon, authenticated;
 
 DROP POLICY IF EXISTS "Users can update own profile except role" ON public.profiles;
 CREATE POLICY "Users can update own profile except role"
