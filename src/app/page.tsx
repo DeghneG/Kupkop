@@ -191,7 +191,7 @@ export default function HomePage() {
             </h1>
           </div>
           <p className="text-[12px] text-fg-muted font-normal mt-1 pl-0.5">
-            Street Animal Emergency Network
+            Street Animal Emergency &amp; Sanctuary Network
           </p>
         </div>
 
@@ -203,7 +203,7 @@ export default function HomePage() {
       </header>
 
       {/* 2. Hero: Card Hero with 56px action button and quick triage shortcut chips */}
-      <section aria-label="Emergency Report Action" className="bg-surface rounded-[20px] p-5 border border-border shadow-sm space-y-4">
+      <section aria-label="Emergency Report Action" className="bg-surface rounded-2xl p-5 border border-border shadow-sm space-y-4">
         <div className="space-y-1">
           <h2 className="text-[16px] font-semibold text-fg tracking-tight">
             Found an injured street animal?
@@ -213,11 +213,11 @@ export default function HomePage() {
           </p>
         </div>
 
-        {/* 56px Primary Red Emergency Button */}
+        {/* 56px Primary Signal Coral Emergency Button */}
         <Link
           href="/sos"
           id="hero-sos-trigger-button"
-          className="w-full min-h-[56px] rounded-xl bg-accent hover:opacity-95 active:scale-[0.98] text-accent-fg font-semibold text-[17px] flex items-center justify-center gap-2.5 shadow-sm transition-transform border-none focus:outline-none focus:ring-2 focus:ring-accent"
+          className="w-full min-h-[56px] rounded-xl bg-accent hover:opacity-95 active:scale-[0.98] text-accent-fg font-semibold text-[17px] flex items-center justify-center gap-2.5 shadow-md shadow-[0_4px_16px_rgba(240,68,56,0.22)] dark:shadow-[0_4px_16px_rgba(255,83,71,0.22)] transition-transform border-none focus:outline-none focus:ring-2 focus:ring-accent"
         >
           <Camera className="w-5 h-5 text-accent-fg" aria-hidden="true" />
           <span>Report emergency</span>

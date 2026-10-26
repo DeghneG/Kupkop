@@ -4,42 +4,44 @@
 
 :root {
   color-scheme: light;
-  --page: #F2F2F7;
-  --surface: #FFFFFF;
-  --surface-muted: #F2F2F7;
-  --border: #E5E5EA;
-  --fg: #1C1C1E;
-  --fg-muted: #6C6C70;
-  --accent: #E0201B;        /* emergency fill, white label */
+  --page: #F6F4EE;          /* Warm Oat Linen - grounded organic base */
+  --surface: #FFFFFF;       /* Ivory White Card */
+  --surface-muted: #EBF0EA; /* Soft Sage Mist */
+  --border: #E3E7E0;        /* Warm Stone Border */
+  --fg: #142019;            /* Deep Forest Ink */
+  --fg-muted: #57685D;      /* Earth Moss Slate */
+  --accent: #F04438;        /* Signal Coral emergency fill */
   --accent-fg: #FFFFFF;
-  --action: #0071E3;        /* filled neutral buttons, white label */
-  --link: #0066CC;          /* text links */
-  --rafa: #00758A;          /* Rafa icon and text only */
-  --reported-bg: #FFE5E7;  --reported-fg: #B3000F;
-  --claimed-bg:  #FFF1D0;  --claimed-fg:  #8A4B00;
-  --healing-bg:  #E6EFFF;  --healing-fg:  #0040DD;
-  --resolved-bg: #E2F6E7;  --resolved-fg: #1D7A34;
-  --banner-bg: #FFF4D6;    --banner-fg: #7A4A00;
+  --action: #0F766E;        /* Deep Healing Sage for neutral actions */
+  --action-fg: #FFFFFF;     /* Action label */
+  --link: #0F766E;          /* Text links */
+  --rafa: #0F766E;          /* Rafa guide accent */
+  --reported-bg: #FEECEB;  --reported-fg: #B91C1C;
+  --claimed-bg:  #FEF3C7;  --claimed-fg:  #92400E;
+  --healing-bg:  #E6F7F0;  --healing-fg:  #0D7A55;
+  --resolved-bg: #DCFCE7;  --resolved-fg: #15803D;
+  --banner-bg: #FEF3C7;    --banner-fg: #92400E;
 }
 
 [data-theme="dark"], .dark {
   color-scheme: dark;
-  --page: #000000;
-  --surface: #1C1C1E;
-  --surface-muted: #2C2C2E;
-  --border: #38383A;
-  --fg: #FFFFFF;
-  --fg-muted: #AEAEB2;
-  --accent: #E0201B;
+  --page: #0E1411;          /* Deep Forest Charcoal */
+  --surface: #161E1A;       /* Deep Moss Slate Card */
+  --surface-muted: #1F2923; /* Woodland Shadow */
+  --border: #28342D;        /* Pine Rim Border */
+  --fg: #F2F5F3;            /* Snow Linen Text */
+  --fg-muted: #93A69A;      /* Silvery Sage */
+  --accent: #FF5347;        /* Electric Coral emergency */
   --accent-fg: #FFFFFF;
-  --action: #0071E3;
-  --link: #0A84FF;
-  --rafa: #4FC3D9;
-  --reported-bg: #3A1518;  --reported-fg: #FF9A93;
-  --claimed-bg:  #3A2A08;  --claimed-fg:  #FFC95C;
-  --healing-bg:  #0F2A4D;  --healing-fg:  #7DB8FF;
-  --resolved-bg: #0F3320;  --resolved-fg: #6EE08C;
-  --banner-bg: #3A2A08;    --banner-fg: #FFC95C;
+  --action: #2DD4BF;        /* Luminous Mint */
+  --action-fg: #042F2E;     /* High contrast pine text */
+  --link: #34D399;
+  --rafa: #2DD4BF;
+  --reported-bg: #361517;  --reported-fg: #FF9B94;
+  --claimed-bg:  #382508;  --claimed-fg:  #FCD34D;
+  --healing-bg:  #0F2E22;  --healing-fg:  #6EE7B7;
+  --resolved-bg: #0E321C;  --resolved-fg: #86EFAC;
+  --banner-bg: #382508;    --banner-fg: #FCD34D;
 }
 
 @theme {
@@ -53,6 +55,7 @@
   --color-accent: var(--accent);
   --color-accent-fg: var(--accent-fg);
   --color-action: var(--action);
+  --color-action-fg: var(--action-fg);
   --color-link: var(--link);
   --color-rafa: var(--rafa);
   --color-reported-bg: var(--reported-bg);

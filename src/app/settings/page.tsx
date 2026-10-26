@@ -84,9 +84,9 @@ export default function SettingsPage() {
             <button
               type="button"
               onClick={() => setIsAuthOpen(true)}
-              className="w-full min-h-[48px] bg-action hover:opacity-95 text-white font-semibold text-[14px] rounded-xl flex items-center justify-center gap-2 shadow-sm transition-opacity cursor-pointer border-none focus:outline-none focus:ring-2 focus:ring-action"
+              className="w-full min-h-[48px] bg-action hover:opacity-95 text-action-fg font-semibold text-[14px] rounded-xl flex items-center justify-center gap-2 shadow-sm transition-opacity cursor-pointer border-none focus:outline-none focus:ring-2 focus:ring-action"
             >
-              <LogIn className="w-4 h-4 text-white" aria-hidden="true" />
+              <LogIn className="w-4 h-4 text-action-fg" aria-hidden="true" />
               <span>Sign in to KupKop</span>
             </button>
           </div>

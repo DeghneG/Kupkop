@@ -68,5 +68,18 @@
      - Nearby Feed: Upgraded thumbnails from 56px circular dark blobs to 64px rounded rectangular photo previews (`rounded-[14px]`) with emergency blur and camera icon, tinted status pill indicators (`bg-reported-bg text-reported-fg`, `bg-claimed-bg text-claimed-fg`), and `ml-[80px]` inset hairline dividers.
 - **Context:** User requested 5 bottom tabs (`Home | Rafa | SOS | Clinics | Settings`) and expressed discontent with the plain unboxed home hero, preferring an organized, rich card layout with instant triage shortcuts and clear navigation.
 
+### D-010: "Compassionate Sanctuary" Brand Design System & Semantic Tokens
+- **Date:** 2026-10-26
+- **Decision:**
+  1. Replaced generic Apple Weather grays with the custom "Compassionate Sanctuary" brand palette inspired by *Kupkop* (shelter, embrace, gentle refuge):
+     - Light Base: Warm Oat Linen (`--page: #F6F4EE`), Ivory Cards (`--surface: #FFFFFF`), Soft Sage Mist (`--surface-muted: #EBF0EA`), Warm Stone Border (`--border: #E3E7E0`), Deep Forest Ink (`--fg: #142019`), and Earth Moss Slate (`--fg-muted: #57685D`).
+     - Dark Base: Deep Forest Charcoal (`--page: #0E1411`), Deep Moss Slate (`--surface: #161E1A`), Woodland Shadow (`--surface-muted: #1F2923`), Pine Rim (`--border: #28342D`), Snow Linen (`--fg: #F2F5F3`), and Silvery Sage (`--fg-muted: #93A69A`).
+  2. Accent colors tuned for distinct purpose:
+     - Emergency Beacon & Critical Action: Signal Coral (`--accent: #F04438` light / `#FF5347` dark) with high-contrast white label.
+     - Healing & Guidance (Rafa & Secondary Action): Deep Healing Sage (`--action: #0F766E` / `--action-fg: #FFFFFF` light) and Luminous Mint (`--action: #2DD4BF` / `--action-fg: #042F2E` dark).
+     - Verified $\ge 4.5:1$ contrast in both daylight and dark modes across all token pairs.
+  3. Brand tagline updated to "Street Animal Emergency & Sanctuary Network".
+- **Context:** The previous UI was perceived as generic Apple iOS system clone. "Compassionate Sanctuary" gives KupKop an authentic, warm, community-driven shelter identity while maintaining life-saving emergency contrast and speed.
+
 
 

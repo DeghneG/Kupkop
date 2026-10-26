@@ -60,8 +60,8 @@ export default function Navigation() {
                 className="relative -top-3 flex flex-col items-center justify-center group focus:outline-none focus:ring-2 focus:ring-accent rounded-full"
                 aria-label="Emergency SOS Camera - Report Animal Incident"
               >
-                {/* Guaranteed saturated red emergency button */}
-                <div className="w-14 h-14 min-w-[48px] min-h-[48px] rounded-full bg-accent hover:opacity-90 text-accent-fg flex items-center justify-center shadow-lg shadow-red-500/25 transition-transform active:scale-95 border-none">
+                {/* Signal Coral Emergency Beacon */}
+                <div className="w-14 h-14 min-w-[48px] min-h-[48px] rounded-full bg-accent hover:opacity-95 text-accent-fg flex items-center justify-center shadow-lg shadow-[0_6px_20px_rgba(240,68,56,0.28)] dark:shadow-[0_6px_20px_rgba(255,83,71,0.28)] transition-transform active:scale-95 border-none">
                   <Icon className="w-6 h-6 text-accent-fg" aria-hidden="true" />
                 </div>
                 <span className="text-[12px] font-semibold text-accent mt-0.5">

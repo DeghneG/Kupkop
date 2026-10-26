@@ -190,7 +190,7 @@ export default function RafaPage() {
                 className={`max-w-[85%] rounded-[18px] p-3.5 text-[14px] leading-relaxed shadow-sm border ${
                   isRafa
                     ? 'bg-surface text-fg border-border'
-                    : 'bg-action text-white border-action'
+                    : 'bg-action text-action-fg font-medium border-action'
                 }`}
               >
                 {m.text}
@@ -261,10 +261,10 @@ export default function RafaPage() {
         <button
           type="submit"
           disabled={loading || !input.trim()}
-          className="min-w-[48px] min-h-[48px] bg-action hover:opacity-95 text-white rounded-xl flex items-center justify-center transition-opacity shadow-sm focus:outline-none focus:ring-2 focus:ring-action cursor-pointer disabled:opacity-40 border-none shrink-0"
+          className="min-w-[48px] min-h-[48px] bg-action hover:opacity-95 text-action-fg rounded-xl flex items-center justify-center transition-opacity shadow-sm focus:outline-none focus:ring-2 focus:ring-action cursor-pointer disabled:opacity-40 border-none shrink-0"
           aria-label="Send message"
         >
-          <Send className="w-4 h-4" aria-hidden="true" />
+          <Send className="w-4 h-4 text-action-fg" aria-hidden="true" />
         </button>
       </form>
     </div>

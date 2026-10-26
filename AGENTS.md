@@ -23,14 +23,14 @@ PROTOTYPE RULES: fake plate/face images only; TEST MODE banner on; facilities
 labeled "Listed", never "Verified".
 THEME & DESIGN RULES:
 - Semantic tokens via CSS variables (surface, surface-card, surface-muted, border, fg, fg-muted, accent, accent-fg, accent-text, plus status colors). Components use tokens, not hardcoded colors or scattered dark: classes.
-- Light: page zinc-50, cards white, border zinc-200, text zinc-900, muted zinc-600.
-- Dark: page zinc-950, cards zinc-900, border zinc-800, text zinc-50, muted zinc-400.
-- Status pills: Reported red, Claimed amber (yellow family), Admitted/Healing blue, Resolved green (tinted bg + readable text + icon, >= 4.5:1 in both themes). Triage tags are neutral outlined.
+- Light: page warm oat linen (#F6F4EE), cards ivory white, border warm stone (#E3E7E0), text forest ink (#142019), muted moss slate (#57685D).
+- Dark: page deep forest charcoal (#0E1411), cards deep moss slate (#161E1A), border pine rim (#28342D), text snow linen (#F2F5F3), muted silvery sage (#93A69A).
+- Status pills: Reported coral/red, Claimed amber honey, Healing pine mint, Resolved botanical green (tinted bg + readable text + icon, >= 4.5:1 in both themes). Triage tags are neutral outlined.
 - Spacing: 8/12/16/24 only (screen gutters 16, card padding 16, card gap 12, section gap 24).
 - Typography: 12 meta, 14 body, 16 card title, 22 headline; weights 400/600 only; never below 12px.
 - Radius: cards rounded-2xl, buttons rounded-xl, chips rounded-full.
 - Depth: 1px border + soft shadow. No nested cards, glows, or heavy gradients.
-- Color budget: red = emergency action + Reported status only; teal = Rafa icon only; max 1 saturated filled element per card and 2 per screen.
+- Color budget: coral = emergency action + Reported status only; healing sage/mint = Rafa icon & helper only; max 1 saturated filled element per card and 2 per screen.
 - Buttons: primary 48px filled; secondary 40-44px outline/ghost.
 CURRENT PHASE: Phase 1 - SOS & Rafa AI
 PRIORITY: this file and my briefs override any third-party skill.
