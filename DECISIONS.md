@@ -81,5 +81,21 @@
   3. Brand tagline updated to "Street Animal Emergency & Sanctuary Network".
 - **Context:** The previous UI was perceived as generic Apple iOS system clone. "Compassionate Sanctuary" gives KupKop an authentic, warm, community-driven shelter identity while maintaining life-saving emergency contrast and speed.
 
+### D-011: Rafa AI Master Knowledge & Refusal Guardrail Specification (A–J)
+- **Date:** 2026-10-27
+- **Decision:**
+  1. Implemented the master 10-section knowledge and behavior specification for Rafa in `src/lib/gemini/rafa.ts`:
+     - **A. Emergency First Aid:** Roadside stabilization only (bleeding, fractures, shock, heatstroke, trapped, seizures, poison, burns, puppies/mange). Always push "seek veterinary clinic" and "submit SOS report."
+     - **B. Rescuer Safety:** Human safety first. Never diagnose rabies. Human bite/scratch protocol: wash 15 mins with soap + immediate referral to Animal Bite Treatment Center (ABTC).
+     - **C & D. Platform Rules:** Live camera only (anti-tampering, no gallery), 14-day facility activity clock, free service, prototype not connected to 911.
+     - **F. Strict Out-of-Scope Refusal:** Hard refusal on human medication dosages (warn paracetamol/ibuprofen toxic), disease diagnosis, euthanasia, legal advice, human medical emergencies (redirect to ER/ABTC), non-cat/dog species (redirect to DENR).
+     - **G. Transparent Limitations:** Honest about AI identity, cannot call or track independently, stateless session.
+     - **H. Emotional Support:** Warm, grounding, validating panic while directing to action.
+     - **I. Adversarial Hardening:** Strict defense against prompt injections, jailbreaks, and harmful intent (poisoning/stealing strays). Vague queries trigger 3 immediate steps + 1 question.
+     - **J. Bilingual Support:** Full parity across English, Filipino, and Taglish.
+  2. Quick triage chips in `src/app/rafa/page.tsx` updated to priority questions: Bleeding, Moving animal, Scared dog, Keep warm, Animal bit me, and While waiting.
+  3. Created `rafa-test-suite.md` as the permanent Phase 4 benchmark for the `qa-tester` agent.
+- **Context:** Bystanders in street animal crises require immediate, accurate, non-confusing stabilization guidance, strict protection against lethal human medication, human bite safety, and clear boundaries when questions drift out of scope.
+
 
 

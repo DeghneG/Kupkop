@@ -12,10 +12,12 @@ interface Message {
 }
 
 const quickPromptChips = [
-  { label: 'Bleeding', queryEn: 'The animal is bleeding heavily. What should I do?', queryFil: 'Labis na nagdurugo ang hayop. Ano ang dapat kong gawin?' },
-  { label: 'Hit-and-run', queryEn: 'Hit-and-run incident. Animal is lying on the road.', queryFil: 'Nabangga ng sasakyan at nakahandusay sa kalsada.' },
-  { label: 'Fracture / Limp', queryEn: 'Fractured leg and crying in pain.', queryFil: 'Mukhang may bali ang binti at umiiyak sa sakit.' },
-  { label: 'Heatstroke', queryEn: 'Panting heavily in extreme heat, looks weak.', queryFil: 'Hingal na hingal sa init at nanghihina.' },
+  { label: 'Bleeding', queryEn: 'How do I stop the bleeding safely?', queryFil: 'Paano pigilan ang pagdugo ng sugat nang ligtas?' },
+  { label: 'Moving animal', queryEn: 'Can I move an injured animal, and how do I lift it safely?', queryFil: 'Nasugatan o nabangga ang hayop, paano ilipat nang ligtas?' },
+  { label: 'Scared dog', queryEn: 'A dog is growling and scared. How do I approach safely?', queryFil: 'Galit o natatakot ang aso, paano lalapitan nang ligtas?' },
+  { label: 'Keep warm', queryEn: 'The animal is in shock and shaking. How do I keep it warm?', queryFil: 'Nanginginig at giniginaw sa shock ang hayop, paano papainitin?' },
+  { label: 'Animal bit me', queryEn: 'An animal bit or scratched me, what should I do right now?', queryFil: 'Kinagat o kinalmot ako ng hayop, ano ang dapat kong gawin ngayon?' },
+  { label: 'While waiting', queryEn: 'What should I do while waiting for responders to arrive?', queryFil: 'Ano ang dapat kong gawin habang naghihintay ng responder?' },
 ];
 
 export default function RafaPage() {
