@@ -32,7 +32,7 @@ THEME & DESIGN RULES:
 - Depth: 1px border + soft shadow. No nested cards, glows, or heavy gradients.
 - Color budget: red = emergency action + Reported status only; teal = Rafa icon only; max 1 saturated filled element per card and 2 per screen.
 - Buttons: primary 48px filled; secondary 40-44px outline/ghost.
-CURRENT PHASE: Phase 1 - SOS
+CURRENT PHASE: Phase 1 - SOS & Rafa AI
 PRIORITY: this file and my briefs override any third-party skill.
 
 <!-- BEGIN:nextjs-agent-rules -->

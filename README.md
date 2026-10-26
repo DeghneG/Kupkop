@@ -106,12 +106,11 @@ Open [http://localhost:3000](http://localhost:3000) in your browser (or use resp
 ## 📌 Development Roadmap
 
 - [x] **Phase 0: Setup & Prototype** — App shell, Apple System tokens, zero-flash dark theme, Supabase schema & RLS policies, Auth callback & modal.
-- [ ] **Phase 1: SOS Flow** — Live camera capture constraint, GPS acquisition, 3-tap submission.
+- [ ] **Phase 1: SOS Flow & Rafa AI** — Live camera capture constraint, GPS acquisition, 3-tap submission, `/api/chat` route, safety guardrails, offline first-aid cards.
 - [ ] **Phase 2: Feed & Claim Lock** — Realtime subscription, claim race resolution, escalation timers.
 - [ ] **Phase 3: Clinic Tracking** — 14-day inactivity countdown, status transitions.
-- [ ] **Phase 4: Rafa AI** — `/api/chat` route, safety guardrails, offline first-aid cards.
-- [ ] **Phase 5: Bystander & Admin Flags** — Plate photo blurring, volunteer verification queue.
-- [ ] **Phase 6: Outdoor Field Testing** — Real-phone sunlight usability tests.
+- [ ] **Phase 4: Bystander & Admin Flags** — Plate photo blurring, volunteer verification queue.
+- [ ] **Phase 5: Outdoor Field Testing** — Real-phone sunlight usability tests.
 
 ---
 
