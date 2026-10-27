@@ -55,72 +55,72 @@ export default function FacilitiesPage() {
         <div
           role="status"
           aria-live="polite"
-          className="fixed top-12 left-1/2 -translate-x-1/2 z-50 bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 px-4 py-2 rounded-xl text-xs font-semibold shadow-lg border border-zinc-700"
+          className="fixed top-12 left-1/2 -translate-x-1/2 z-50 bg-fg text-page px-4 py-2 rounded-xl text-[12px] font-semibold shadow-lg border border-border"
         >
           {notification}
         </div>
       )}
 
       {/* Top Header */}
-      <div className="flex items-center justify-between pb-2 border-b border-zinc-200 dark:border-zinc-800">
+      <header className="flex items-center justify-between pb-2 border-b border-border">
         <Link
           href="/"
-          className="flex items-center gap-1 text-zinc-600 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-zinc-50 min-w-[44px] min-h-[44px] text-[12px] font-semibold"
+          className="flex items-center gap-1 text-fg-muted hover:text-fg min-w-[44px] min-h-[44px] text-[12px] font-semibold transition-colors"
           aria-label="Back to Feed"
         >
           <ArrowLeft className="w-4 h-4" aria-hidden="true" />
           <span>Feed</span>
         </Link>
         <div className="text-center">
-          <h1 className="text-[16px] font-semibold text-zinc-900 dark:text-zinc-50">
+          <h1 className="text-[16px] font-semibold text-fg">
             Partner Clinics
           </h1>
-          <p className="text-[12px] text-zinc-500">14-day activity status</p>
+          <p className="text-[12px] text-fg-muted">14-day activity status</p>
         </div>
-        <div className="w-11" />
-      </div>
+        <div className="w-11" aria-hidden="true" />
+      </header>
 
       {/* Facilities List */}
       <div className="space-y-3">
         {mockFacilities.map((fac) => (
           <article
             key={fac.id}
-            className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm space-y-3"
+            className="bg-surface border border-border rounded-2xl p-4 shadow-sm space-y-3"
           >
             <div className="flex items-start justify-between">
               <div>
-                <h2 className="text-[16px] font-semibold text-zinc-900 dark:text-zinc-50">
+                <h2 className="text-[16px] font-semibold text-fg">
                   {fac.name}
                 </h2>
-                <div className="flex items-center gap-1 text-[12px] text-zinc-500 mt-0.5">
-                  <MapPin className="w-3.5 h-3.5 shrink-0 text-zinc-400" aria-hidden="true" />
+                <div className="flex items-center gap-1 text-[12px] text-fg-muted mt-0.5">
+                  <MapPin className="w-3.5 h-3.5 shrink-0 text-fg-muted" aria-hidden="true" />
                   <span>{fac.address}</span>
                 </div>
               </div>
 
-              <span className="text-[12px] font-normal px-2.5 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700">
+              <span className="text-[12px] font-normal px-2.5 py-0.5 rounded-full bg-surface-muted text-fg-muted border border-border">
                 {fac.status} Facility
               </span>
             </div>
 
             {/* Inactivity Clock Badge */}
-            <div className="flex items-center justify-between text-[12px] text-zinc-500 dark:text-zinc-400">
+            <div className="flex items-center justify-between text-[12px] text-fg-muted">
               <div className="flex items-center gap-1">
-                <Clock className="w-3.5 h-3.5 shrink-0 text-zinc-400" aria-hidden="true" />
+                <Clock className="w-3.5 h-3.5 shrink-0 text-fg-muted" aria-hidden="true" />
                 <span>{fac.lastActive}</span>
               </div>
-              <span>{fac.distance}</span>
+              <span className="font-mono">{fac.distance}</span>
             </div>
 
             {/* Call Action: Disabled in TEST MODE */}
-            <div className="pt-2 border-t border-zinc-100 dark:border-zinc-800">
+            <div className="pt-2 border-t border-border">
               <button
                 type="button"
                 onClick={showDisabledCallNotice}
                 aria-label={`Call ${fac.name} (disabled in test mode)`}
-                className="w-full min-h-[44px] rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 font-semibold text-[14px] flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-sm"
+                className="w-full min-h-[44px] rounded-xl border border-border bg-surface hover:bg-surface-muted text-fg font-semibold text-[14px] flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-sm active:scale-[0.99]"
               >
-                <Phone className="w-4 h-4 text-zinc-400" aria-hidden="true" />
+                <Phone className="w-4 h-4 text-fg-muted" aria-hidden="true" />
                 <span>Call Clinic</span>
               </button>
             </div>

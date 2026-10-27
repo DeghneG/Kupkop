@@ -112,3 +112,22 @@
   2. **Impeccable Engine:** Native CLI binary (`impeccable.exe` v0.1.18 on Windows) accessible via `.agents/skills/impeccable/scripts/impeccable.cmd` for deterministic design anti-pattern detection and context generation.
   3. **Playbook References:** Complete set of 40+ playbooks under [.agents/skills/impeccable/reference/](file:///f:/Kupkop/.agents/skills/impeccable/reference/) covering craft floor, responsive adaptation, visual hierarchy, mobile thumb zones, and UX microcopy.
 - **Context:** Equips the UI/UX design workflow with the official Impeccable design suite while honoring KupKop's emergency design rules in `AGENTS.md`.
+
+### D-014: UI Redesign to Manila Field Dispatch & Sculpted Cockpit Dock
+- **Date:** 2026-10-27
+- **Decision:** Transformed KupKop's frontend from a generic boxed template into the authentic "Manila Field Dispatch" aesthetic:
+  1. **Unboxed Editorial Breathing Room:** Removed card nesting around the hero section, letting display typography in `Bricolage Grotesque` and high-contrast sector status indicators breathe naturally.
+  2. **Sculpted Cockpit Dock:** Replaced the stacked two-story navigation bar with a single, unified floating glass dock where secondary navigation wings flank a central elevated 56px Signal Coral SOS camera beacon.
+  3. **Rescue Field Docket Cards:** Redesigned incident cards with 68×68 evidence frames, safety blur, stamp-style case IDs (`#KK-4821`), and street landmarks.
+  4. **Clean Theme Toggle:** Eliminated the distracting red outline ring on the sun toggle by switching to accessible `focus-visible` styling.
+- **Context:** User requested breaking out of plain container monotony and establishing a unique, tactile visual identity for KupKop.
+
+### D-015: Incident Feed Redesigned to Minimalist Clean Stream
+- **Date:** 2026-10-27
+- **Decision:** Replaced heavy boxed card containers with an open, flowing Minimalist Clean Stream in `IncidentCard.tsx`:
+  1. **Borderless Hairline Dividers:** Eliminated card box containers (`border-b border-border/70`), giving the feed continuous rhythm and breathing space.
+  2. **Clean 72px Rounded Thumbnail:** Replaced the tacky "EVIDENCE" text badge with a subtle, understated circular camera lens overlay and soft blur.
+  3. **Pure Typographic Hierarchy:** Condensed competing pill badges into a single status indicator (`Reported`, `Claimed`, etc.) and seamlessly unified the animal title with triage type (e.g. `Aspin Dog · Hit-and-run`).
+- **Context:** User disliked the cluttered, boxy report list cards and approved the Minimalist Clean Stream layout.
+
+

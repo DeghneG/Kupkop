@@ -8,28 +8,23 @@ export { IncidentCard };
 export const ListRow = IncidentCard;
 export default IncidentCard;
 
-// Multi-Card Skeleton for Loading State
+// Stream Row Skeleton for Loading State
 export function ListRowSkeleton() {
   return (
-    <div className="space-y-3" aria-label="Loading incidents" role="status">
+    <div className="divide-y divide-border/60" aria-label="Loading incidents" role="status">
       {[1, 2, 3].map((i) => (
         <div
           key={i}
-          className="w-full bg-surface rounded-2xl p-4 border border-border shadow-sm space-y-3"
+          className="w-full flex items-start gap-3.5 py-3.5 px-2"
         >
-          <div className="flex justify-between items-center">
-            <div className="flex gap-2">
-              <div className="w-20 h-5 rounded-full bg-surface-muted animate-pulse" />
-              <div className="w-16 h-5 rounded-full bg-surface-muted animate-pulse" />
+          <div className="w-[72px] h-[72px] rounded-xl bg-surface-muted animate-pulse shrink-0" />
+          <div className="flex-1 space-y-2 py-0.5">
+            <div className="flex justify-between items-center">
+              <div className="w-20 h-4 rounded-full bg-surface-muted animate-pulse" />
+              <div className="w-16 h-3.5 rounded bg-surface-muted animate-pulse" />
             </div>
-            <div className="w-14 h-4 rounded bg-surface-muted animate-pulse" />
-          </div>
-          <div className="flex items-center gap-3.5">
-            <div className="w-[60px] h-[60px] rounded-xl bg-surface-muted animate-pulse shrink-0" />
-            <div className="flex-1 space-y-2">
-              <div className="w-32 h-4 rounded bg-surface-muted animate-pulse" />
-              <div className="w-44 h-3.5 rounded bg-surface-muted animate-pulse" />
-            </div>
+            <div className="w-36 h-4 rounded bg-surface-muted animate-pulse" />
+            <div className="w-48 h-3.5 rounded bg-surface-muted animate-pulse" />
           </div>
         </div>
       ))}

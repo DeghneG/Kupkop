@@ -179,63 +179,64 @@ export default function HomePage() {
 
   return (
     <div className="flex flex-col flex-1 px-4 pt-3 pb-8 space-y-6">
-      {/* 1. Brand Row */}
-      <header className="flex items-center justify-between pb-1">
-        <div>
+      {/* 1. Brand Row with Live Dispatch Sector Status */}
+      <header className="flex items-start justify-between pb-2 border-b border-border/80">
+        <div className="space-y-1">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-fg text-page flex items-center justify-center font-bold text-[16px] shadow-sm shrink-0 font-brand">
+            <div className="w-9 h-9 rounded-xl bg-fg text-page flex items-center justify-center font-bold text-[16px] shadow-sm shrink-0 font-brand">
               K
             </div>
-            <h1 className="text-[22px] font-bold tracking-tight leading-none text-fg font-brand">
-              KupKop
-            </h1>
+            <div>
+              <h1 className="text-[22px] font-bold tracking-tight leading-none text-fg font-brand">
+                KupKop
+              </h1>
+              <p className="text-[12px] text-fg-muted font-normal mt-0.5">
+                Street Animal Emergency Network
+              </p>
+            </div>
           </div>
-          <p className="text-[12px] text-fg-muted font-normal mt-1 pl-0.5">
-            Street Animal Emergency &amp; Sanctuary Network
-          </p>
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[12px] font-mono border border-border bg-surface-muted/70 text-fg-muted">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" aria-hidden="true" />
+            <span>Sector Active · NCR Live Dispatch</span>
+          </div>
         </div>
 
         {/* Header Action Controls */}
-        <div className="flex items-center gap-2">
-          {/* Quick Theme Toggle (Light / Dark) */}
+        <div className="flex items-center gap-2 pt-0.5">
           <ThemeToggle />
         </div>
       </header>
 
-      {/* 2. Hero: Card Hero with 48px action button and quick triage shortcut chips */}
-      <section aria-label="Emergency Report Action" className="bg-surface rounded-2xl p-4 border border-border shadow-sm space-y-3">
-        <div className="space-y-0.5">
-          <h2 className="text-[16px] font-semibold text-fg tracking-tight">
-            Found an injured street animal?
+      {/* 2. Unboxed Editorial Dispatch Section (Breaks the Card Monotony) */}
+      <section aria-label="Emergency Report Action" className="space-y-3 pt-1">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[12px] font-mono font-semibold bg-reported-bg text-reported-fg border border-reported-fg/20">
+              FIELD TRIAGE
+            </span>
+          </div>
+          <h2 className="text-[22px] font-bold text-fg tracking-tight leading-tight font-brand">
+            Witnessed an injured street animal?
           </h2>
-          <p className="text-[12px] text-fg-muted font-normal leading-normal">
-            Take a live photo. We add GPS and server timestamp automatically.
+          <p className="text-[14px] text-fg-muted font-normal leading-relaxed">
+            Live camera only. Server embeds GPS coordinates and tamper-proof atomic timestamp automatically.
           </p>
         </div>
 
-        {/* 48px Primary Signal Coral Emergency Button */}
-        <Link
-          href="/sos"
-          id="hero-sos-trigger-button"
-          className="w-full min-h-[48px] rounded-xl bg-accent hover:opacity-95 active:scale-[0.98] text-accent-fg font-semibold text-[16px] flex items-center justify-center gap-2 shadow-sm transition-transform border-none focus:outline-none focus:ring-2 focus:ring-accent"
-        >
-          <Camera className="w-5 h-5 text-accent-fg" aria-hidden="true" />
-          <span>Report emergency</span>
-        </Link>
-
-        {/* Quick Triage Shortcut Chips */}
-        <div className="pt-2 border-t border-border/70">
-          <p className="text-[12px] font-normal text-fg-muted mb-2">
-            Quick triage shortcuts:
+        {/* Triage Quick-Rail (Tactile 44px Outlined Action Chips) */}
+        <div className="space-y-2 pt-1">
+          <p className="text-[12px] font-medium text-fg-muted">
+            Direct priority shortcuts:
           </p>
-          <div className="flex flex-wrap gap-2">
+          <div className="grid grid-cols-2 gap-2">
             {triageShortcuts.map((chip) => (
               <Link
                 key={chip.label}
                 href={`/sos?triage=${chip.query}`}
-                className="px-3 py-1 rounded-full text-[12px] font-medium border border-border bg-surface-muted hover:bg-border/60 text-fg transition-colors"
+                className="group min-h-[44px] px-3.5 py-2 rounded-xl text-[12px] font-semibold border border-border bg-surface hover:bg-surface-muted text-fg flex items-center justify-between transition-all active:scale-[0.98] shadow-xs"
               >
-                {chip.label}
+                <span className="group-hover:translate-x-0.5 transition-transform">{chip.label}</span>
+                <span className="text-[12px] text-fg-muted group-hover:text-fg font-mono" aria-hidden="true">→</span>
               </Link>
             ))}
           </div>
@@ -244,17 +245,20 @@ export default function HomePage() {
 
       {/* 3. Nearby Incidents Feed */}
       <section aria-labelledby="nearby-heading" className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 id="nearby-heading" className="text-[22px] font-semibold text-fg tracking-tight">
-            Active emergencies
-          </h2>
-          <span className="text-[12px] text-fg-muted font-normal">
+        <div className="flex items-center justify-between pb-1 border-b border-border/60">
+          <div className="flex items-center gap-2">
+            <h2 id="nearby-heading" className="text-[16px] font-semibold text-fg tracking-tight">
+              Active field incidents
+            </h2>
+            <span className="w-2 h-2 rounded-full bg-accent animate-pulse" aria-hidden="true" />
+          </div>
+          <span className="text-[12px] font-mono text-fg-muted font-normal">
             {emergencies.length} nearby
           </span>
         </div>
 
-        {/* Individual Standalone Incident Cards with 12px separation */}
-        <div className="space-y-3">
+        {/* Minimalist Clean Stream Feed */}
+        <div className="flex flex-col">
           {emergencies.length === 0 ? (
             <EmptyIncidentsState />
           ) : (

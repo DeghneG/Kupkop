@@ -511,7 +511,7 @@ export default function SOSCameraPage() {
                 )}
               </span>
               <span className="bg-black/65 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/20 flex items-center gap-1">
-                <Clock className="w-3 h-3 text-zinc-400 shrink-0" />
+                <Clock className="w-3 h-3 text-white/70 shrink-0" />
                 {currentTime}
               </span>
             </div>
@@ -847,12 +847,12 @@ export default function SOSCameraPage() {
           <div className="absolute inset-0 bg-stone-900/95 flex flex-col items-center justify-between p-4 text-center">
             <div className="flex-1 flex flex-col items-center justify-center space-y-2 my-auto">
               <div className="w-24 h-24 border-2 border-dashed border-red-500/60 rounded-2xl flex flex-col items-center justify-center space-y-1 bg-black/40">
-                <Camera className="w-8 h-8 text-red-400" aria-hidden="true" />
-                <span className="text-[11px] font-mono uppercase text-red-400 font-bold tracking-wider">
+                <Camera className="w-8 h-8 text-accent" aria-hidden="true" />
+                <span className="text-[12px] font-mono uppercase text-accent font-semibold tracking-wider">
                   {animal}
                 </span>
               </div>
-              <p className="text-[12px] font-medium text-zinc-300">
+              <p className="text-[12px] font-medium text-white/90">
                 Dev Simulated Lens Active
               </p>
             </div>
@@ -889,7 +889,7 @@ export default function SOSCameraPage() {
 
           {/* Live Atomic Clock Badge */}
           <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-mono bg-black/60 text-white border border-white/20 backdrop-blur-md shadow-sm">
-            <Clock className="w-3.5 h-3.5 text-zinc-400" aria-hidden="true" />
+            <Clock className="w-3.5 h-3.5 text-white/70" aria-hidden="true" />
             <span className="tabular-nums">{currentTime || 'Syncing...'}</span>
           </div>
         </div>
@@ -959,13 +959,13 @@ export default function SOSCameraPage() {
             <div className="w-24 h-24 border-2 border-white/40 rounded-2xl relative flex items-center justify-center">
               <div className="w-2 h-2 rounded-full bg-white/80" />
             </div>
-            <span className="text-[11px] font-medium text-white/90 drop-shadow mt-1">Center animal</span>
+            <span className="text-[12px] font-medium text-white/90 drop-shadow mt-1">Center animal</span>
           </div>
         )}
 
         {/* Viewfinder Bottom Anti-Tampering Notice */}
         <div className="relative z-10 p-2 text-center bg-gradient-to-t from-black/80 to-transparent">
-          <p className="text-[11px] font-medium text-zinc-300 tracking-wide">
+          <p className="text-[12px] font-medium text-white/80 tracking-wide">
             Live lens only • No gallery uploads • Database timestamp
           </p>
         </div>

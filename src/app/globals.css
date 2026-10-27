@@ -84,6 +84,30 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+/* Themed browser surfaces (craft-floor requirement) */
+::selection {
+  background-color: var(--healing-bg);
+  color: var(--healing-fg);
+}
+
+:focus-visible {
+  outline: 2px solid var(--action);
+  outline-offset: 2px;
+}
+
+/* Slender themed scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 9999px;
+}
+
 /* Reduced motion helper */
 @media (prefers-reduced-motion: reduce) {
   *, ::before, ::after {
@@ -93,3 +117,4 @@ body {
     scroll-behavior: auto !important;
   }
 }
+

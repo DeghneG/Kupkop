@@ -197,7 +197,7 @@ export default function RafaPage() {
               >
                 {m.text}
               </div>
-              <span className="text-[10px] text-fg-muted mt-1 px-1">{m.time}</span>
+              <span className="text-[12px] text-fg-muted mt-1 px-1">{m.time}</span>
             </div>
           );
         })}
@@ -205,9 +205,9 @@ export default function RafaPage() {
         {/* Loading Indicator */}
         {loading && (
           <div className="flex flex-col items-start space-y-1">
-            <div className="flex items-center gap-2 bg-surface text-fg-muted border border-border rounded-[18px] px-4 py-3 shadow-sm text-[13px]">
-              <Loader2 className="w-3.5 h-3.5 animate-spin text-rafa" />
-              <span>Rafa is thinking...</span>
+            <div className="flex items-center gap-2 bg-surface text-fg-muted border border-border rounded-[18px] px-4 py-3 shadow-sm text-[14px]">
+              <Loader2 className="w-4 h-4 animate-spin text-rafa" />
+              <span>Rafa is analyzing...</span>
             </div>
           </div>
         )}
@@ -226,9 +226,9 @@ export default function RafaPage() {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* 3. Quick Triage Chips */}
+      {/* 3. Quick Triage Chips (Strictly 12px font size, neutral outlined) */}
       <div className="pt-1">
-        <p className="text-[11px] font-normal text-fg-muted mb-1.5">
+        <p className="text-[12px] font-normal text-fg-muted mb-1.5">
           Tap for immediate emergency guidance:
         </p>
         <div className="flex flex-wrap gap-1.5">
@@ -238,7 +238,7 @@ export default function RafaPage() {
               type="button"
               disabled={loading}
               onClick={() => handleChipClick(chip.queryEn, chip.queryFil)}
-              className="px-2.5 py-1 rounded-full text-[11px] font-semibold border border-border bg-surface hover:bg-surface-muted text-fg transition-colors cursor-pointer disabled:opacity-50"
+              className="px-3 py-1.5 rounded-full text-[12px] font-semibold border border-border bg-surface hover:bg-surface-muted text-fg transition-colors cursor-pointer disabled:opacity-50 active:scale-[0.98]"
             >
               {chip.label}
             </button>

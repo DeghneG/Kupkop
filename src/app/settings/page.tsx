@@ -48,7 +48,7 @@ export default function SettingsPage() {
       </header>
 
       {/* 2. Account Section */}
-      <section aria-labelledby="settings-account-heading" className="bg-surface rounded-[20px] p-4 border border-border shadow-sm space-y-3">
+      <section aria-labelledby="settings-account-heading" className="bg-surface rounded-2xl p-4 border border-border shadow-sm space-y-3">
         <h2 id="settings-account-heading" className="text-[12px] font-semibold uppercase tracking-wider text-fg-muted">
           Account
         </h2>
@@ -94,7 +94,7 @@ export default function SettingsPage() {
       </section>
 
       {/* 3. Appearance (3-Option iOS Segmented Control) */}
-      <section aria-labelledby="settings-appearance-heading" className="bg-surface rounded-[20px] p-4 border border-border shadow-sm space-y-3">
+      <section aria-labelledby="settings-appearance-heading" className="bg-surface rounded-2xl p-4 border border-border shadow-sm space-y-3">
         <h2 id="settings-appearance-heading" className="text-[12px] font-semibold uppercase tracking-wider text-fg-muted">
           Appearance
         </h2>
@@ -153,7 +153,7 @@ export default function SettingsPage() {
 
       {/* 4. DEV ONLY (mock role selector) */}
       {/* DEV ONLY (mock role): In production, role is stored in profiles.role in Supabase Postgres and approved by admin. This selector must be removed before real auth and RLS integration. */}
-      <section aria-labelledby="settings-dev-heading" className="bg-surface rounded-[20px] p-4 border border-border shadow-sm space-y-3">
+      <section aria-labelledby="settings-dev-heading" className="bg-surface rounded-2xl p-4 border border-border shadow-sm space-y-3">
         <div className="flex items-center gap-2">
           <ShieldAlert className="w-4 h-4 text-banner-fg shrink-0" aria-hidden="true" />
           <h2 id="settings-dev-heading" className="text-[12px] font-semibold uppercase tracking-wider text-fg-muted">
@@ -173,19 +173,19 @@ export default function SettingsPage() {
               onClick={() => handleRoleChange(role)}
               className={`min-h-[44px] px-3.5 rounded-xl text-[12px] font-semibold capitalize flex items-center justify-between border transition-all cursor-pointer ${
                 mockRole === role
-                  ? 'bg-accent text-accent-fg border-accent shadow-sm'
+                  ? 'bg-action text-action-fg border-action shadow-sm'
                   : 'bg-surface-muted text-fg border-border hover:bg-border/60'
               }`}
             >
               <span>{role}</span>
-              {mockRole === role && <span className="text-[10px] uppercase font-bold tracking-wider">Active</span>}
+              {mockRole === role && <span className="text-[12px] uppercase font-semibold tracking-wider">Active</span>}
             </button>
           ))}
         </div>
       </section>
 
       {/* 5. About / Prototype Status */}
-      <section aria-labelledby="settings-about-heading" className="bg-surface rounded-[20px] p-4 border border-border shadow-sm space-y-2">
+      <section aria-labelledby="settings-about-heading" className="bg-surface rounded-2xl p-4 border border-border shadow-sm space-y-2">
         <div className="flex items-center gap-2">
           <Info className="w-4 h-4 text-fg-muted shrink-0" aria-hidden="true" />
           <h2 id="settings-about-heading" className="text-[12px] font-semibold uppercase tracking-wider text-fg-muted">
