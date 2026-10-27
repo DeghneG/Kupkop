@@ -128,6 +128,25 @@
   1. **Borderless Hairline Dividers:** Eliminated card box containers (`border-b border-border/70`), giving the feed continuous rhythm and breathing space.
   2. **Clean 72px Rounded Thumbnail:** Replaced the tacky "EVIDENCE" text badge with a subtle, understated circular camera lens overlay and soft blur.
   3. **Pure Typographic Hierarchy:** Condensed competing pill badges into a single status indicator (`Reported`, `Claimed`, etc.) and seamlessly unified the animal title with triage type (e.g. `Aspin Dog · Hit-and-run`).
-- **Context:** User disliked the cluttered, boxy report list cards and approved the Minimalist Clean Stream layout.
+### D-016: Track 1 Core Rescue Lifecycle Implementation (Claim Lock, Escalation Engine & 14-Day Inactivity Clock)
+- **Date:** 2026-10-28
+- **Decision:** Implemented KupKop's core rescue coordination lifecycle across database, logic, and interface:
+  1. **Atomic PostgreSQL Claim Lock & RLS Bypass:** Created `claim_sos_report(p_report_id, p_volunteer_id)` and `release_sos_claim(p_report_id)` with `SECURITY DEFINER` row-level locks, resolving the RLS catch-22 where volunteers could not claim reports with `claimed_by IS NULL` under standard client policies.
+  2. **Escalation Engine (`src/lib/sos/escalation.ts`):** Implemented automated triage escalation tiers from `AGENTS.md` (Hit-and-Run/Bleeding: 3m widen, 10m alert; Fracture: 5m/15m; Sick/Mange: 15m/60m) and rendered live status badges (`Widened radius · +Xm`, `No responder · +Xm`) on feed rows.
+  3. **Live 60-Minute Claim Timer in DetailSheet:** Ticking countdown and progress rail with claim owner actions ("Mark as Admitted" handoff to partner clinics, "Release Claim" if unable to attend), and disabled lock display for other volunteers to avoid duplicate trips.
+  4. **14-Day Facility Inactivity Clock:** Dynamic care tracking across partner clinics (`Day X of 14 · Active Care`, `Update due in X days`, `Inactivity Alert · Welfare check needed`) in `facilities/page.tsx` and DetailSheet.
+- **Context:** User requested developing "Track 1" to establish the automated lifecycle from citizen emergency report to volunteer scene claim and partner clinic admission.
+
+### D-017: Triage-Responsive Bespoke Glyphs (Direction A)
+- **Date:** 2026-10-28
+- **Decision:** Replaced generic Lucide icons (`AlertCircle`, `Lock`, `HeartPulse`, `CheckCircle2`) with handcrafted, triage-responsive vector micro-SVGs in `src/components/icons/TriageGlyph.tsx`:
+  1. **Pulse Beacon (Hit-and-Run / Bleeding):** Geometric radio signal pulse emitting radial waves from an active core point, communicating urgent live broadcast instead of generic software alert.
+  2. **Bone Splint (Fracture / Limping):** Orthopedic bone silhouette with angled stabilization wrap line for limp/fracture emergencies.
+  3. **Extraction Wedge (Trapped in Drain):** Storm drain grate rim with an upward rescue extraction wedge.
+  4. **Care Shield (Sick / Mange):** Medical treatment shield with clean cross for isolation & health triage.
+  5. **Responder Compass (Claimed Lock):** 45° tactical navigation dial with filled active heading needle, replacing the generic website padlock to represent rescuer en-route navigation.
+  6. **Sanctuary Sprout (Admitted / Healing) & Shield Check (Resolved):** Botanical care sprout and grounded shelter crest for long-term clinical care and sanctuary resolution.
+  7. **Lock Timer Bug Fix:** Fixed edge case where `0m lock` displayed if claimed time had not elapsed 60 seconds; now renders cleanly as `<1m lock` or remaining seconds.
+- **Context:** User requested unique, bespoke designs for the report icons via Impeccable review to eliminate repetitive generic exclamation marks across the incident feed stream.
 
 

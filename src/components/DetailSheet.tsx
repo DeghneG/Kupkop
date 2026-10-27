@@ -1,5 +1,4 @@
 'use client';
-
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
@@ -19,15 +18,21 @@ import {
   Navigation,
   ExternalLink,
   FileText,
+  RotateCcw,
 } from 'lucide-react';
 import { IncidentData } from './ListRow';
 import { formatCoordinates } from '@/lib/sos/utils';
+import { calculateClaimTimer, calculateFacilityInactivity } from '@/lib/sos/escalation';
+import TriageGlyph from '@/components/icons/TriageGlyph';
 
 interface DetailSheetProps {
   incident: IncidentData | null;
   onClose: () => void;
   mockRole: 'citizen' | 'volunteer' | 'facility' | 'admin';
   triggerElement?: HTMLElement | null;
+  onClaim?: (incident: IncidentData) => Promise<void> | void;
+  onReleaseClaim?: (incident: IncidentData) => Promise<void> | void;
+  onAdmit?: (incident: IncidentData, facilityId?: string) => Promise<void> | void;
 }
 
 export default function DetailSheet({
@@ -35,6 +40,9 @@ export default function DetailSheet({
   onClose,
   mockRole,
   triggerElement,
+  onClaim,
+  onReleaseClaim,
+  onAdmit,
 }: DetailSheetProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const backdropRef = useRef<HTMLDivElement>(null);
@@ -43,6 +51,16 @@ export default function DetailSheet({
 
   const [isPhotoRevealed, setIsPhotoRevealed] = useState(false);
   const [callNotice, setCallNotice] = useState<string | null>(null);
+  const [, setTicker] = useState(0);
+
+  // Live timer tick for active claim lock countdown
+  useEffect(() => {
+    if (!incident || (incident.state !== 'claimed' && incident.state !== 'reported')) return;
+    const interval = setInterval(() => {
+      setTicker((t) => t + 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [incident?.id, incident?.state, incident?.claimedAt]);
 
   // Reset photo reveal and notice when incident changes (render-phase adjustment without cascading effect)
   const [prevIncidentId, setPrevIncidentId] = useState(incident?.id);
@@ -146,7 +164,7 @@ export default function DetailSheet({
       case 'claimed':
         return (
           <span className="inline-flex items-center gap-1.5 text-[14px] font-semibold text-claimed-fg">
-            <Lock className="w-4 h-4 shrink-0" aria-hidden="true" />
+            <TriageGlyph state="claimed" size={16} className="text-claimed-fg shrink-0" />
             <span>Claimed</span>
           </span>
         );
@@ -154,14 +172,14 @@ export default function DetailSheet({
       case 'admitted':
         return (
           <span className="inline-flex items-center gap-1.5 text-[14px] font-semibold text-healing-fg">
-            <HeartPulse className="w-4 h-4 shrink-0" aria-hidden="true" />
+            <TriageGlyph state={incident.state} size={16} className="text-healing-fg shrink-0" />
             <span>{incident.state === 'admitted' ? 'Admitted' : 'Healing'}</span>
           </span>
         );
       case 'resolved':
         return (
           <span className="inline-flex items-center gap-1.5 text-[14px] font-semibold text-resolved-fg">
-            <CheckCircle2 className="w-4 h-4 shrink-0" aria-hidden="true" />
+            <TriageGlyph state="resolved" size={16} className="text-resolved-fg shrink-0" />
             <span>Resolved</span>
           </span>
         );
@@ -169,7 +187,7 @@ export default function DetailSheet({
       default:
         return (
           <span className="inline-flex items-center gap-1.5 text-[14px] font-semibold text-reported-fg">
-            <AlertCircle className="w-4 h-4 shrink-0" aria-hidden="true" />
+            <TriageGlyph state="reported" emergencyType={incident.type} size={16} className="text-reported-fg shrink-0" />
             <span>Reported</span>
           </span>
         );
@@ -315,50 +333,130 @@ export default function DetailSheet({
           )}
 
           {/* Actions Section */}
-          <div className="space-y-2.5 pt-2">
-            {incident.state === 'reported' ? (
-              mockRole === 'citizen' ? (
-                <div className="text-center py-2">
-                  <button
-                    type="button"
-                    onClick={() => alert('Volunteer application mock: in prototype, request admin approval in Settings.')}
-                    className="text-[14px] font-semibold text-link underline cursor-pointer"
-                  >
-                    Become a volunteer to claim
-                  </button>
+          <div className="space-y-3 pt-2">
+            {/* 1. If Claimed: Render Lock Countdown Timer Card */}
+            {incident.state === 'claimed' && (
+              <div className="bg-claimed-bg text-claimed-fg border border-claimed-fg/20 rounded-2xl p-3.5 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 font-semibold text-[14px]">
+                    <TriageGlyph state="claimed" size={16} className="text-claimed-fg shrink-0" />
+                    <span>Volunteer Claim Lock</span>
+                  </div>
+                  <span className="font-mono text-[12px] font-semibold tabular-nums">
+                    {calculateClaimTimer(incident.claimedAt).isExpired
+                      ? 'Lock Expired'
+                      : calculateClaimTimer(incident.claimedAt).formatted}
+                  </span>
                 </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => alert(`Mock: Claimed rescue ${incident.shortId}.`)}
-                  className="w-full min-h-[48px] bg-accent hover:opacity-90 active:scale-[0.98] text-accent-fg font-semibold text-[16px] rounded-[14px] flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer border-none"
-                >
-                  <HeartHandshake className="w-5 h-5" aria-hidden="true" />
-                  <span>Claim Rescue</span>
-                </button>
-              )
-            ) : incident.state === 'claimed' ? (
-              <div className="w-full min-h-[48px] rounded-[14px] bg-surface-muted border border-border flex items-center justify-center gap-2 text-[14px] text-fg-muted font-normal">
-                <Lock className="w-4 h-4 text-claimed-fg" aria-hidden="true" />
-                <span>Claimed by a volunteer</span>
-              </div>
-            ) : (
-              <div className="w-full min-h-[48px] rounded-[14px] bg-surface-muted border border-border flex items-center justify-center gap-2 text-[14px] text-fg-muted font-normal capitalize">
-                <CheckCircle2 className="w-4 h-4 text-healing-fg" aria-hidden="true" />
-                <span>Rescue status: {incident.state}</span>
+                <div className="w-full bg-claimed-fg/15 h-1.5 rounded-full overflow-hidden">
+                  <div
+                    className="bg-claimed-fg h-full transition-all duration-1000 rounded-full"
+                    style={{
+                      width: `${calculateClaimTimer(incident.claimedAt).percentRemaining}%`,
+                    }}
+                  />
+                </div>
+                <p className="text-[12px] text-claimed-fg/90 font-normal leading-tight">
+                  {calculateClaimTimer(incident.claimedAt).isExpired
+                    ? 'The 60-minute claim lock has expired. Incident is eligible for re-dispatch.'
+                    : 'Rescue is locked for 60 minutes to prevent duplicate volunteer dispatches.'}
+                </p>
               </div>
             )}
 
-            {/* Secondary Call button (Disabled in test mode) */}
-            <button
-              type="button"
-              onClick={handleCallClick}
-              aria-label="Call clinic (disabled in test mode)"
-              className="w-full min-h-[44px] rounded-[14px] border border-border bg-surface hover:bg-surface-muted text-fg font-semibold text-[14px] flex items-center justify-center gap-2 transition-colors cursor-pointer"
-            >
-              <Phone className="w-4 h-4 text-fg-muted" aria-hidden="true" />
-              <span>Call</span>
-            </button>
+            {/* 2. If Admitted/Healing: Render 14-Day Inactivity Clock Card */}
+            {(incident.state === 'admitted' || incident.state === 'healing') && (
+              <div className="bg-healing-bg text-healing-fg border border-healing-fg/20 rounded-2xl p-3.5 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 font-semibold text-[14px]">
+                    <TriageGlyph state="healing" size={16} className="text-healing-fg shrink-0" />
+                    <span>14-Day Facility Inactivity Clock</span>
+                  </div>
+                  <span className="font-mono text-[12px] font-semibold tabular-nums">
+                    {calculateFacilityInactivity(incident.claimedAt).badgeText}
+                  </span>
+                </div>
+                <p className="text-[12px] text-healing-fg/90 font-normal leading-tight">
+                  Partner facilities must log progress updates within 14 days of admission.
+                </p>
+              </div>
+            )}
+
+            {/* 3. Action Buttons Based on Role and State */}
+            <div className="space-y-2 pt-1">
+              {incident.state === 'reported' ? (
+                mockRole === 'citizen' ? (
+                  <div className="text-center py-2 space-y-1">
+                    <p className="text-[12px] text-fg-muted font-normal">
+                      Field rescues can only be claimed by registered volunteers.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => alert('Volunteer application mock: in prototype, switch your role to Volunteer in Settings.')}
+                      className="text-[14px] font-semibold text-link underline cursor-pointer"
+                    >
+                      Become a volunteer in Settings
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-1.5">
+                    <button
+                      type="button"
+                      onClick={() => onClaim ? onClaim(incident) : alert(`Claimed rescue ${incident.shortId}`)}
+                      className="w-full min-h-[48px] bg-accent hover:opacity-90 active:scale-[0.98] text-accent-fg font-semibold text-[16px] rounded-xl flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer border-none"
+                    >
+                      <HeartHandshake className="w-5 h-5" aria-hidden="true" />
+                      <span>Claim Rescue (60m Lock)</span>
+                    </button>
+                    <p className="text-[12px] text-fg-muted text-center font-normal">
+                      Locks incident for 60 minutes to prevent duplicate volunteer dispatch.
+                    </p>
+                  </div>
+                )
+              ) : incident.state === 'claimed' ? (
+                mockRole === 'volunteer' || mockRole === 'admin' ? (
+                  <div className="space-y-2">
+                    <button
+                      type="button"
+                      onClick={() => onAdmit ? onAdmit(incident) : alert(`Admitted ${incident.shortId}`)}
+                      className="w-full min-h-[48px] bg-action hover:opacity-90 active:scale-[0.98] text-action-fg font-semibold text-[16px] rounded-xl flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer border-none"
+                    >
+                      <HeartPulse className="w-5 h-5" aria-hidden="true" />
+                      <span>Mark as Admitted (Clinic Handoff)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onReleaseClaim ? onReleaseClaim(incident) : alert(`Released claim on ${incident.shortId}`)}
+                      className="w-full min-h-[44px] rounded-xl border border-border bg-surface hover:bg-surface-muted text-fg font-semibold text-[14px] flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                    >
+                      <RotateCcw className="w-4 h-4 text-fg-muted" aria-hidden="true" />
+                      <span>Release Claim (Cannot Attend)</span>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="w-full min-h-[48px] rounded-xl bg-surface-muted border border-border flex items-center justify-center gap-2 text-[14px] text-fg-muted font-normal">
+                    <TriageGlyph state="claimed" size={14} className="text-claimed-fg shrink-0" />
+                    <span>Rescuer en route ({calculateClaimTimer(incident.claimedAt).remainingMinutes}m lock left)</span>
+                  </div>
+                )
+              ) : (
+                <div className="w-full min-h-[48px] rounded-xl bg-surface-muted border border-border flex items-center justify-center gap-2 text-[14px] text-fg-muted font-normal capitalize">
+                  <CheckCircle2 className="w-4 h-4 text-healing-fg" aria-hidden="true" />
+                  <span>Status: {incident.state}</span>
+                </div>
+              )}
+
+              {/* Secondary Call button (Disabled in test mode) */}
+              <button
+                type="button"
+                onClick={handleCallClick}
+                aria-label="Call clinic (disabled in test mode)"
+                className="w-full min-h-[44px] rounded-xl border border-border bg-surface hover:bg-surface-muted text-fg font-semibold text-[14px] flex items-center justify-center gap-2 transition-colors cursor-pointer"
+              >
+                <Phone className="w-4 h-4 text-fg-muted" aria-hidden="true" />
+                <span>Call Partner Facility</span>
+              </button>
+            </div>
           </div>
 
           {/* Live Incident Scene Map (Under Call Button) */}
@@ -381,10 +479,10 @@ export default function DetailSheet({
                 className="w-full h-full border-0 select-none"
                 loading="lazy"
               />
-              {/* GPS status badge */}
+              {/* GPS status badge without decorative pulse */}
               <div className="absolute top-2.5 left-2.5 pointer-events-none">
                 <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[12px] font-medium bg-surface/90 text-fg border border-border shadow-xs backdrop-blur-sm">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" aria-hidden="true" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" aria-hidden="true" />
                   <span>GPS Active</span>
                 </span>
               </div>

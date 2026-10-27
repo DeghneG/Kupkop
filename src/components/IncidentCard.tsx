@@ -1,7 +1,9 @@
 'use client';
 
 import React from 'react';
-import { Camera, AlertCircle, Lock, HeartPulse, CheckCircle2, MapPin } from 'lucide-react';
+import { Camera, MapPin } from 'lucide-react';
+import { calculateEscalation, calculateClaimTimer } from '@/lib/sos/escalation';
+import TriageGlyph from '@/components/icons/TriageGlyph';
 
 export interface IncidentData {
   id: string;
@@ -17,6 +19,11 @@ export interface IncidentData {
   latitude?: number;
   longitude?: number;
   description?: string;
+  claimedBy?: string | null;
+  claimedAt?: string | null;
+  createdAt?: string | null;
+  facilityId?: string | null;
+  facilityName?: string | null;
 }
 
 export interface IncidentCardProps {
@@ -26,38 +33,62 @@ export interface IncidentCardProps {
 }
 
 export function IncidentCard({ incident, onClick }: IncidentCardProps) {
-  // Status indicator config with tinted background pill
+  const escalation = incident.state === 'reported' ? calculateEscalation(incident.createdAt, incident.type) : null;
+  const claimStatus = incident.state === 'claimed' ? calculateClaimTimer(incident.claimedAt) : null;
+
+  // Status indicator config with bespoke TriageGlyphs and live escalation cues
   const renderStatus = () => {
     switch (incident.state) {
-      case 'claimed':
+      case 'claimed': {
+        const isTimerValid = claimStatus && claimStatus.isClaimed && !claimStatus.isExpired;
+        const lockText = isTimerValid
+          ? claimStatus.remainingMinutes > 0
+            ? `${claimStatus.remainingMinutes}m lock`
+            : `${claimStatus.remainingSeconds}s lock`
+          : 'Claimed';
+
         return (
           <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[12px] font-semibold bg-claimed-bg text-claimed-fg shrink-0 border border-claimed-fg/20">
-            <Lock className="w-3 h-3 shrink-0" aria-hidden="true" />
-            <span>Claimed</span>
+            <TriageGlyph state="claimed" size={13} className="text-claimed-fg shrink-0" />
+            <span>{lockText}</span>
           </span>
         );
+      }
       case 'healing':
       case 'admitted':
         return (
           <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[12px] font-semibold bg-healing-bg text-healing-fg shrink-0 border border-healing-fg/20">
-            <HeartPulse className="w-3 h-3 shrink-0" aria-hidden="true" />
+            <TriageGlyph state={incident.state} size={13} className="text-healing-fg shrink-0" />
             <span>{incident.state === 'admitted' ? 'Admitted' : 'Healing'}</span>
           </span>
         );
       case 'resolved':
         return (
           <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[12px] font-semibold bg-resolved-bg text-resolved-fg shrink-0 border border-resolved-fg/20">
-            <CheckCircle2 className="w-3 h-3 shrink-0" aria-hidden="true" />
+            <TriageGlyph state="resolved" size={13} className="text-resolved-fg shrink-0" />
             <span>Resolved</span>
           </span>
         );
       case 'reported':
       default:
         return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[12px] font-semibold bg-reported-bg text-reported-fg shrink-0 border border-reported-fg/20">
-            <AlertCircle className="w-3 h-3 shrink-0" aria-hidden="true" />
-            <span>Reported</span>
-          </span>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[12px] font-semibold bg-reported-bg text-reported-fg shrink-0 border border-reported-fg/20">
+              <TriageGlyph state="reported" emergencyType={incident.type} size={13} className="text-reported-fg shrink-0" />
+              <span>Reported</span>
+            </span>
+            {escalation?.badgeLabel && (
+              <span
+                className={`inline-flex items-center px-2 py-0.5 rounded-full text-[12px] font-medium border shrink-0 ${
+                  escalation.isAlert
+                    ? 'bg-reported-bg text-reported-fg border-reported-fg/30'
+                    : 'bg-surface-muted text-fg-muted border-border'
+                }`}
+              >
+                {escalation.badgeLabel}
+              </span>
+            )}
+          </div>
         );
     }
   };

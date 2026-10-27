@@ -32,6 +32,7 @@ const initialEmergencies: IncidentData[] = [
     location: 'Aurora Blvd near EDSA, Cubao',
     distance: '0.8 km',
     timeAgo: '4m ago',
+    createdAt: new Date(Date.now() - 4 * 60 * 1000).toISOString(),
     blurred: true,
     latitude: 14.6198,
     longitude: 121.0526,
@@ -45,6 +46,9 @@ const initialEmergencies: IncidentData[] = [
     location: 'E. Rodriguez Sr. Ave, New Manila',
     distance: '1.4 km',
     timeAgo: '18m ago',
+    createdAt: new Date(Date.now() - 18 * 60 * 1000).toISOString(),
+    claimedAt: new Date(Date.now() - 12 * 60 * 1000).toISOString(),
+    claimedBy: 'vol-test-1',
     blurred: true,
     latitude: 14.6225,
     longitude: 121.0331,
@@ -58,6 +62,7 @@ const initialEmergencies: IncidentData[] = [
     location: 'Kamuning Rd near Tomas Morato',
     distance: '2.1 km',
     timeAgo: '32m ago',
+    createdAt: new Date(Date.now() - 32 * 60 * 1000).toISOString(),
     blurred: true,
     latitude: 14.6305,
     longitude: 121.0366,
@@ -136,6 +141,10 @@ export default function HomePage() {
               photoUrl: r.photo_url || undefined,
               latitude: r.latitude ?? 14.6091,
               longitude: r.longitude ?? 121.0223,
+              claimedBy: r.claimed_by || null,
+              claimedAt: r.claimed_at || null,
+              createdAt: r.created_at || r.server_timestamp || null,
+              facilityId: r.facility_id || null,
             };
           });
 
@@ -177,6 +186,78 @@ export default function HomePage() {
     setSelectedIncident(incident);
   };
 
+  const handleClaimIncident = async (incident: IncidentData) => {
+    const nowIso = new Date().toISOString();
+    const updated: IncidentData = {
+      ...incident,
+      state: 'claimed',
+      claimedAt: nowIso,
+      claimedBy: 'vol-local',
+    };
+
+    setEmergencies((prev) =>
+      prev.map((item) => (item.id === incident.id ? updated : item))
+    );
+    setSelectedIncident(updated);
+
+    if (incident.id && !incident.id.startsWith('case-')) {
+      try {
+        const supabase = createClient();
+        await supabase.rpc('claim_sos_report', { p_report_id: incident.id });
+      } catch (err) {
+        console.warn('Supabase claim RPC fallback:', err);
+      }
+    }
+  };
+
+  const handleReleaseClaim = async (incident: IncidentData) => {
+    const updated: IncidentData = {
+      ...incident,
+      state: 'reported',
+      claimedAt: null,
+      claimedBy: null,
+    };
+
+    setEmergencies((prev) =>
+      prev.map((item) => (item.id === incident.id ? updated : item))
+    );
+    setSelectedIncident(updated);
+
+    if (incident.id && !incident.id.startsWith('case-')) {
+      try {
+        const supabase = createClient();
+        await supabase.rpc('release_sos_claim', { p_report_id: incident.id });
+      } catch (err) {
+        console.warn('Supabase release RPC fallback:', err);
+      }
+    }
+  };
+
+  const handleAdmitIncident = async (incident: IncidentData, facilityId?: string) => {
+    const updated: IncidentData = {
+      ...incident,
+      state: 'admitted',
+      facilityId: facilityId || 'fac-1',
+    };
+
+    setEmergencies((prev) =>
+      prev.map((item) => (item.id === incident.id ? updated : item))
+    );
+    setSelectedIncident(updated);
+
+    if (incident.id && !incident.id.startsWith('case-')) {
+      try {
+        const supabase = createClient();
+        await supabase.rpc('admit_to_facility', {
+          p_report_id: incident.id,
+          p_facility_id: facilityId || '00000000-0000-0000-0000-000000000001',
+        });
+      } catch (err) {
+        console.warn('Supabase admit RPC fallback:', err);
+      }
+    }
+  };
+
   return (
     <div className="flex flex-col flex-1 px-4 pt-3 pb-8 space-y-6">
       {/* 1. Brand Row with Live Dispatch Sector Status */}
@@ -196,7 +277,7 @@ export default function HomePage() {
             </div>
           </div>
           <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[12px] font-mono border border-border bg-surface-muted/70 text-fg-muted">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" aria-hidden="true" />
+            <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" aria-hidden="true" />
             <span>Sector Active · NCR Live Dispatch</span>
           </div>
         </div>
@@ -250,7 +331,7 @@ export default function HomePage() {
             <h2 id="nearby-heading" className="text-[16px] font-semibold text-fg tracking-tight">
               Active field incidents
             </h2>
-            <span className="w-2 h-2 rounded-full bg-accent animate-pulse" aria-hidden="true" />
+            <span className="w-2 h-2 rounded-full bg-accent shrink-0" aria-hidden="true" />
           </div>
           <span className="text-[12px] font-mono text-fg-muted font-normal">
             {emergencies.length} nearby
@@ -279,6 +360,9 @@ export default function HomePage() {
         onClose={() => setSelectedIncident(null)}
         mockRole={mockRole}
         triggerElement={activeTriggerEl}
+        onClaim={handleClaimIncident}
+        onReleaseClaim={handleReleaseClaim}
+        onAdmit={handleAdmitIncident}
       />
     </div>
   );
