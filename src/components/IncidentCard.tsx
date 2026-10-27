@@ -4,6 +4,7 @@ import React from 'react';
 import { Camera, MapPin } from 'lucide-react';
 import { calculateEscalation, calculateClaimTimer } from '@/lib/sos/escalation';
 import TriageGlyph from '@/components/icons/TriageGlyph';
+import { getDirectionalBearing } from '@/lib/sos/utils';
 
 export interface IncidentData {
   id: string;
@@ -138,7 +139,12 @@ export function IncidentCard({ incident, onClick }: IncidentCardProps) {
           <div className="flex items-center gap-1.5 text-[12px] text-fg-muted tabular-nums shrink-0">
             <span>{incident.timeAgo}</span>
             <span className="text-border" aria-hidden="true">•</span>
-            <span className="font-medium text-fg-muted">{incident.distance}</span>
+            <span className="font-medium text-fg-muted inline-flex items-center gap-0.5">
+              <span className="text-[12px] text-fg-muted/70 font-mono" aria-hidden="true">
+                {getDirectionalBearing(incident.latitude, incident.longitude)}
+              </span>
+              <span>{incident.distance}</span>
+            </span>
           </div>
         </div>
 

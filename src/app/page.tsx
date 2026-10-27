@@ -8,6 +8,7 @@ import DetailSheet from '@/components/DetailSheet';
 import ThemeToggle from '@/components/ThemeToggle';
 import { useMockRole } from '@/lib/storage';
 import { createClient } from '@/lib/supabase/client';
+import { PulseBeacon, BoneSplint, ExtractionWedge, CareShield } from '@/components/icons/TriageGlyph';
 
 function formatTimeAgo(dateString?: string | null): string {
   if (!dateString) return 'Just now';
@@ -69,16 +70,18 @@ const initialEmergencies: IncidentData[] = [
   },
 ];
 
-const triageShortcuts = [
-  { label: 'Bleeding', query: 'bleeding' },
-  { label: 'Hit-and-run', query: 'hit-and-run' },
-  { label: 'Fracture', query: 'fracture' },
-  { label: 'Trapped', query: 'trapped' },
+const triageChannels = [
+  { id: 'all', label: 'All Incidents', glyph: null, query: '' },
+  { id: 'critical', label: 'Hit-and-Run', glyph: PulseBeacon, query: 'hit-and-run' },
+  { id: 'fracture', label: 'Fracture / Limp', glyph: BoneSplint, query: 'fracture' },
+  { id: 'trapped', label: 'Trapped in Drain', glyph: ExtractionWedge, query: 'trapped' },
+  { id: 'sick', label: 'Sick / Mange', glyph: CareShield, query: 'sick_mange' },
 ];
 
 export default function HomePage() {
   const [emergencies, setEmergencies] = useState<IncidentData[]>(initialEmergencies);
   const [selectedIncident, setSelectedIncident] = useState<IncidentData | null>(null);
+  const [selectedChannel, setSelectedChannel] = useState<string>('all');
   const [activeTriggerEl, setActiveTriggerEl] = useState<HTMLElement | null>(null);
   const [mockRole] = useMockRole();
 
@@ -258,6 +261,16 @@ export default function HomePage() {
     }
   };
 
+  const filteredEmergencies = emergencies.filter((incident) => {
+    if (selectedChannel === 'all') return true;
+    const lowerType = incident.type.toLowerCase();
+    if (selectedChannel === 'critical') return lowerType.includes('hit') || lowerType.includes('bleed') || lowerType.includes('critical');
+    if (selectedChannel === 'fracture') return lowerType.includes('fracture') || lowerType.includes('limp');
+    if (selectedChannel === 'trapped') return lowerType.includes('trap') || lowerType.includes('drain');
+    if (selectedChannel === 'sick') return lowerType.includes('sick') || lowerType.includes('mange');
+    return true;
+  });
+
   return (
     <div className="flex flex-col flex-1 px-4 pt-3 pb-8 space-y-6">
       {/* 1. Brand Row with Live Dispatch Sector Status */}
@@ -288,43 +301,140 @@ export default function HomePage() {
         </div>
       </header>
 
-      {/* 2. Unboxed Editorial Dispatch Section (Breaks the Card Monotony) */}
-      <section aria-label="Emergency Report Action" className="space-y-3 pt-1">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[12px] font-mono font-semibold bg-reported-bg text-reported-fg border border-reported-fg/20">
-              FIELD TRIAGE
-            </span>
-          </div>
-          <h2 className="text-[22px] font-bold text-fg tracking-tight leading-tight font-brand">
-            Witnessed an injured street animal?
-          </h2>
-          <p className="text-[14px] text-fg-muted font-normal leading-relaxed">
-            Live camera only. Server embeds GPS coordinates and tamper-proof atomic timestamp automatically.
-          </p>
-        </div>
+      {/* 2. Manila Field Dispatch HUD (Precision Viewfinder Cockpit) */}
+      <section aria-label="Emergency Lens Viewfinder" className="relative">
+        <div className="relative rounded-2xl border border-border bg-surface p-4 sm:p-5 shadow-xs overflow-hidden space-y-3.5">
+          {/* Tactical Viewfinder Corner Marks */}
+          <svg className="absolute top-2.5 left-2.5 w-3 h-3 text-fg-muted/50 pointer-events-none" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+            <path d="M0 12V1.5A1.5 1.5 0 0 1 1.5 0H12" stroke="currentColor" strokeWidth="1.5" />
+          </svg>
+          <svg className="absolute top-2.5 right-2.5 w-3 h-3 text-fg-muted/50 pointer-events-none" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+            <path d="M12 12V1.5A1.5 1.5 0 0 0 10.5 0H0" stroke="currentColor" strokeWidth="1.5" />
+          </svg>
+          <svg className="absolute bottom-2.5 left-2.5 w-3 h-3 text-fg-muted/50 pointer-events-none" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+            <path d="M0 0v10.5A1.5 1.5 0 0 0 1.5 12H12" stroke="currentColor" strokeWidth="1.5" />
+          </svg>
+          <svg className="absolute bottom-2.5 right-2.5 w-3 h-3 text-fg-muted/50 pointer-events-none" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+            <path d="M12 0v10.5A1.5 1.5 0 0 1 10.5 12H0" stroke="currentColor" strokeWidth="1.5" />
+          </svg>
 
-        {/* Triage Quick-Rail (Tactile 44px Outlined Action Chips) */}
-        <div className="space-y-2 pt-1">
-          <p className="text-[12px] font-medium text-fg-muted">
-            Direct priority shortcuts:
-          </p>
-          <div className="grid grid-cols-2 gap-2">
-            {triageShortcuts.map((chip) => (
-              <Link
-                key={chip.label}
-                href={`/sos?triage=${chip.query}`}
-                className="group min-h-[44px] px-3.5 py-2 rounded-xl text-[12px] font-semibold border border-border bg-surface hover:bg-surface-muted text-fg flex items-center justify-between transition-all active:scale-[0.98] shadow-xs"
-              >
-                <span className="group-hover:translate-x-0.5 transition-transform">{chip.label}</span>
-                <span className="text-[12px] text-fg-muted group-hover:text-fg font-mono" aria-hidden="true">→</span>
-              </Link>
-            ))}
+          {/* Top telemetry bar */}
+          <div className="flex items-center justify-between gap-2 border-b border-border/70 pb-2.5">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="w-2 h-2 rounded-full bg-accent shrink-0" aria-hidden="true" />
+              <span className="font-mono text-[12px] font-semibold tracking-wider text-fg uppercase truncate">
+                MANILA FIELD DISPATCH HUD
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5 text-[12px] font-mono text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20 shrink-0">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" aria-hidden="true" />
+              <span>GPS SYNC</span>
+            </div>
+          </div>
+
+          {/* Centerpiece: Tactical Emergency Action Gateway */}
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <h2 className="text-[22px] font-bold tracking-tight text-fg font-brand leading-snug">
+                Street animal emergency nearby?
+              </h2>
+              <p className="text-[14px] text-fg-muted font-normal leading-relaxed">
+                Live camera only. Automatic GPS location lock & tamper-proof server timestamp.
+              </p>
+            </div>
+
+            <Link
+              href="/sos"
+              className="group w-full min-h-[52px] bg-accent hover:opacity-95 active:scale-[0.99] text-accent-fg font-semibold text-[16px] rounded-xl flex items-center justify-center gap-2.5 shadow-sm transition-all cursor-pointer border-none"
+              aria-label="Activate live emergency camera lens"
+            >
+              <Camera className="w-5 h-5 text-accent-fg shrink-0 group-hover:scale-105 transition-transform" aria-hidden="true" />
+              <span>Activate Emergency Lens</span>
+              <span className="text-[12px] font-mono text-accent-fg/80" aria-hidden="true">→</span>
+            </Link>
+          </div>
+
+          {/* Bottom telemetry line */}
+          <div className="flex items-center justify-between text-[12px] font-mono text-fg-muted pt-0.5">
+            <span>&lt;15s DISPATCH TARGET</span>
+            <span className="tabular-nums">14.6198° N, 121.0526° E</span>
           </div>
         </div>
       </section>
 
-      {/* 3. Nearby Incidents Feed */}
+      {/* 3. Triage Channel Quick-Rail (Interactive Stream Filter & Priority Launch) */}
+      <section aria-label="Triage frequency channels" className="space-y-2">
+        <div className="flex items-center justify-between">
+          <span className="text-[12px] font-semibold uppercase tracking-wider text-fg-muted font-mono">
+            Triage Channels
+          </span>
+          {selectedChannel !== 'all' && (
+            <button
+              type="button"
+              onClick={() => setSelectedChannel('all')}
+              className="text-[12px] font-semibold text-link underline cursor-pointer"
+            >
+              Reset filter
+            </button>
+          )}
+        </div>
+
+        {/* Tactile Channel Filter Strip */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar -mx-4 px-4">
+          {triageChannels.map((channel) => {
+            const isActive = selectedChannel === channel.id;
+            const IconComponent = channel.glyph;
+            return (
+              <button
+                key={channel.id}
+                type="button"
+                onClick={() => setSelectedChannel(channel.id)}
+                className={`min-h-[40px] px-3.5 py-1.5 rounded-full text-[12px] font-semibold flex items-center gap-2 transition-all shrink-0 cursor-pointer border ${
+                  isActive
+                    ? 'bg-fg text-page border-fg shadow-xs'
+                    : 'bg-surface text-fg border-border hover:bg-surface-muted active:scale-[0.98]'
+                }`}
+              >
+                {IconComponent && (
+                  <IconComponent
+                    size={13}
+                    className={
+                      isActive
+                        ? 'text-page'
+                        : channel.id === 'critical'
+                        ? 'text-reported-fg'
+                        : channel.id === 'fracture'
+                        ? 'text-claimed-fg'
+                        : channel.id === 'trapped'
+                        ? 'text-fg-muted'
+                        : 'text-healing-fg'
+                    }
+                  />
+                )}
+                <span>{channel.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Contextual Fast Dispatch Action for Selected Channel */}
+        {selectedChannel !== 'all' && (
+          <div className="flex items-center justify-between p-3 rounded-xl bg-surface border border-border text-[12px] shadow-xs">
+            <span className="text-fg-muted">
+              Reporting a <strong className="text-fg font-semibold">{triageChannels.find((c) => c.id === selectedChannel)?.label}</strong>?
+            </span>
+            <Link
+              href={`/sos?triage=${triageChannels.find((c) => c.id === selectedChannel)?.query || ''}`}
+              className="font-semibold text-action hover:underline inline-flex items-center gap-1 cursor-pointer"
+            >
+              <span>Instant Camera</span>
+              <span aria-hidden="true">→</span>
+            </Link>
+          </div>
+        )}
+      </section>
+
+      {/* 4. Nearby Incidents Feed */}
       <section aria-labelledby="nearby-heading" className="space-y-3">
         <div className="flex items-center justify-between pb-1 border-b border-border/60">
           <div className="flex items-center gap-2">
@@ -334,16 +444,28 @@ export default function HomePage() {
             <span className="w-2 h-2 rounded-full bg-accent shrink-0" aria-hidden="true" />
           </div>
           <span className="text-[12px] font-mono text-fg-muted font-normal">
-            {emergencies.length} nearby
+            {filteredEmergencies.length} of {emergencies.length} nearby
           </span>
         </div>
 
         {/* Minimalist Clean Stream Feed */}
         <div className="flex flex-col">
-          {emergencies.length === 0 ? (
-            <EmptyIncidentsState />
+          {filteredEmergencies.length === 0 ? (
+            <div className="bg-surface rounded-2xl p-8 border border-border shadow-xs text-center space-y-2">
+              <p className="text-[14px] font-semibold text-fg">No active incidents in this channel</p>
+              <p className="text-[12px] text-fg-muted font-normal">
+                No reports currently match the selected triage category.
+              </p>
+              <button
+                type="button"
+                onClick={() => setSelectedChannel('all')}
+                className="text-[12px] font-semibold text-link underline pt-1 cursor-pointer"
+              >
+                View all incidents
+              </button>
+            </div>
           ) : (
-            emergencies.map((incident) => (
+            filteredEmergencies.map((incident) => (
               <IncidentCard
                 key={incident.id}
                 incident={incident}

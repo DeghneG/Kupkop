@@ -22,6 +22,23 @@ export function formatCoordinates(lat: number, lng: number): string {
   return `${Math.abs(lat).toFixed(4)}° ${latDir}, ${Math.abs(lng).toFixed(4)}° ${lngDir}`;
 }
 
+export function getDirectionalBearing(
+  targetLat?: number | null,
+  targetLng?: number | null,
+  userLat = 14.6198,
+  userLng = 121.0526
+): string {
+  if (targetLat == null || targetLng == null) return '↗';
+  const dLat = targetLat - userLat;
+  const dLng = targetLng - userLng;
+
+  if (Math.abs(dLat) < 0.0005 && Math.abs(dLng) < 0.0005) return '•';
+  if (dLat >= 0 && dLng >= 0) return '↗';
+  if (dLat >= 0 && dLng < 0) return '↖';
+  if (dLat < 0 && dLng >= 0) return '↘';
+  return '↙';
+}
+
 export async function compressVideoFrame(
   source: HTMLVideoElement | HTMLCanvasElement,
   maxWidth = 1280,

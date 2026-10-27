@@ -158,4 +158,13 @@
   4. **Progressive Disclosure:** Moved detailed dispatch radius and responder alert callouts to `DetailSheet.tsx` where rescuers triaging a specific incident can view the complete operational context without polluting the feed.
 - **Context:** User reported that "too much is going on the reports" due to double-stacked pills, wrapping metadata, and runaway minute counts.
 
+### D-019: Game-Changer Minimalist Viewfinder HUD & Triage Channel Rail
+- **Date:** 2026-10-28
+- **Decision:** Replaced the static, text-heavy editorial hero with the "Manila Field Dispatch HUD & Viewfinder Gateway" in `src/app/page.tsx`:
+  1. **Minimalist Viewfinder Cockpit:** Replaced the paragraph marketing copy with a tactile HUD featuring hairline corner marks (`⌜ ⌝ ⌞ ⌟`), live atomic GPS lock indicator, and real Manila coordinates (`14.6198° N, 121.0526° E`).
+  2. **Emergency Lens Gateway:** Centralized the primary 52px "Activate Emergency Lens" action button directly inside the viewfinder frame to establish the unforgeable live-camera core mechanic instantly.
+  3. **Triage Channel Strip:** Replaced the 4 plain text shortcut boxes with an interactive, scrollable frequency channel rail equipped with custom vector glyphs (`PulseBeacon`, `BoneSplint`, `ExtractionWedge`, `CareShield`), supporting instantaneous interactive category filtering across the incident feed stream.
+  4. **Spatial Directional Bearing Arrows:** Added cardinal/intercardinal direction arrows (`↗`, `↖`, `↘`, `↙`) next to distances in `IncidentCard.tsx` based on relative coordinate geometry, giving responders immediate spatial orientation without opening a full map.
+- **Context:** User requested a "game changer but minimal design" to make the home page engaging, authentic, and fast while keeping clean visual restraint.
+
 
