@@ -97,5 +97,14 @@
   3. Created `rafa-test-suite.md` as the permanent Phase 4 benchmark for the `qa-tester` agent.
 - **Context:** Bystanders in street animal crises require immediate, accurate, non-confusing stabilization guidance, strict protection against lethal human medication, human bite safety, and clear boundaries when questions drift out of scope.
 
+### D-012: UI/UX Reviewer Supercharged with Impeccable Design Heuristics
+- **Date:** 2026-10-27
+- **Decision:** Infused Paul Bakaus's [Impeccable](https://github.com/pbakaus/impeccable) frontend design heuristics and anti-slop detector rules into KupKop's `ui-ux-reviewer` skill ([.agents/skills/ui-ux-reviewer/SKILL.md](file:///f:/Kupkop/.agents/skills/ui-ux-reviewer/SKILL.md)):
+  1. **Anti-Slop Detector Rules:** Hard checks against card nesting/blobs, saturated color bleed/fatigue, gray-on-color contrast failures, ad-hoc spacing outside 8/12/16/24, decorative icon clutter, and unauthorized typography.
+  2. **Ranked Critique Structure:** Every review delivers 1–2 strengths followed by prioritized findings ranked from **P0** (Emergency Blocker) to **P3** (Minor Polish) with concrete code/Tailwind fixes.
+  3. **Emergency Supremacy:** Preserved KupKop's strict core constraints: stressed one-handed outdoor persona, 48px thumb zones, ~3 taps/15s SOS flow, and "Compassionate Sanctuary" semantic CSS variable tokens.
+- **Context:** User requested integrating `pbakaus/impeccable` to eliminate generic AI UI cliches, improve visual hierarchy, and enforce professional craft while preserving KupKop's life-saving emergency focus.
+
+
 
 

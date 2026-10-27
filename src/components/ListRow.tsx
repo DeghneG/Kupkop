@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Camera, AlertCircle, Lock, HeartPulse, CheckCircle2 } from 'lucide-react';
+import { Camera, AlertCircle, Lock, HeartPulse, CheckCircle2, MapPin } from 'lucide-react';
 
 export interface IncidentData {
   id: string;
@@ -19,19 +19,19 @@ export interface IncidentData {
   description?: string;
 }
 
-interface ListRowProps {
+interface IncidentCardProps {
   incident: IncidentData;
   onClick: () => void;
   isLast?: boolean;
 }
 
-export function ListRow({ incident, onClick, isLast = false }: ListRowProps) {
+export function IncidentCard({ incident, onClick }: IncidentCardProps) {
   // Status indicator config with tinted background pill
   const renderStatus = () => {
     switch (incident.state) {
       case 'claimed':
         return (
-          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[12px] font-semibold bg-claimed-bg text-claimed-fg">
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[12px] font-semibold bg-claimed-bg text-claimed-fg shrink-0">
             <Lock className="w-3 h-3 shrink-0" aria-hidden="true" />
             <span>Claimed</span>
           </span>
@@ -39,14 +39,14 @@ export function ListRow({ incident, onClick, isLast = false }: ListRowProps) {
       case 'healing':
       case 'admitted':
         return (
-          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[12px] font-semibold bg-healing-bg text-healing-fg">
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[12px] font-semibold bg-healing-bg text-healing-fg shrink-0">
             <HeartPulse className="w-3 h-3 shrink-0" aria-hidden="true" />
             <span>{incident.state === 'admitted' ? 'Admitted' : 'Healing'}</span>
           </span>
         );
       case 'resolved':
         return (
-          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[12px] font-semibold bg-resolved-bg text-resolved-fg">
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[12px] font-semibold bg-resolved-bg text-resolved-fg shrink-0">
             <CheckCircle2 className="w-3 h-3 shrink-0" aria-hidden="true" />
             <span>Resolved</span>
           </span>
@@ -54,7 +54,7 @@ export function ListRow({ incident, onClick, isLast = false }: ListRowProps) {
       case 'reported':
       default:
         return (
-          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[12px] font-semibold bg-reported-bg text-reported-fg">
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[12px] font-semibold bg-reported-bg text-reported-fg shrink-0">
             <AlertCircle className="w-3 h-3 shrink-0" aria-hidden="true" />
             <span>Reported</span>
           </span>
@@ -62,36 +62,56 @@ export function ListRow({ incident, onClick, isLast = false }: ListRowProps) {
     }
   };
 
-  // Renders triage severity with only the word "Critical" in red-700/red-400 font-semibold
-  const renderTypeText = (type: string) => {
-    if (!type.includes('Critical')) {
-      return type;
-    }
-    const parts = type.split('Critical');
-    return (
-      <>
-        {parts.map((part, index) => (
-          <React.Fragment key={index}>
-            {part}
-            {index < parts.length - 1 && (
-              <span className="text-reported-fg font-semibold">Critical</span>
-            )}
-          </React.Fragment>
-        ))}
-      </>
-    );
+  // Extract clean triage category (neutral outlined tag per AGENTS.md)
+  const formatTriageTag = (type: string) => {
+    const clean = type.replace(/\s*[·•]\s*Critical/i, '').trim();
+    return clean;
   };
 
+  const isCritical =
+    incident.type.toLowerCase().includes('critical') ||
+    incident.type.toLowerCase().includes('hit-and-run');
+
   return (
-    <div className="relative">
-      <button
-        type="button"
-        onClick={onClick}
-        aria-label={`View emergency report for ${incident.animal}`}
-        className="w-full min-h-[76px] py-3.5 px-4 flex items-center gap-3.5 text-left hover:bg-surface-muted/40 active:opacity-75 transition-colors cursor-pointer focus:outline-none focus:bg-surface-muted/60"
-      >
-        {/* Left: 64px rounded rectangular photo preview with emergency blur */}
-        <div className="w-16 h-16 rounded-[14px] overflow-hidden bg-surface-muted border border-border shrink-0 flex items-center justify-center relative">
+    <article
+      role="button"
+      tabIndex={0}
+      onClick={onClick}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onClick();
+        }
+      }}
+      aria-label={`View emergency report for ${incident.animal}, ${incident.type}, ${incident.location}`}
+      className="w-full bg-surface rounded-2xl p-4 border border-border shadow-sm hover:border-fg-muted/40 active:scale-[0.99] transition-all cursor-pointer text-left focus:outline-none focus:ring-2 focus:ring-accent/40 space-y-3"
+    >
+      {/* Top Header Row: Status + Triage on Left, Time & Distance on Right */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {renderStatus()}
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[12px] font-normal border border-border text-fg-muted bg-surface-muted/50">
+            {formatTriageTag(incident.type)}
+          </span>
+          {isCritical && incident.state === 'reported' && (
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[12px] font-semibold text-fg bg-surface-muted border border-border">
+              Critical
+            </span>
+          )}
+        </div>
+
+        {/* Time and Distance */}
+        <div className="flex items-center gap-1.5 text-[12px] text-fg-muted tabular-nums shrink-0">
+          <span>{incident.timeAgo}</span>
+          <span className="text-border" aria-hidden="true">•</span>
+          <span>{incident.distance}</span>
+        </div>
+      </div>
+
+      {/* Main Body Row: 60px Rounded Thumbnail + Animal & Location */}
+      <div className="flex items-center gap-3.5">
+        {/* Left: Rounded rectangular photo preview with gentle blur */}
+        <div className="w-[60px] h-[60px] rounded-xl overflow-hidden bg-surface-muted border border-border shrink-0 flex items-center justify-center relative">
           {incident.photoUrl ? (
             /* eslint-disable-next-line @next/next/no-img-element */
             <img
@@ -101,67 +121,69 @@ export function ListRow({ incident, onClick, isLast = false }: ListRowProps) {
             />
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-surface-muted to-border/40 blur-sm scale-110">
-              <Camera className="w-5 h-5 text-fg-muted/60" aria-hidden="true" />
+              <Camera className="w-5 h-5 text-fg-muted/50" aria-hidden="true" />
             </div>
           )}
-          <div className="absolute inset-0 flex items-center justify-center bg-black/10">
+          <div className="absolute inset-0 flex items-center justify-center bg-black/15">
             <Camera className="w-4 h-4 text-white drop-shadow" aria-hidden="true" />
           </div>
         </div>
 
         {/* Right Details Column */}
         <div className="flex-1 min-w-0 space-y-1">
-          {/* Line 1: Animal name with right-aligned timestamp */}
-          <div className="flex items-baseline justify-between gap-2">
-            <h3 className="text-[16px] font-semibold text-fg truncate leading-snug">
+          <div className="flex items-baseline justify-between gap-1">
+            <h3 className="text-[16px] font-semibold text-fg truncate tracking-tight leading-snug">
               {incident.animal}
             </h3>
-            <span className="text-[12px] font-normal text-fg-muted tabular-nums shrink-0">
-              {incident.timeAgo}
+            <span className="font-mono text-[12px] font-normal text-fg-muted tabular-nums shrink-0">
+              {incident.shortId}
             </span>
           </div>
 
-          {/* Line 2: Plain text triage · distance */}
-          <p className="text-[14px] font-normal text-fg-muted truncate leading-snug">
-            {renderTypeText(incident.type)} · {incident.distance}
-          </p>
-
-          {/* Line 3: Status icon + tinted pill */}
-          <div className="pt-0.5 leading-none">
-            {renderStatus()}
+          <div className="flex items-center gap-1.5 text-[12px] text-fg-muted">
+            <MapPin className="w-3.5 h-3.5 text-fg-muted shrink-0" aria-hidden="true" />
+            <span className="truncate leading-tight font-normal">{incident.location}</span>
           </div>
         </div>
-      </button>
+      </div>
 
-      {/* iOS Inset Hairline Divider (starts after thumbnail: 16px pad + 64px thumb = 80px) */}
-      {!isLast && (
-        <div
-          className="ml-[80px] border-b border-border"
-          aria-hidden="true"
-        />
+      {/* Optional Scene / Landmark Note */}
+      {incident.description && (
+        <div className="pt-2 border-t border-border/60 flex items-start gap-1.5 text-[12px] text-fg-muted">
+          <span className="font-semibold text-fg shrink-0">Note:</span>
+          <span className="truncate">{incident.description}</span>
+        </div>
       )}
-    </div>
+    </article>
   );
 }
 
-// 3-Row Static Skeleton for Loading State
+// Backward-compatible alias
+export const ListRow = IncidentCard;
+
+// Multi-Card Skeleton for Loading State
 export function ListRowSkeleton() {
   return (
-    <div className="space-y-0" aria-label="Loading incidents" role="status">
-      {[1, 2, 3].map((i, idx) => (
-        <div key={i} className="relative">
-          <div className="w-full min-h-[76px] py-3.5 px-4 flex items-center gap-3.5">
-            <div className="w-16 h-16 rounded-[14px] bg-surface-muted animate-pulse shrink-0" />
+    <div className="space-y-3" aria-label="Loading incidents" role="status">
+      {[1, 2, 3].map((i) => (
+        <div
+          key={i}
+          className="w-full bg-surface rounded-2xl p-4 border border-border shadow-sm space-y-3"
+        >
+          <div className="flex justify-between items-center">
+            <div className="flex gap-2">
+              <div className="w-20 h-5 rounded-full bg-surface-muted animate-pulse" />
+              <div className="w-16 h-5 rounded-full bg-surface-muted animate-pulse" />
+            </div>
+            <div className="w-14 h-4 rounded bg-surface-muted animate-pulse" />
+          </div>
+          <div className="flex items-center gap-3.5">
+            <div className="w-[60px] h-[60px] rounded-xl bg-surface-muted animate-pulse shrink-0" />
             <div className="flex-1 space-y-2">
-              <div className="flex justify-between items-center">
-                <div className="w-28 h-4 rounded bg-surface-muted animate-pulse" />
-                <div className="w-12 h-3 rounded bg-surface-muted animate-pulse" />
-              </div>
-              <div className="w-36 h-3.5 rounded bg-surface-muted animate-pulse" />
-              <div className="w-20 h-3.5 rounded bg-surface-muted animate-pulse" />
+              <div className="w-32 h-4 rounded bg-surface-muted animate-pulse" />
+              <div className="w-44 h-3.5 rounded bg-surface-muted animate-pulse" />
             </div>
           </div>
-          {idx < 2 && <div className="ml-[80px] border-b border-border" />}
         </div>
       ))}
     </div>
@@ -171,9 +193,9 @@ export function ListRowSkeleton() {
 // Empty state
 export function EmptyIncidentsState() {
   return (
-    <div className="py-12 px-4 text-center space-y-1">
+    <div className="bg-surface rounded-2xl p-8 border border-border shadow-sm text-center space-y-1.5">
       <p className="text-[14px] font-semibold text-fg">No active incidents nearby</p>
-      <p className="text-[12px] text-fg-muted font-normal">
+      <p className="text-[12px] text-fg-muted font-normal max-w-[280px] mx-auto">
         New street emergency reports will appear here automatically.
       </p>
     </div>

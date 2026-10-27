@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Camera } from 'lucide-react';
-import { ListRow, EmptyIncidentsState, IncidentData } from '@/components/ListRow';
+import { IncidentCard, EmptyIncidentsState, IncidentData } from '@/components/ListRow';
 import DetailSheet from '@/components/DetailSheet';
 import ThemeToggle from '@/components/ThemeToggle';
 import { useMockRole } from '@/lib/storage';
@@ -202,9 +202,9 @@ export default function HomePage() {
         </div>
       </header>
 
-      {/* 2. Hero: Card Hero with 56px action button and quick triage shortcut chips */}
-      <section aria-label="Emergency Report Action" className="bg-surface rounded-2xl p-5 border border-border shadow-sm space-y-4">
-        <div className="space-y-1">
+      {/* 2. Hero: Card Hero with 48px action button and quick triage shortcut chips */}
+      <section aria-label="Emergency Report Action" className="bg-surface rounded-2xl p-4 border border-border shadow-sm space-y-3">
+        <div className="space-y-0.5">
           <h2 className="text-[16px] font-semibold text-fg tracking-tight">
             Found an injured street animal?
           </h2>
@@ -213,18 +213,18 @@ export default function HomePage() {
           </p>
         </div>
 
-        {/* 56px Primary Signal Coral Emergency Button */}
+        {/* 48px Primary Signal Coral Emergency Button */}
         <Link
           href="/sos"
           id="hero-sos-trigger-button"
-          className="w-full min-h-[56px] rounded-xl bg-accent hover:opacity-95 active:scale-[0.98] text-accent-fg font-semibold text-[17px] flex items-center justify-center gap-2.5 shadow-md shadow-[0_4px_16px_rgba(240,68,56,0.22)] dark:shadow-[0_4px_16px_rgba(255,83,71,0.22)] transition-transform border-none focus:outline-none focus:ring-2 focus:ring-accent"
+          className="w-full min-h-[48px] rounded-xl bg-accent hover:opacity-95 active:scale-[0.98] text-accent-fg font-semibold text-[16px] flex items-center justify-center gap-2 shadow-sm transition-transform border-none focus:outline-none focus:ring-2 focus:ring-accent"
         >
           <Camera className="w-5 h-5 text-accent-fg" aria-hidden="true" />
           <span>Report emergency</span>
         </Link>
 
         {/* Quick Triage Shortcut Chips */}
-        <div className="pt-2 border-t border-border">
+        <div className="pt-2 border-t border-border/70">
           <p className="text-[12px] font-normal text-fg-muted mb-2">
             Quick triage shortcuts:
           </p>
@@ -233,7 +233,7 @@ export default function HomePage() {
               <Link
                 key={chip.label}
                 href={`/sos?triage=${chip.query}`}
-                className="px-3 py-1.5 rounded-full text-[12px] font-semibold border border-border bg-surface-muted hover:bg-border/60 text-fg transition-colors"
+                className="px-3 py-1 rounded-full text-[12px] font-medium border border-border bg-surface-muted hover:bg-border/60 text-fg transition-colors"
               >
                 {chip.label}
               </Link>
@@ -245,25 +245,24 @@ export default function HomePage() {
       {/* 3. Nearby Incidents Feed */}
       <section aria-labelledby="nearby-heading" className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 id="nearby-heading" className="text-[22px] font-semibold text-fg tracking-tight">
-            Nearby
+          <h2 id="nearby-heading" className="text-[20px] font-semibold text-fg tracking-tight">
+            Active emergencies
           </h2>
           <span className="text-[12px] text-fg-muted font-normal">
-            {emergencies.length} active
+            {emergencies.length} nearby
           </span>
         </div>
 
-        {/* ONE white/surface grouped container with soft border & shadow */}
-        <div className="bg-surface rounded-[20px] border border-border shadow-sm overflow-hidden">
+        {/* Individual Standalone Incident Cards with 12px separation */}
+        <div className="space-y-3">
           {emergencies.length === 0 ? (
             <EmptyIncidentsState />
           ) : (
-            emergencies.map((incident, idx) => (
-              <ListRow
+            emergencies.map((incident) => (
+              <IncidentCard
                 key={incident.id}
                 incident={incident}
                 onClick={() => handleRowClick(incident)}
-                isLast={idx === emergencies.length - 1}
               />
             ))
           )}
