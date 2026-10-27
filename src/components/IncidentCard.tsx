@@ -70,26 +70,17 @@ export function IncidentCard({ incident, onClick }: IncidentCardProps) {
           </span>
         );
       case 'reported':
-      default:
+      default: {
+        const isEscalated = escalation?.stage === 'alert';
+        const label = isEscalated ? 'Needs Rescuer' : 'Reported';
+
         return (
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[12px] font-semibold bg-reported-bg text-reported-fg shrink-0 border border-reported-fg/20">
-              <TriageGlyph state="reported" emergencyType={incident.type} size={13} className="text-reported-fg shrink-0" />
-              <span>Reported</span>
-            </span>
-            {escalation?.badgeLabel && (
-              <span
-                className={`inline-flex items-center px-2 py-0.5 rounded-full text-[12px] font-medium border shrink-0 ${
-                  escalation.isAlert
-                    ? 'bg-reported-bg text-reported-fg border-reported-fg/30'
-                    : 'bg-surface-muted text-fg-muted border-border'
-                }`}
-              >
-                {escalation.badgeLabel}
-              </span>
-            )}
-          </div>
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[12px] font-semibold bg-reported-bg text-reported-fg shrink-0 border border-reported-fg/20">
+            <TriageGlyph state="reported" emergencyType={incident.type} size={13} className="text-reported-fg shrink-0" />
+            <span>{label}</span>
+          </span>
         );
+      }
     }
   };
 
@@ -136,11 +127,11 @@ export function IncidentCard({ incident, onClick }: IncidentCardProps) {
 
       {/* Right Details Column: Pure Typographic Hierarchy */}
       <div className="flex-1 min-w-0 space-y-1">
-        {/* Top Meta Line: Single Status Pill + Timestamp & Distance */}
+        {/* Top Meta Line: Single Status Pill + Timestamp & Distance (Never wraps) */}
         <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 min-w-0">
             {renderStatus()}
-            <span className="font-mono text-[12px] font-normal text-fg-muted/80 tabular-nums">
+            <span className="font-mono text-[12px] font-normal text-fg-muted/80 tabular-nums shrink-0">
               #{incident.shortId}
             </span>
           </div>

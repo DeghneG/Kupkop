@@ -149,4 +149,13 @@
   7. **Lock Timer Bug Fix:** Fixed edge case where `0m lock` displayed if claimed time had not elapsed 60 seconds; now renders cleanly as `<1m lock` or remaining seconds.
 - **Context:** User requested unique, bespoke designs for the report icons via Impeccable review to eliminate repetitive generic exclamation marks across the incident feed stream.
 
+### D-018: Report Card Distillation & Strict Single-Pill Rule
+- **Date:** 2026-10-28
+- **Decision:** Simplified and decluttered the incident feed cards following Impeccable's `distill` and `quieter` heuristics:
+  1. **Strict Single-Pill Rule:** Eliminated the stacked second pill (`No responder · +3247m`) that was breaking card layout. Upgraded the status pill dynamically: when past the triage escalation threshold, it transforms from `[ (•) Reported ]` to `[ (•) Needs Rescuer ]` as a single, unified pill.
+  2. **Eliminated Runaway Minute Counters:** Removed minute accumulation (`+3247m`) from card surfaces for older reports.
+  3. **Protected Single-Line Meta Row:** Fixed metadata layout so the status pill, case ID (`#KK-XXXX`), relative timestamp, and distance stay on one balanced line that never wraps.
+  4. **Progressive Disclosure:** Moved detailed dispatch radius and responder alert callouts to `DetailSheet.tsx` where rescuers triaging a specific incident can view the complete operational context without polluting the feed.
+- **Context:** User reported that "too much is going on the reports" due to double-stacked pills, wrapping metadata, and runaway minute counts.
+
 

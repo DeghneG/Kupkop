@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import { IncidentData } from './ListRow';
 import { formatCoordinates } from '@/lib/sos/utils';
-import { calculateClaimTimer, calculateFacilityInactivity } from '@/lib/sos/escalation';
+import { calculateClaimTimer, calculateFacilityInactivity, calculateEscalation } from '@/lib/sos/escalation';
 import TriageGlyph from '@/components/icons/TriageGlyph';
 
 interface DetailSheetProps {
@@ -292,6 +292,25 @@ export default function DetailSheet({
               <span className="text-[14px] font-normal text-fg-muted">{incident.type}</span>
             </div>
           </div>
+
+          {/* Progressive escalation status notice */}
+          {incident.state === 'reported' && calculateEscalation(incident.createdAt, incident.type).isWidened && (
+            <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-surface-muted border border-border text-[12px] text-fg-muted font-normal">
+              <span
+                className={`w-2 h-2 rounded-full shrink-0 ${
+                  calculateEscalation(incident.createdAt, incident.type).isAlert
+                    ? 'bg-reported-fg'
+                    : 'bg-fg-muted'
+                }`}
+                aria-hidden="true"
+              />
+              <span>
+                {calculateEscalation(incident.createdAt, incident.type).isAlert
+                  ? 'Urgent: No volunteer responder on scene yet. Sector broadcast widened.'
+                  : 'Sector dispatch radius widened to neighboring barangays.'}
+              </span>
+            </div>
+          )}
 
           {/* Location & Time details */}
           <div className="bg-surface-muted rounded-[16px] p-3.5 space-y-2 border border-border">

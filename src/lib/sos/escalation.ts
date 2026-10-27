@@ -108,7 +108,7 @@ export function calculateEscalation(
       elapsedMinutes,
       isWidened: true,
       isAlert: true,
-      badgeLabel: `No responder · +${elapsedMinutes}m`,
+      badgeLabel: 'Needs Rescuer',
     };
   }
 
@@ -119,7 +119,7 @@ export function calculateEscalation(
       elapsedMinutes,
       isWidened: true,
       isAlert: false,
-      badgeLabel: `Widened radius · +${elapsedMinutes}m`,
+      badgeLabel: 'Widened radius',
     };
   }
 
