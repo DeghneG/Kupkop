@@ -105,6 +105,10 @@
   3. **Emergency Supremacy:** Preserved KupKop's strict core constraints: stressed one-handed outdoor persona, 48px thumb zones, ~3 taps/15s SOS flow, and "Compassionate Sanctuary" semantic CSS variable tokens.
 - **Context:** User requested integrating `pbakaus/impeccable` to eliminate generic AI UI cliches, improve visual hierarchy, and enforce professional craft while preserving KupKop's life-saving emergency focus.
 
-
-
-
+### D-013: Installation of Full Impeccable Design Skill Suite
+- **Date:** 2026-10-27
+- **Decision:** Installed the full official [pbakaus/impeccable](https://github.com/pbakaus/impeccable) v4.8.0 skill suite and engine into [.agents/skills/impeccable/](file:///f:/Kupkop/.agents/skills/impeccable/):
+  1. **Core Skill:** [.agents/skills/impeccable/SKILL.md](file:///f:/Kupkop/.agents/skills/impeccable/SKILL.md) providing all 25 user commands across Build, Evaluate, Refine, and Enhance categories (`/critique`, `/audit`, `/polish`, `/bolder`, `/quieter`, `/animate`, `/colorize`, `/typeset`, `/layout`, `/shape`, `/init`, `/document`, etc.).
+  2. **Impeccable Engine:** Native CLI binary (`impeccable.exe` v0.1.18 on Windows) accessible via `.agents/skills/impeccable/scripts/impeccable.cmd` for deterministic design anti-pattern detection and context generation.
+  3. **Playbook References:** Complete set of 40+ playbooks under [.agents/skills/impeccable/reference/](file:///f:/Kupkop/.agents/skills/impeccable/reference/) covering craft floor, responsive adaptation, visual hierarchy, mobile thumb zones, and UX microcopy.
+- **Context:** Equips the UI/UX design workflow with the official Impeccable design suite while honoring KupKop's emergency design rules in `AGENTS.md`.

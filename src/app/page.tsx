@@ -178,7 +178,7 @@ export default function HomePage() {
   };
 
   return (
-    <div className="flex flex-col flex-1 px-5 pt-3 pb-8 space-y-6">
+    <div className="flex flex-col flex-1 px-4 pt-3 pb-8 space-y-6">
       {/* 1. Brand Row */}
       <header className="flex items-center justify-between pb-1">
         <div>
@@ -245,7 +245,7 @@ export default function HomePage() {
       {/* 3. Nearby Incidents Feed */}
       <section aria-labelledby="nearby-heading" className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 id="nearby-heading" className="text-[20px] font-semibold text-fg tracking-tight">
+          <h2 id="nearby-heading" className="text-[22px] font-semibold text-fg tracking-tight">
             Active emergencies
           </h2>
           <span className="text-[12px] text-fg-muted font-normal">

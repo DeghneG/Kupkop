@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import Script from 'next/script';
 import { Inter, Bricolage_Grotesque } from 'next/font/google';
 import './globals.css';
 import TestModeBanner from '@/components/TestModeBanner';
@@ -72,7 +73,11 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.variable} ${bricolage.variable} h-full antialiased`} suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <Script
+          id="theme-script"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{ __html: themeScript }}
+        />
       </head>
       <body className="min-h-full bg-page text-fg font-sans flex flex-col items-center">
         {/* Mobile viewport container */}
