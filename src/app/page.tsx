@@ -147,12 +147,19 @@ export default function HomePage() {
 
     const fetchLiveReports = async () => {
       try {
-        const { data, error } = await supabase
-          .from('sos_reports')
-          .select('*')
-          .order('created_at', { ascending: false });
+        const query = () => supabase.from('sos_reports').select('*').order('created_at', { ascending: false });
+        let { data, error } = await query();
+
+        // A stale or invalid sign-in token makes even public reads fail (PGRST301/303).
+        // Refresh it once; if that fails, drop the local session so the feed loads signed out.
+        if (error?.code?.startsWith('PGRST30')) {
+          const { error: refreshError } = await supabase.auth.refreshSession();
+          if (refreshError) await supabase.auth.signOut({ scope: 'local' });
+          ({ data, error } = await query());
+        }
 
         if (error) {
+          console.error('Failed to load live reports:', error.code, error.message);
           setFeedStatus((prev) => (prev === 'live' ? prev : 'error'));
           return;
         }
