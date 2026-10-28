@@ -9,7 +9,8 @@ export default function Navigation() {
   const pathname = usePathname();
 
   // If user is inside the SOS emergency dispatch flow, hide navigation to maximize camera view
-  if (pathname === '/sos') {
+  // The welcome page has its own report and sign-in actions, so the dock would only duplicate them
+  if (pathname === '/sos' || pathname === '/welcome') {
     return null;
   }
 

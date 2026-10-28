@@ -12,7 +12,9 @@ import { distanceKm, formatDistance, getDirectionalBearing } from '@/lib/sos/uti
 import { KupkopMark } from '@/components/icons/TriageGlyph';
 import { calculateEscalation } from '@/lib/sos/escalation';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { RotateCw } from 'lucide-react';
+import { WELCOME_SEEN_KEY } from '@/lib/storage';
 
 function formatTimeAgo(dateString?: string | null): string {
   if (!dateString) return 'Just now';
@@ -120,10 +122,22 @@ export default function HomePage() {
   // Clock for relative labels; set from timers and fetches, never read during render
   const [now, setNow] = useState(0);
   const profile = useProfile();
+  const router = useRouter();
+
+  // First visit on this device while signed out: show the landing page once.
+  // It offers "Report an emergency now" up top, so reporting is never blocked behind it.
+  useEffect(() => {
+    if (profile.loading || profile.user) return;
+    try {
+      if (!localStorage.getItem(WELCOME_SEEN_KEY)) router.replace('/welcome');
+    } catch {
+      // Storage unavailable: skip the landing page rather than show it on every visit
+    }
+  }, [profile.loading, profile.user, router]);
 
   // Re-render twice a minute so escalation labels and ordering stay current
+  // (The first fetch sets `now`, so nothing is set synchronously here.)
   useEffect(() => {
-    setNow(Date.now());
     const interval = setInterval(() => setNow(Date.now()), 30000);
     return () => clearInterval(interval);
   }, []);

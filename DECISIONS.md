@@ -226,3 +226,16 @@
   3. DESIGN.md and PRODUCT.md are kept as plain reference docs (the Impeccable schema comment was removed) and are the files to sync to Claude Design.
   4. `ui-ux-reviewer` no longer cites Impeccable; its rules are unchanged.
 - **Done:** Claude Design project "KupKop" (id 8a049058-372f-400f-9aa3-bf6c53b2771d) created and loaded with a lightweight brief: README.md (hard rules), DESIGN.md, PRODUCT.md, tokens/globals.css. The full component sync was not used because KupKop is a private Next.js app with no dist/ or Storybook. Re-upload the brief after token changes.
+
+### D-026: Feed rework, Active Case Bar, SOS GPS guard, landing page
+- **Date:** 2026-10-28
+- **Decision:**
+  1. **Active Case Bar** (from Claude Design file "KupKop Active Case Bar.html"): floats above the dock while the signed-in user holds a claim; countdown uses the shared 60-minute lock; Release / Admit, then Dismiss / Claim again once expired.
+  2. **Feed:** flat rows (no cards), status as colored text, filter tabs with counts (sticky under the banner), summary strip (Need rescuer / In progress / Nearest open), groups sorted by escalation, faint tint on "Needs a rescuer" rows, end-of-list note, pull-to-refresh and "Updated Xm ago", header label follows the realtime channel (Connecting / Live / Reconnecting). Responders get a quick "Claim" on open rows. Details in DESIGN.md "Feed".
+  3. **SOS never sends without a real GPS fix.** The hard-coded Quezon City fallback coordinates were removed; Dispatch stays disabled until GPS locks, with distinct "blocked" and "no fix" states (QA blocker 1).
+  4. **Landing page `/welcome`:** shown once per device to signed-out visitors; "Report an emergency now" sits above sign-in so reporting is never blocked. Sign-in is shared (`AuthPanel`) between the landing page and `AuthModal`: email link (log in / create account), Google, and **Facebook (new; AGENTS.md said email + Google first)**. Social buttons read Supabase's enabled providers and say "not set up yet" instead of failing on Supabase's error page.
+  5. `AuthModal` now calls `onSuccess` once a session exists (auth event, or on returning to the tab after opening the email link), so SOS sends the staged report after sign-in. An OAuth round trip reloads the page, so the photo must be retaken there.
+- **Open:**
+  - Google and Facebook are **not enabled in Supabase** (observed via `/auth/v1/settings`: only email). Enable both in Authentication → Providers and add the `/auth/callback` redirect URLs.
+  - Rafa runs on the rule-based fallback (`GEMINI_API_KEY` is the placeholder); the fallback misses Filipino word forms ("kinagat", "nagdurugo"). QA blockers 2 and 3.
+  - Design source conflict: D-025 removed Impeccable in favour of Claude Design, but Impeccable was restored and used for the feed. Decide which one governs.

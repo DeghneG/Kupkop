@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useEffect, useRef, useCallback } from 'react';
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
+import { X } from 'lucide-react';
+import AuthPanel from '@/components/AuthPanel';
 import { createClient } from '@/lib/supabase/client';
-import { X, Mail, CheckCircle2, AlertCircle, Loader2, ArrowLeft } from 'lucide-react';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -12,29 +13,47 @@ interface AuthModalProps {
   onSuccess?: () => void;
 }
 
-export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
-  const [mode, setMode] = useState<'login' | 'signup'>('login');
-  const [email, setEmail] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [sent, setSent] = useState(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [isNonExistent, setIsNonExistent] = useState(false);
-
+// Bottom-sheet wrapper around AuthPanel. The panel mounts fresh on every open, so its form state resets.
+export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const backdropRef = useRef<HTMLDivElement>(null);
   const sheetRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const onSuccessRef = useRef(onSuccess);
 
-  // Reset internal states when opened (render-phase adjustment without cascading effect)
-  const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
-  if (isOpen !== prevIsOpen) {
-    setPrevIsOpen(isOpen);
-    if (isOpen) {
-      setSent(false);
-      setErrorMsg(null);
-      setIsNonExistent(false);
-    }
-  }
+  useEffect(() => {
+    onSuccessRef.current = onSuccess;
+  });
+
+  // Tell the caller once a session exists, so it can carry on (SOS sends the staged report).
+  // The email link usually opens in another tab, so also re-check when the user returns to this one.
+  useEffect(() => {
+    if (!isOpen) return;
+    const supabase = createClient();
+    let done = false;
+    const succeed = () => {
+      if (done) return;
+      done = true;
+      onSuccessRef.current?.();
+    };
+
+    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session) succeed();
+    });
+    const recheck = () => {
+      if (document.visibilityState !== 'visible') return;
+      supabase.auth.getSession().then(({ data: { session } }) => session && succeed());
+    };
+    document.addEventListener('visibilitychange', recheck);
+    window.addEventListener('focus', recheck);
+
+    return () => {
+      done = true;
+      data.subscription.unsubscribe();
+      document.removeEventListener('visibilitychange', recheck);
+      window.removeEventListener('focus', recheck);
+    };
+  }, [isOpen]);
 
   // GSAP animated exit
   const handleClose = useCallback(() => {
@@ -111,84 +130,6 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
   if (!isOpen) return null;
 
-  const supabase = createClient();
-
-  const handleEmailSignIn = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const trimmed = email.trim().toLowerCase();
-    if (!trimmed) return;
-
-    setLoading(true);
-    setErrorMsg(null);
-    setIsNonExistent(false);
-
-    try {
-      // 1. Verify that email has valid format and a real, deliverable domain (DNS MX check)
-      const validateRes = await fetch('/api/auth/validate-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: trimmed }),
-      });
-
-      const validateData = await validateRes.json();
-      if (!validateRes.ok || !validateData.valid) {
-        setErrorMsg(validateData.reason || 'Please enter a valid, existing email address.');
-        setLoading(false);
-        return;
-      }
-
-      // 2. Request OTP from Supabase (enforcing existing user when logging in)
-      const { error } = await supabase.auth.signInWithOtp({
-        email: trimmed,
-        options: {
-          shouldCreateUser: mode === 'signup',
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
-        },
-      });
-
-      if (error) {
-        // When in login mode and the user does not exist in Supabase auth
-        if (
-          mode === 'login' &&
-          (error.status === 422 ||
-            error.code === 'otp_disabled' ||
-            error.message?.toLowerCase().includes('signups not allowed'))
-        ) {
-          setErrorMsg('This email does not exist. Please check your spelling or sign up.');
-          setIsNonExistent(true);
-        } else {
-          setErrorMsg(error.message);
-        }
-      } else {
-        setSent(true);
-      }
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Failed to send sign-in link.';
-      setErrorMsg(message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleGoogleSignIn = async () => {
-    setLoading(true);
-    setErrorMsg(null);
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
-        },
-      });
-      if (error) setErrorMsg(error.message);
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Google sign-in error.';
-      setErrorMsg(message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
     <div
       ref={containerRef}
@@ -208,7 +149,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
       {/* Modal Card / Bottom Sheet Container */}
       <div
         ref={sheetRef}
-        className="relative z-10 w-full max-w-sm sm:max-w-md bg-surface border-t sm:border border-border rounded-t-[24px] sm:rounded-[24px] p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom,16px))] sm:pb-6 shadow-2xl space-y-4 max-h-[92vh] overflow-y-auto"
+        className="relative z-10 w-full max-w-sm sm:max-w-md bg-surface border-t sm:border border-border rounded-t-[24px] sm:rounded-[24px] p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom,16px))] sm:pb-6 shadow-2xl max-h-[92vh] overflow-y-auto"
       >
         {/* Mobile drag handle */}
         <div className="sm:hidden w-10 h-1 bg-border rounded-full mx-auto -mt-2 mb-3" aria-hidden="true" />
@@ -224,181 +165,10 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
           <X className="w-4 h-4" />
         </button>
 
-        {sent ? (
-          <div className="text-center py-4 space-y-3.5">
-            <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 flex items-center justify-center mx-auto">
-              <CheckCircle2 className="w-6 h-6" />
-            </div>
-            <h2 id="auth-modal-title" className="text-[18px] font-semibold text-fg">
-              Check your email
-            </h2>
-            <p className="text-[14px] text-fg-muted leading-relaxed px-2">
-              We sent a magic sign-in link to <strong className="text-fg break-all">{email}</strong>. Click the link in your email to continue.
-            </p>
-
-            <div className="pt-2 space-y-2">
-              <button
-                type="button"
-                onClick={handleClose}
-                className="w-full min-h-[48px] bg-action hover:opacity-95 text-action-fg font-semibold text-[14px] rounded-xl transition-opacity cursor-pointer shadow-sm"
-              >
-                Done
-              </button>
-              
-              {/* Typo recovery link */}
-              <button
-                type="button"
-                onClick={() => setSent(false)}
-                className="w-full min-h-[40px] text-[14px] font-normal text-link hover:underline flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <ArrowLeft className="w-3.5 h-3.5" />
-                <span>Use a different email</span>
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            <div className="pr-10">
-              <h2 id="auth-modal-title" className="text-[22px] font-semibold tracking-tight text-fg font-brand">
-                {mode === 'login' ? 'Log in to ' : 'Sign up for '}
-                <span className="text-fg">KupKop</span>
-              </h2>
-              <p className="text-[14px] text-fg-muted mt-0.5">
-                Save reports, claim rescues, and track animal recovery.
-              </p>
-            </div>
-
-            {/* Segmented Mode Selector: Log In vs Sign Up */}
-            <div className="flex p-1 bg-surface-muted rounded-full border border-border">
-              <button
-                type="button"
-                onClick={() => {
-                  setMode('login');
-                  setErrorMsg(null);
-                  setIsNonExistent(false);
-                }}
-                className={`flex-1 py-2 text-[14px] font-semibold rounded-full transition-all cursor-pointer ${
-                  mode === 'login'
-                    ? 'bg-surface text-fg shadow-xs border border-border'
-                    : 'text-fg-muted hover:text-fg border border-transparent'
-                }`}
-              >
-                Log In
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setMode('signup');
-                  setErrorMsg(null);
-                  setIsNonExistent(false);
-                }}
-                className={`flex-1 py-2 text-[14px] font-semibold rounded-full transition-all cursor-pointer ${
-                  mode === 'signup'
-                    ? 'bg-surface text-fg shadow-xs border border-border'
-                    : 'text-fg-muted hover:text-fg border border-transparent'
-                }`}
-              >
-                Sign Up
-              </button>
-            </div>
-
-            {errorMsg && (
-              <div
-                role="alert"
-                className="flex items-start gap-2 p-3 rounded-xl bg-reported-bg text-reported-fg border border-reported-fg/20 text-[12px] font-normal"
-              >
-                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                <div className="space-y-1">
-                  <div>{errorMsg}</div>
-                  {isNonExistent && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMode('signup');
-                        setErrorMsg(null);
-                        setIsNonExistent(false);
-                      }}
-                      className="text-[12px] font-semibold underline text-link hover:opacity-80 cursor-pointer block"
-                    >
-                      Create a new account instead →
-                    </button>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Email Magic Link Form */}
-            <form onSubmit={handleEmailSignIn} className="space-y-3 pt-1">
-              <div>
-                <label htmlFor="auth-email-input" className="block text-[12px] font-semibold text-fg mb-1">
-                  Email address
-                </label>
-                <input
-                  id="auth-email-input"
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => {
-                    setEmail(e.target.value);
-                    if (isNonExistent) setIsNonExistent(false);
-                  }}
-                  placeholder="name@example.com"
-                  className="w-full min-h-[48px] px-4 text-[14px] bg-surface-muted text-fg rounded-xl border border-border outline-none focus:ring-2 focus:ring-action"
-                />
-              </div>
-
-              {/* Primary Action Button (Neutral Blue --action, NOT Emergency Red --accent) */}
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full min-h-[48px] bg-action hover:opacity-95 text-action-fg font-semibold text-[14px] rounded-xl flex items-center justify-center gap-2 shadow-sm transition-opacity disabled:opacity-50 cursor-pointer"
-              >
-                {loading ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Mail className="w-4 h-4" />
-                )}
-                <span>
-                  {mode === 'login' ? 'Log In with Magic Link' : 'Sign Up with Magic Link'}
-                </span>
-              </button>
-            </form>
-
-            <div className="relative flex py-1 items-center">
-              <div className="flex-grow border-t border-border" />
-              <span className="flex-shrink mx-3 text-[12px] text-fg-muted">or</span>
-              <div className="flex-grow border-t border-border" />
-            </div>
-
-            {/* Google OAuth Button */}
-            <button
-              type="button"
-              onClick={handleGoogleSignIn}
-              disabled={loading}
-              className="w-full min-h-[44px] bg-surface hover:bg-surface-muted text-fg border border-border font-semibold text-[14px] rounded-xl flex items-center justify-center gap-2.5 transition-colors disabled:opacity-50 cursor-pointer shadow-sm"
-            >
-              <svg className="w-4 h-4" viewBox="0 0 24 24" aria-hidden="true">
-                <path
-                  fill="#4285F4"
-                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                />
-                <path
-                  fill="#34A853"
-                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                />
-                <path
-                  fill="#FBBC05"
-                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-                />
-                <path
-                  fill="#EA4335"
-                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-                />
-              </svg>
-              <span>Continue with Google</span>
-            </button>
-          </div>
-        )}
+        {/* Top space clears the close button so the form keeps its full width */}
+        <div className="pt-8">
+          <AuthPanel headingId="auth-modal-title" onDone={handleClose} />
+        </div>
       </div>
     </div>
   );

@@ -4,6 +4,9 @@ import { useSyncExternalStore } from 'react';
 
 export type ThemeMode = 'system' | 'light' | 'dark';
 
+/** Set once the landing page has been shown on this device, so the feed opens directly afterwards. */
+export const WELCOME_SEEN_KEY = 'kupkop-welcome-seen';
+
 const emptySubscribe = () => () => {};
 
 export function useIsMounted(): boolean {

@@ -176,10 +176,11 @@ export default function SettingsPage() {
 
       <p className="text-[12px] text-fg-muted">KupKop is a prototype. Reports are not sent to real responders.</p>
 
-      {/* Auth Modal for Magic Link / Google Sign-In */}
+      {/* Auth Modal for email link / Google / Facebook sign-in; closes itself once signed in */}
       <AuthModal
         isOpen={isAuthOpen}
         onClose={() => setIsAuthOpen(false)}
+        onSuccess={() => setIsAuthOpen(false)}
       />
     </div>
   );

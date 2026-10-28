@@ -63,9 +63,6 @@ interface DispatchedReport {
   timestamp: string;
 }
 
-// Default development coordinates (Quezon City, Metro Manila)
-const DEV_DEFAULT_COORDS = { lat: 14.6091, lng: 121.0223, accuracy: 12 };
-
 export default function SOSCameraPage() {
   // Selection states
   const [animal, setAnimal] = useState<AnimalType>('dog');
@@ -101,7 +98,7 @@ export default function SOSCameraPage() {
   const [resolvedAddress, setResolvedAddress] = useState<string>('');
   const [locationText, setLocationText] = useState<string>('');
   const [description, setDescription] = useState<string>('');
-  const [gpsStatus, setGpsStatus] = useState<'acquiring' | 'locked' | 'denied' | 'unsupported'>('acquiring');
+  const [gpsStatus, setGpsStatus] = useState<'acquiring' | 'locked' | 'denied' | 'unavailable' | 'unsupported'>('acquiring');
 
   // Staged capture for post-auth continuation
   const [stagedBlob, setStagedBlob] = useState<Blob | null>(null);
@@ -253,11 +250,7 @@ export default function SOSCameraPage() {
           navigator.geolocation.getCurrentPosition(
             handleSuccess,
             (fallbackErr) => {
-              if (fallbackErr.code === fallbackErr.PERMISSION_DENIED) {
-                setGpsStatus('denied');
-              } else {
-                setGpsStatus('denied');
-              }
+              setGpsStatus(fallbackErr.code === fallbackErr.PERMISSION_DENIED ? 'denied' : 'unavailable');
             },
             { enableHighAccuracy: false, timeout: 10000, maximumAge: 0 }
           );
@@ -301,6 +294,17 @@ export default function SOSCameraPage() {
   // 4. Perform Dispatch Execution
   const executeDispatch = useCallback(
     async (imageBlob: Blob, previewUrl: string) => {
+      // A report without a real GPS fix would send responders to the wrong place, so it never goes out
+      if (!coords) {
+        setDispatchError(
+          gpsStatus === 'denied'
+            ? 'Location is blocked. Allow location for this site in your browser settings, then tap Update GPS.'
+            : 'Still finding your location. Wait for the GPS lock, then dispatch.'
+        );
+        setDispatchStep('review');
+        return;
+      }
+
       setDispatchStep('uploading');
       setDispatchError(null);
 
@@ -337,10 +341,11 @@ export default function SOSCameraPage() {
           data: { publicUrl },
         } = supabase.storage.from('live-snaps').getPublicUrl(filename);
 
-        // Real accurate GPS coordinates and human-readable location
-        const finalLat = coords ? coords.lat : DEV_DEFAULT_COORDS.lat;
-        const finalLng = coords ? coords.lng : DEV_DEFAULT_COORDS.lng;
-        const finalLocationName = locationText.trim() || resolvedAddress || 'Quezon City';
+        // Device GPS only; the feed shows "Pinned location" when no street name was resolved
+        const finalLat = coords.lat;
+        const finalLng = coords.lng;
+        const finalLocationName =
+          locationText.trim() || resolvedAddress || `Near ${finalLat.toFixed(5)}, ${finalLng.toFixed(5)}`;
 
         // 2. Insert SOS report into PostgreSQL with atomic server timestamp
         let insertPayload: Record<string, unknown> = {
@@ -406,7 +411,7 @@ export default function SOSCameraPage() {
         setDispatchStep('review');
       }
     },
-    [coords, animal, emergency, resolvedAddress, locationText, description, setDispatchStep]
+    [coords, gpsStatus, animal, emergency, resolvedAddress, locationText, description, setDispatchStep]
   );
 
   // 5. Handle Shutter Button Press (Snaps evidence & shows Confirmation / Review option)
@@ -524,8 +529,15 @@ export default function SOSCameraPage() {
             <div className="flex items-center gap-2 truncate">
               <MapPin className="w-4 h-4 text-fg-muted shrink-0" aria-hidden="true" />
               <div className="truncate">
-                <p className="font-semibold text-fg truncate">
-                  {resolvedAddress || (coords ? `${coords.lat.toFixed(4)}°, ${coords.lng.toFixed(4)}°` : 'Acquiring device GPS...')}
+                <p className={`font-semibold truncate ${coords ? 'text-fg' : 'text-reported-fg'}`}>
+                  {resolvedAddress ||
+                    (coords
+                      ? `${coords.lat.toFixed(4)}°, ${coords.lng.toFixed(4)}°`
+                      : gpsStatus === 'denied'
+                        ? 'Location blocked: allow it in browser settings'
+                        : gpsStatus === 'unavailable' || gpsStatus === 'unsupported'
+                          ? 'No GPS fix yet: move to open sky, then Update GPS'
+                          : 'Finding your location…')}
                 </p>
                 {coords && (
                   <p className="text-[12px] text-fg-muted font-mono">
@@ -642,7 +654,7 @@ export default function SOSCameraPage() {
         <div className="space-y-2 pt-1">
           <button
             type="button"
-            disabled={dispatchStep === 'uploading'}
+            disabled={dispatchStep === 'uploading' || !coords}
             onClick={() => stagedBlob && stagedPreview && executeDispatch(stagedBlob, stagedPreview)}
             className="w-full min-h-[48px] rounded-xl bg-accent text-accent-fg font-semibold text-[14px] flex items-center justify-center gap-2 shadow-sm hover:opacity-95 active:scale-[0.99] disabled:opacity-60 transition-all cursor-pointer"
           >
@@ -651,8 +663,15 @@ export default function SOSCameraPage() {
                 <Loader2 className="w-4 h-4 animate-spin text-accent-fg" aria-hidden="true" />
                 <span>Posting Emergency Report...</span>
               </>
-            ) : (
+            ) : coords ? (
               <span>Dispatch Emergency Report</span>
+            ) : gpsStatus === 'acquiring' ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin text-accent-fg" aria-hidden="true" />
+                <span>Waiting for GPS…</span>
+              </>
+            ) : (
+              <span>Location needed to dispatch</span>
             )}
           </button>
 
@@ -882,7 +901,7 @@ export default function SOSCameraPage() {
             ) : (
               <>
                 <MapPin className="w-3.5 h-3.5 shrink-0 text-white/70" aria-hidden="true" />
-                <span>Tap to allow GPS</span>
+                <span>{gpsStatus === 'denied' ? 'Location blocked' : 'Tap to retry GPS'}</span>
               </>
             )}
           </button>
