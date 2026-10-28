@@ -1,45 +1,28 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { User, Sun, Moon, Laptop, ShieldAlert, LogOut, LogIn, Info } from 'lucide-react';
+import React, { useState } from 'react';
+import { User, Sun, Moon, Laptop, LogOut, LogIn, Eye } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
-import type { User as SupabaseUser } from '@supabase/supabase-js';
 import AuthModal from '@/components/AuthModal';
-import { useThemeMode, useMockRole, MockRole } from '@/lib/storage';
+import RoleApplication from '@/components/RoleApplication';
+import { useThemeMode, useViewAs } from '@/lib/storage';
+import { useProfile } from '@/lib/supabase/useProfile';
 
 export default function SettingsPage() {
   const [themeMode, handleThemeChange] = useThemeMode();
-  const [user, setUser] = useState<SupabaseUser | null>(null);
+  const { user, role, realRole } = useProfile();
+  const [, setViewAs] = useViewAs();
   const [isAuthOpen, setIsAuthOpen] = useState(false);
-  const [mockRole, handleRoleChange] = useMockRole();
-
-  // Listen to Supabase auth state changes
-  useEffect(() => {
-    const supabase = createClient();
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-    });
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
 
   const handleSignOut = async () => {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    setUser(null);
+    await createClient().auth.signOut();
   };
 
   return (
-    <div className="flex flex-col flex-1 px-5 pt-3 pb-8 space-y-6">
+    <div className="flex flex-col flex-1 px-4 pt-3 pb-8 space-y-6">
       {/* 1. Page Header */}
       <header className="pb-1 border-b border-border">
-        <h1 className="text-[22px] font-bold tracking-tight text-fg font-brand">
+        <h1 className="text-[22px] font-semibold tracking-tight text-fg font-brand">
           Settings
         </h1>
         <p className="text-[12px] text-fg-muted font-normal mt-0.5">
@@ -49,7 +32,7 @@ export default function SettingsPage() {
 
       {/* 2. Account Section */}
       <section aria-labelledby="settings-account-heading" className="bg-surface rounded-2xl p-4 border border-border shadow-sm space-y-3">
-        <h2 id="settings-account-heading" className="text-[12px] font-semibold uppercase tracking-wider text-fg-muted">
+        <h2 id="settings-account-heading" className="text-[12px] font-semibold text-fg-muted">
           Account
         </h2>
 
@@ -70,7 +53,7 @@ export default function SettingsPage() {
             <button
               type="button"
               onClick={handleSignOut}
-              className="min-h-[40px] px-3.5 rounded-xl bg-surface-muted hover:bg-border/60 border border-border text-fg font-semibold text-[12px] flex items-center gap-1.5 transition-colors cursor-pointer shrink-0 focus:outline-none focus:ring-2 focus:ring-accent"
+              className="min-h-[40px] px-4 rounded-xl bg-surface-muted hover:bg-border/60 border border-border text-fg font-semibold text-[12px] flex items-center gap-2 transition-colors cursor-pointer shrink-0 focus:outline-none focus:ring-2 focus:ring-accent"
             >
               <LogOut className="w-3.5 h-3.5 text-fg-muted" aria-hidden="true" />
               <span>Sign out</span>
@@ -95,7 +78,7 @@ export default function SettingsPage() {
 
       {/* 3. Appearance (3-Option iOS Segmented Control) */}
       <section aria-labelledby="settings-appearance-heading" className="bg-surface rounded-2xl p-4 border border-border shadow-sm space-y-3">
-        <h2 id="settings-appearance-heading" className="text-[12px] font-semibold uppercase tracking-wider text-fg-muted">
+        <h2 id="settings-appearance-heading" className="text-[12px] font-semibold text-fg-muted">
           Appearance
         </h2>
 
@@ -109,7 +92,7 @@ export default function SettingsPage() {
             role="radio"
             aria-checked={themeMode === 'system'}
             onClick={() => handleThemeChange('system')}
-            className={`min-h-[40px] rounded-lg text-[12px] font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+            className={`min-h-[40px] rounded-lg text-[12px] font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer ${
               themeMode === 'system'
                 ? 'bg-surface text-fg shadow-sm border border-border'
                 : 'text-fg-muted hover:text-fg'
@@ -124,13 +107,13 @@ export default function SettingsPage() {
             role="radio"
             aria-checked={themeMode === 'light'}
             onClick={() => handleThemeChange('light')}
-            className={`min-h-[40px] rounded-lg text-[12px] font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+            className={`min-h-[40px] rounded-lg text-[12px] font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer ${
               themeMode === 'light'
                 ? 'bg-surface text-fg shadow-sm border border-border'
                 : 'text-fg-muted hover:text-fg'
             }`}
           >
-            <Sun className="w-4 h-4 text-amber-500 shrink-0" aria-hidden="true" />
+            <Sun className="w-4 h-4 text-fg-muted shrink-0" aria-hidden="true" />
             <span>Light</span>
           </button>
 
@@ -139,67 +122,59 @@ export default function SettingsPage() {
             role="radio"
             aria-checked={themeMode === 'dark'}
             onClick={() => handleThemeChange('dark')}
-            className={`min-h-[40px] rounded-lg text-[12px] font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+            className={`min-h-[40px] rounded-lg text-[12px] font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer ${
               themeMode === 'dark'
                 ? 'bg-surface text-fg shadow-sm border border-border'
                 : 'text-fg-muted hover:text-fg'
             }`}
           >
-            <Moon className="w-4 h-4 text-sky-400 shrink-0" aria-hidden="true" />
+            <Moon className="w-4 h-4 text-fg-muted shrink-0" aria-hidden="true" />
             <span>Dark</span>
           </button>
         </div>
       </section>
 
-      {/* 4. DEV ONLY (mock role selector) */}
-      {/* DEV ONLY (mock role): In production, role is stored in profiles.role in Supabase Postgres and approved by admin. This selector must be removed before real auth and RLS integration. */}
-      <section aria-labelledby="settings-dev-heading" className="bg-surface rounded-2xl p-4 border border-border shadow-sm space-y-3">
-        <div className="flex items-center gap-2">
-          <ShieldAlert className="w-4 h-4 text-banner-fg shrink-0" aria-hidden="true" />
-          <h2 id="settings-dev-heading" className="text-[12px] font-semibold uppercase tracking-wider text-fg-muted">
-            DEV ONLY (mock role)
-          </h2>
-        </div>
+      {/* 4a. Admin-only preview of other roles (UI only; the database still enforces your real role) */}
+      {realRole === 'admin' && (
+        <section aria-labelledby="settings-viewas-heading" className="bg-surface rounded-2xl p-4 border border-border shadow-sm space-y-3">
+          <div className="flex items-center gap-2">
+            <Eye className="w-4 h-4 text-fg-muted shrink-0" aria-hidden="true" />
+            <h2 id="settings-viewas-heading" className="text-[12px] font-semibold text-fg-muted">
+              View as (admin preview)
+            </h2>
+          </div>
+          <p className="text-[12px] text-fg-muted leading-normal">
+            See the app as another role. This only changes what is shown; permissions stay tied to your real admin role.
+          </p>
+          <div role="radiogroup" aria-label="View as role" className="grid grid-cols-2 gap-2">
+            {(['citizen', 'volunteer', 'facility', 'admin'] as const).map((r) => (
+              <button
+                key={r}
+                type="button"
+                role="radio"
+                aria-checked={role === r}
+                onClick={() => setViewAs(r === 'admin' ? null : r)}
+                className={`min-h-[44px] px-3 rounded-xl text-[14px] font-semibold capitalize border transition-colors cursor-pointer ${
+                  role === r
+                    ? 'bg-action text-action-fg border-action'
+                    : 'bg-surface-muted text-fg border-border hover:bg-border/60'
+                }`}
+              >
+                {r}
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
 
-        <p className="text-[12px] text-fg-muted font-normal leading-normal">
-          Simulates different permission levels for local prototype validation. Users can never change their own role in production.
-        </p>
+      {/* 4. Volunteer application (role is set by an admin, never by the user) */}
+      <RoleApplication
+        userId={user?.id ?? null}
+        role={role}
+        onSignIn={() => setIsAuthOpen(true)}
+      />
 
-        <div className="grid grid-cols-2 gap-2 pt-1">
-          {(['citizen', 'volunteer', 'facility', 'admin'] as MockRole[]).map((role) => (
-            <button
-              key={role}
-              type="button"
-              onClick={() => handleRoleChange(role)}
-              className={`min-h-[44px] px-3.5 rounded-xl text-[12px] font-semibold capitalize flex items-center justify-between border transition-all cursor-pointer ${
-                mockRole === role
-                  ? 'bg-action text-action-fg border-action shadow-sm'
-                  : 'bg-surface-muted text-fg border-border hover:bg-border/60'
-              }`}
-            >
-              <span>{role}</span>
-              {mockRole === role && <span className="text-[12px] uppercase font-semibold tracking-wider">Active</span>}
-            </button>
-          ))}
-        </div>
-      </section>
-
-      {/* 5. About / Prototype Status */}
-      <section aria-labelledby="settings-about-heading" className="bg-surface rounded-2xl p-4 border border-border shadow-sm space-y-2">
-        <div className="flex items-center gap-2">
-          <Info className="w-4 h-4 text-fg-muted shrink-0" aria-hidden="true" />
-          <h2 id="settings-about-heading" className="text-[12px] font-semibold uppercase tracking-wider text-fg-muted">
-            About KupKop
-          </h2>
-        </div>
-        <p className="text-[12px] text-fg-muted leading-relaxed">
-          KupKop is a community-driven mobile network for street animal emergencies. Live camera verification, GPS dispatch, claim locking, and 14-day clinic inactivity tracking.
-        </p>
-        <div className="pt-1 flex items-center justify-between text-[12px] text-fg-muted">
-          <span>Version</span>
-          <span className="font-semibold text-fg">Phase 0 · Prototype</span>
-        </div>
-      </section>
+      <p className="text-[12px] text-fg-muted">KupKop is a prototype. Reports are not sent to real responders.</p>
 
       {/* Auth Modal for Magic Link / Google Sign-In */}
       <AuthModal

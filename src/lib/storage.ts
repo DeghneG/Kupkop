@@ -3,7 +3,6 @@
 import { useSyncExternalStore } from 'react';
 
 export type ThemeMode = 'system' | 'light' | 'dark';
-export type MockRole = 'citizen' | 'volunteer' | 'facility' | 'admin';
 
 const emptySubscribe = () => () => {};
 
@@ -22,6 +21,37 @@ function subscribeStorage(callback: () => void) {
     window.removeEventListener('storage', callback);
     window.removeEventListener('kupkop-storage-change', callback);
   };
+}
+
+export type ViewAsRole = 'citizen' | 'volunteer' | 'facility' | 'admin';
+
+// Admin-only UI preview of another role. Display only: the database still
+// enforces the real role, and useProfile ignores this unless the user is an admin.
+export function useViewAs(): [ViewAsRole | null, (role: ViewAsRole | null) => void] {
+  const stored = useSyncExternalStore<string | null>(
+    subscribeStorage,
+    () => {
+      try {
+        return localStorage.getItem('kupkop-view-as');
+      } catch {
+        return null;
+      }
+    },
+    () => null
+  );
+
+  const setViewAs = (role: ViewAsRole | null) => {
+    try {
+      if (role) localStorage.setItem('kupkop-view-as', role);
+      else localStorage.removeItem('kupkop-view-as');
+      window.dispatchEvent(new Event('kupkop-storage-change'));
+    } catch (err) {
+      console.warn('Could not save view-as role', err);
+    }
+  };
+
+  const valid = ['citizen', 'volunteer', 'facility', 'admin'].includes(stored ?? '');
+  return [valid ? (stored as ViewAsRole) : null, setViewAs];
 }
 
 export function useThemeMode(): [ThemeMode, (mode: ThemeMode) => void] {
@@ -70,33 +100,4 @@ export function useThemeMode(): [ThemeMode, (mode: ThemeMode) => void] {
   };
 
   return [mode, setThemeMode];
-}
-
-export function useMockRole(): [MockRole, (role: MockRole) => void] {
-  const role = useSyncExternalStore<MockRole>(
-    subscribeStorage,
-    () => {
-      try {
-        const stored = localStorage.getItem('kupkop-mock-role') as MockRole | null;
-        if (stored && ['citizen', 'volunteer', 'facility', 'admin'].includes(stored)) {
-          return stored;
-        }
-      } catch {
-        // Fallback to citizen on error
-      }
-      return 'citizen';
-    },
-    () => 'citizen'
-  );
-
-  const setMockRole = (newRole: MockRole) => {
-    try {
-      localStorage.setItem('kupkop-mock-role', newRole);
-      window.dispatchEvent(new Event('kupkop-storage-change'));
-    } catch (err) {
-      console.warn('Could not save mock role to localStorage', err);
-    }
-  };
-
-  return [role, setMockRole];
 }

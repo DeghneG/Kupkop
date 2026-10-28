@@ -1,8 +1,10 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { ArrowLeft, Phone, Clock, MapPin, HeartPulse, AlertCircle, ShieldAlert } from 'lucide-react';
+import { Phone, Clock, MapPin, HeartPulse, AlertCircle, ShieldAlert } from 'lucide-react';
+import { useUserPosition } from '@/lib/useUserPosition';
+import { useIsMounted } from '@/lib/storage';
+import { distanceKm, formatDistance } from '@/lib/sos/utils';
 import { calculateFacilityInactivity, FacilityClockStatus } from '@/lib/sos/escalation';
 import { createClient } from '@/lib/supabase/client';
 
@@ -10,7 +12,8 @@ interface FacilityItem {
   id: string;
   name: string;
   address: string;
-  distance: string;
+  latitude?: number;
+  longitude?: number;
   status: 'Listed';
   lastActiveAt: string;
   admittedCount?: number;
@@ -21,7 +24,8 @@ const initialFacilities: FacilityItem[] = [
     id: 'fac-1',
     name: 'Test Clinic A (Katipunan)',
     address: 'Katipunan Ave, Quezon City',
-    distance: '1.1 km',
+    latitude: 14.6391,
+    longitude: 121.0766,
     status: 'Listed',
     lastActiveAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
     admittedCount: 2,
@@ -30,7 +34,8 @@ const initialFacilities: FacilityItem[] = [
     id: 'fac-2',
     name: 'Test Clinic B (New Manila)',
     address: 'E. Rodriguez Sr. Ave, New Manila',
-    distance: '2.4 km',
+    latitude: 14.6225,
+    longitude: 121.0331,
     status: 'Listed',
     lastActiveAt: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(),
     admittedCount: 1,
@@ -39,7 +44,8 @@ const initialFacilities: FacilityItem[] = [
     id: 'fac-3',
     name: 'Test Clinic C (Aurora Blvd)',
     address: 'Aurora Blvd near Broadway',
-    distance: '3.7 km',
+    latitude: 14.6128,
+    longitude: 121.0287,
     status: 'Listed',
     lastActiveAt: new Date(Date.now() - 12 * 24 * 60 * 60 * 1000).toISOString(),
     admittedCount: 1,
@@ -48,7 +54,8 @@ const initialFacilities: FacilityItem[] = [
     id: 'fac-4',
     name: 'Test Shelter D (Kamias)',
     address: 'Kamias Rd near Anonas',
-    distance: '4.2 km',
+    latitude: 14.6262,
+    longitude: 121.0546,
     status: 'Listed',
     lastActiveAt: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(),
     admittedCount: 0,
@@ -58,6 +65,8 @@ const initialFacilities: FacilityItem[] = [
 export default function FacilitiesPage() {
   const [facilities, setFacilities] = useState<FacilityItem[]>(initialFacilities);
   const [notification, setNotification] = useState<string | null>(null);
+  const userPosition = useUserPosition();
+  const mounted = useIsMounted();
 
   useEffect(() => {
     const fetchFacilities = async () => {
@@ -69,14 +78,14 @@ export default function FacilitiesPage() {
           .order('name');
 
         if (!error && data && data.length > 0) {
-          const liveFacs: FacilityItem[] = data.map((f, idx) => ({
+          const liveFacs: FacilityItem[] = data.map((f) => ({
             id: f.id,
             name: f.name,
             address: f.address,
-            distance: `${(1.2 + idx * 0.8).toFixed(1)} km`,
+            latitude: f.latitude,
+            longitude: f.longitude,
             status: 'Listed',
             lastActiveAt: f.last_active_at || f.created_at || new Date().toISOString(),
-            admittedCount: 1,
           }));
 
           setFacilities(liveFacs);
@@ -98,14 +107,14 @@ export default function FacilitiesPage() {
     switch (clock.status) {
       case 'alert':
         return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[12px] font-semibold bg-reported-bg text-reported-fg border border-reported-fg/30 shrink-0">
+          <span className="inline-flex items-center gap-2 px-3 py-0.5 rounded-full text-[12px] font-semibold bg-reported-bg text-reported-fg border border-reported-fg/30 shrink-0">
             <ShieldAlert className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
             <span>{clock.badgeText}</span>
           </span>
         );
       case 'warning':
         return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[12px] font-semibold bg-claimed-bg text-claimed-fg border border-claimed-fg/30 shrink-0">
+          <span className="inline-flex items-center gap-2 px-3 py-0.5 rounded-full text-[12px] font-semibold bg-claimed-bg text-claimed-fg border border-claimed-fg/30 shrink-0">
             <AlertCircle className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
             <span>{clock.badgeText}</span>
           </span>
@@ -113,7 +122,7 @@ export default function FacilitiesPage() {
       case 'active':
       default:
         return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[12px] font-semibold bg-healing-bg text-healing-fg border border-healing-fg/30 shrink-0">
+          <span className="inline-flex items-center gap-2 px-3 py-0.5 rounded-full text-[12px] font-semibold bg-healing-bg text-healing-fg border border-healing-fg/30 shrink-0">
             <HeartPulse className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
             <span>{clock.badgeText}</span>
           </span>
@@ -122,7 +131,7 @@ export default function FacilitiesPage() {
   };
 
   return (
-    <div className="flex flex-col flex-1 px-4 py-4 space-y-4">
+    <div className="flex flex-col flex-1 px-4 pt-3 pb-6 space-y-6">
       {/* Toast Notice */}
       {notification && (
         <div
@@ -135,37 +144,15 @@ export default function FacilitiesPage() {
       )}
 
       {/* Top Header */}
-      <header className="flex items-center justify-between pb-2 border-b border-border">
-        <Link
-          href="/"
-          className="flex items-center gap-1 text-fg-muted hover:text-fg min-w-[44px] min-h-[44px] text-[12px] font-semibold transition-colors"
-          aria-label="Back to Feed"
-        >
-          <ArrowLeft className="w-4 h-4" aria-hidden="true" />
-          <span>Feed</span>
-        </Link>
-        <div className="text-center">
-          <h1 className="text-[16px] font-semibold text-fg">
-            Partner Clinics
-          </h1>
-          <p className="text-[12px] text-fg-muted font-normal">14-day inactivity clock tracking</p>
-        </div>
-        <div className="w-11" aria-hidden="true" />
+      <header className="pb-3 border-b border-border">
+        <h1 className="text-[22px] font-semibold tracking-tight text-fg font-brand">Clinics</h1>
+        <p className="text-[12px] text-fg-muted font-normal mt-1">
+          Listed clinics must log a recovery update within 14 days of admitting an animal.
+        </p>
       </header>
 
-      {/* Ground Rules Notice: Labeled "Listed", never "Verified" */}
-      <div className="bg-surface-muted border border-border rounded-xl p-3 space-y-1">
-        <p className="text-[12px] font-semibold text-fg">
-          Partner Facility Registry & Inactivity Clock
-        </p>
-        <p className="text-[12px] text-fg-muted font-normal leading-relaxed">
-          In prototype mode, all facilities are labeled <strong>Listed</strong> (never Verified). Admitted cases must receive clinical recovery updates within 14 days or trigger an automated welfare check alert.
-        </p>
-      </div>
-
-      {/* Facilities List */}
       <div className="space-y-3">
-        {facilities.map((fac) => {
+        {mounted && facilities.map((fac) => {
           const clock = calculateFacilityInactivity(fac.lastActiveAt);
           const percentElapsed = Math.min(100, Math.round((clock.elapsedDays / 14) * 100));
 
@@ -185,18 +172,20 @@ export default function FacilitiesPage() {
                   </div>
                 </div>
 
-                <span className="text-[12px] font-normal px-2.5 py-0.5 rounded-full bg-surface-muted text-fg-muted border border-border shrink-0">
-                  {fac.status} Facility
+                <span className="text-[12px] font-normal px-3 py-1 rounded-full text-fg-muted border border-border shrink-0">
+                  {fac.status}
                 </span>
               </div>
 
-              {/* 14-Day Inactivity Clock Section */}
-              <div className="bg-surface-muted/60 border border-border/80 rounded-xl p-3 space-y-2">
+              {/* 14-Day Inactivity Clock */}
+              <div className="pt-3 border-t border-border space-y-2">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
                   {renderClockBadge(clock)}
-                  <span className="font-mono text-[12px] text-fg-muted tabular-nums">
-                    {fac.distance} away
-                  </span>
+                  {userPosition && fac.latitude != null && fac.longitude != null && (
+                    <span className="text-[12px] text-fg-muted tabular-nums">
+                      {formatDistance(distanceKm(userPosition, { lat: fac.latitude, lng: fac.longitude }))} away
+                    </span>
+                  )}
                 </div>
 
                 {/* Inactivity Clock 14-Day Progress Rail */}
@@ -222,7 +211,7 @@ export default function FacilitiesPage() {
 
               {/* Patient Care & Action Bar */}
               <div className="pt-1 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-1.5 text-[12px] text-fg-muted">
+                <div className="flex items-center gap-2 text-[12px] text-fg-muted">
                   <Clock className="w-3.5 h-3.5 shrink-0 text-fg-muted" aria-hidden="true" />
                   <span>
                     {clock.status === 'alert'

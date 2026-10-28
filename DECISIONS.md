@@ -167,4 +167,62 @@
   4. **Spatial Directional Bearing Arrows:** Added cardinal/intercardinal direction arrows (`↗`, `↖`, `↘`, `↙`) next to distances in `IncidentCard.tsx` based on relative coordinate geometry, giving responders immediate spatial orientation without opening a full map.
 - **Context:** User requested a "game changer but minimal design" to make the home page engaging, authentic, and fast while keeping clean visual restraint.
 
+### D-020: Graphic-Led Emergency Hero with Bespoke Manila Rescue Artwork
+- **Date:** 2026-10-28
+- **Decision:** Replaced the technical "Manila Field Dispatch HUD" reticle box with a warm, high-craft graphic hero in `src/app/page.tsx`:
+  1. **Bespoke Rescue Graphic Artwork (`/images/hero-graphic.jpg`):** Integrated authentic visual silkscreen artwork showing a volunteer responder kneeling with a Philippine aspin dog against a Manila cityscape with sunrise and electric tricycle in KupKop's exact brand colors (warm oat linen `#F6F4EE`, forest ink `#142019`, and warm amber).
+  2. **Compact Split Graphic Layout:** Positioned the headline and instant dispatch copy on the left with the rounded-2xl graphic artwork badge on the right, providing an emotive visual anchor without pushing the emergency trigger below the fold.
+  3. **High-Target Emergency Lens CTA:** Kept the primary 52px "Activate Emergency Lens" button prominently docked at the bottom of the card with micro-telemetry dispatch indicators (`<15s DISPATCH TARGET`, Manila coordinates).
+  4. **Strict Token Adherence:** Styled entirely with semantic tokens (`--surface`, `--border`, `--fg`, `--fg-muted`, `--accent`, `--accent-fg`) ensuring flawless contrast in both light and dark modes.
+- **Context:** User requested replacing the technical telemetry HUD box with a graphic to give the home screen visual soul and warmth.
 
+### D-021: Radical Home Screen Decluttering & Unboxed Scenic Banner
+- **Date:** 2026-10-28
+- **Decision:** Radically decluttered `src/app/page.tsx` under the Impeccable `distill` principle following user feedback that the screen had become cluttered:
+  1. **Eliminated Heavy Boxed Cards & Duplicate SOS Button:** Removed the bulky emergency viewfinder card, corner brackets, `<15s DISPATCH TARGET` telemetry, and raw coordinates. The primary emergency lens is anchored purely in the bottom navigation dock's elevated 56px beacon at thumb level.
+  2. **Unboxed Scenic Graphic Artwork:** Replaced the cramped 96px thumbnail box with a full, panoramic 140px (`h-36 sm:h-44`) visual artwork banner featuring `/images/hero-graphic.jpg` with a soft bottom vignette and clean community caption.
+  3. **Purified Header & Filter Strip:** Stripped the "K" logo box and the redundant `Sector Active` pill from the header, and removed the intrusive conditional prompt card from the triage rail.
+  4. **Immediate Stream Prominence:** The incident feed now starts high in the viewport, giving users instant visibility into street emergencies without cognitive overload.
+- **Context:** User identified that nested cards, telemetry, and duplicate buttons made the home screen feel cluttered.
+
+### D-022: Compact Minimal Brand Mark & Zero-Banner Feed
+- **Date:** 2026-10-28
+- **Decision:** Removed all large banners and replaced the header with a bespoke, compact brand mark icon:
+  1. **Zero Large Banners:** Removed the 140px billboard illustration banner, restoring complete visual restraint and letting the live emergency incident feed take center stage.
+  2. **Bespoke KupkopMark Vector Brand Icon (`src/components/icons/TriageGlyph.tsx`):** Designed and integrated a handcrafted 24×24 vector SVG brand mark in a compact 40×40 badge (`bg-fg text-page`). The mark depicts a protective sheltering dome (the Kupkop canopy) embracing a stylized animal companion paw silhouette with geometric precision.
+  3. **React 19 / Turbopack Script Error Elimination:** Removed legacy `<Script strategy="beforeInteractive">` from `src/app/layout.tsx` which triggered React 19 console errors; introduced `src/components/ThemeInit.tsx` and native `@media (prefers-color-scheme: dark)` in `globals.css` for instant, error-free theme support.
+- **Context:** User rejected large decorative illustration banners and chose a compact, minimal brand mark graphic.
+
+
+### D-023: Case-Function Hardening & Real Roles (Mock Role Removed)
+- **Date:** 2026-10-28
+- **Decision:**
+  1. `claim_sos_report`, `release_sos_claim`, `admit_to_facility` now use `auth.uid()` only (no spoofable id params), require an approved volunteer/admin profile, enforce `reported -> claimed -> admitted`, and are executable by `authenticated` only (migration `20261028000001`).
+  2. Direct `UPDATE` on `sos_reports` is admin-only, so reporters/claimers cannot bypass the claim lock. `recovery_updates` inserts limited to the claimer, facility staff, or admin.
+  3. Volunteers apply via `role_applications` (migration `20261028000002`); only an admin can approve through `review_role_application()`. Users still never write `profiles.role`.
+  4. DEV mock-role selector, `useMockRole`, and the unused `ProfileSheet` were removed. Role is read from `profiles.role` via `useProfile()` (display only; the database enforces permissions).
+- **Open:** admin review screen (Phase 4; approve via SQL for now), facility picker for handoff (currently first Listed facility), facility staff are not linked to a specific facility.
+- **Context:** The app is a rescue-dispatch tool; approved volunteers respond and clinics report recovery.
+
+### D-024: Purposeful UI Pass (Impeccable critique, Home + SOS first)
+- **Date:** 2026-10-28
+- **Decision:**
+  1. **No invented data.** Distance and direction come from the device position (only when location permission is already granted; Home never prompts) and are hidden otherwise. Removed the hardcoded `0.8 km`, the invented street name, and fake clinic distances. Sample cases appear only when the database has no reports, with a one-line note.
+  2. **Feed states:** loading skeleton, error with retry, sample note. Feed errors are no longer silent.
+  3. **Zoom restored** (`maximumScale` / `userScalable` removed) for low-vision users.
+  4. **Type contract enforced** on all screens: 12/14/16/22, weights 400/600, nothing under 12px. Off-scale spacing and radii snapped to 8/12/16/24 and `rounded-2xl`/`rounded-xl`.
+  5. **Removed decoration:** eyebrow labels, coral status dot, "Phase 1" banner pill, thumbnail camera badges, header theme toggle (theme lives in Settings; `ThemeToggle.tsx` deleted), Settings "About" card, redundant back links, mono-as-costume headings, section numbers on forms.
+  6. **Tokens only:** removed hardcoded red/emerald/amber/sky/stone colors; coral kept for emergency action and Reported only (Rafa CTA now uses the action color). `reported-border` (undefined class) replaced.
+  7. **SOS screen:** dev simulated lens is development-builds only (it let a non-live frame be submitted, against D-002); `animate-pulse` removed from the camera/confirmation screens; nested cards on the success screen flattened.
+  8. **Build fix:** `/facilities` read `Date.now()` during prerender and broke `next build`; the clinic list now renders after mount.
+- **Untouched by request:** bottom dock and SOS beacon.
+- **Open:** Settings still uses stacked bordered cards; DetailSheet still nests two muted panels; no browser visual check was possible this session (source-level review only).
+
+### D-025: Design source moves from Impeccable to Claude Design
+- **Date:** 2026-10-28
+- **Decision:**
+  1. Removed the Impeccable skill (`.agents/skills/impeccable/`) and the two `.codex/hooks.json` hooks that ran it. D-012 and D-013 are kept above as history.
+  2. AGENTS.md: the THEME & DESIGN RULES block is replaced by a pointer to the Claude Design project plus a short DESIGN FLOOR (min text size, contrast, coral budget, button sizes, motion). The floor stays in AGENTS.md so it holds if the design source changes.
+  3. DESIGN.md and PRODUCT.md are kept as plain reference docs (the Impeccable schema comment was removed) and are the files to sync to Claude Design.
+  4. `ui-ux-reviewer` no longer cites Impeccable; its rules are unchanged.
+- **Done:** Claude Design project "KupKop" (id 8a049058-372f-400f-9aa3-bf6c53b2771d) created and loaded with a lightweight brief: README.md (hard rules), DESIGN.md, PRODUCT.md, tokens/globals.css. The full component sync was not used because KupKop is a private Next.js app with no dist/ or Storybook. Re-upload the brief after token changes.

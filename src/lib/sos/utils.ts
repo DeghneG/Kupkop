@@ -22,21 +22,37 @@ export function formatCoordinates(lat: number, lng: number): string {
   return `${Math.abs(lat).toFixed(4)}° ${latDir}, ${Math.abs(lng).toFixed(4)}° ${lngDir}`;
 }
 
-export function getDirectionalBearing(
-  targetLat?: number | null,
-  targetLng?: number | null,
-  userLat = 14.6198,
-  userLng = 121.0526
-): string {
-  if (targetLat == null || targetLng == null) return '↗';
-  const dLat = targetLat - userLat;
-  const dLng = targetLng - userLng;
+export interface LatLng {
+  lat: number;
+  lng: number;
+}
 
-  if (Math.abs(dLat) < 0.0005 && Math.abs(dLng) < 0.0005) return '•';
-  if (dLat >= 0 && dLng >= 0) return '↗';
-  if (dLat >= 0 && dLng < 0) return '↖';
-  if (dLat < 0 && dLng >= 0) return '↘';
-  return '↙';
+/** Great-circle distance in kilometres. */
+export function distanceKm(a: LatLng, b: LatLng): number {
+  const rad = (deg: number) => (deg * Math.PI) / 180;
+  const dLat = rad(b.lat - a.lat);
+  const dLng = rad(b.lng - a.lng);
+  const h =
+    Math.sin(dLat / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLng / 2) ** 2;
+  return 2 * 6371 * Math.asin(Math.sqrt(h));
+}
+
+export function formatDistance(km: number): string {
+  if (km < 0.1) return 'Here';
+  if (km < 1) return `${Math.round(km * 10) * 100} m`;
+  return `${km.toFixed(1)} km`;
+}
+
+/** Eight-way arrow pointing from `from` toward `to`. */
+export function getDirectionalBearing(from: LatLng, to: LatLng): string {
+  const rad = (deg: number) => (deg * Math.PI) / 180;
+  const y = Math.sin(rad(to.lng - from.lng)) * Math.cos(rad(to.lat));
+  const x =
+    Math.cos(rad(from.lat)) * Math.sin(rad(to.lat)) -
+    Math.sin(rad(from.lat)) * Math.cos(rad(to.lat)) * Math.cos(rad(to.lng - from.lng));
+  const degrees = ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
+  const arrows = ['↑', '↗', '→', '↘', '↓', '↙', '←', '↖'];
+  return arrows[Math.round(degrees / 45) % 8];
 }
 
 export async function compressVideoFrame(

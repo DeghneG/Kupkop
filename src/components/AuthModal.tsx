@@ -240,7 +240,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
               <button
                 type="button"
                 onClick={handleClose}
-                className="w-full min-h-[48px] bg-action hover:opacity-95 text-white font-semibold text-[14px] rounded-xl transition-opacity cursor-pointer shadow-sm"
+                className="w-full min-h-[48px] bg-action hover:opacity-95 text-action-fg font-semibold text-[14px] rounded-xl transition-opacity cursor-pointer shadow-sm"
               >
                 Done
               </button>
@@ -249,7 +249,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
               <button
                 type="button"
                 onClick={() => setSent(false)}
-                className="w-full min-h-[40px] text-[13px] font-medium text-link hover:underline flex items-center justify-center gap-1.5 cursor-pointer"
+                className="w-full min-h-[40px] text-[14px] font-normal text-link hover:underline flex items-center justify-center gap-2 cursor-pointer"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
                 <span>Use a different email</span>
@@ -277,7 +277,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                   setErrorMsg(null);
                   setIsNonExistent(false);
                 }}
-                className={`flex-1 py-1.5 text-[13px] font-semibold rounded-full transition-all cursor-pointer ${
+                className={`flex-1 py-2 text-[14px] font-semibold rounded-full transition-all cursor-pointer ${
                   mode === 'login'
                     ? 'bg-surface text-fg shadow-xs border border-border'
                     : 'text-fg-muted hover:text-fg border border-transparent'
@@ -292,7 +292,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                   setErrorMsg(null);
                   setIsNonExistent(false);
                 }}
-                className={`flex-1 py-1.5 text-[13px] font-semibold rounded-full transition-all cursor-pointer ${
+                className={`flex-1 py-2 text-[14px] font-semibold rounded-full transition-all cursor-pointer ${
                   mode === 'signup'
                     ? 'bg-surface text-fg shadow-xs border border-border'
                     : 'text-fg-muted hover:text-fg border border-transparent'
@@ -305,7 +305,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
             {errorMsg && (
               <div
                 role="alert"
-                className="flex items-start gap-2 p-3 rounded-xl bg-reported-bg text-reported-fg border border-reported-fg/20 text-[12px] font-medium"
+                className="flex items-start gap-2 p-3 rounded-xl bg-reported-bg text-reported-fg border border-reported-fg/20 text-[12px] font-normal"
               >
                 <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
                 <div className="space-y-1">
@@ -343,7 +343,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                     if (isNonExistent) setIsNonExistent(false);
                   }}
                   placeholder="name@example.com"
-                  className="w-full min-h-[48px] px-3.5 text-[14px] bg-surface-muted text-fg rounded-xl border border-border outline-none focus:ring-2 focus:ring-action"
+                  className="w-full min-h-[48px] px-4 text-[14px] bg-surface-muted text-fg rounded-xl border border-border outline-none focus:ring-2 focus:ring-action"
                 />
               </div>
 
@@ -351,7 +351,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full min-h-[48px] bg-action hover:opacity-95 text-white font-semibold text-[14px] rounded-xl flex items-center justify-center gap-2 shadow-sm transition-opacity disabled:opacity-50 cursor-pointer"
+                className="w-full min-h-[48px] bg-action hover:opacity-95 text-action-fg font-semibold text-[14px] rounded-xl flex items-center justify-center gap-2 shadow-sm transition-opacity disabled:opacity-50 cursor-pointer"
               >
                 {loading ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -366,7 +366,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
             <div className="relative flex py-1 items-center">
               <div className="flex-grow border-t border-border" />
-              <span className="flex-shrink mx-3 text-[12px] text-fg-muted uppercase">or</span>
+              <span className="flex-shrink mx-3 text-[12px] text-fg-muted">or</span>
               <div className="flex-grow border-t border-border" />
             </div>
 

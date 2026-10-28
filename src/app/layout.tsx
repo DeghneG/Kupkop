@@ -1,9 +1,9 @@
 import type { Metadata, Viewport } from 'next';
-import Script from 'next/script';
 import { Inter, Bricolage_Grotesque } from 'next/font/google';
 import './globals.css';
 import TestModeBanner from '@/components/TestModeBanner';
 import Navigation from '@/components/Navigation';
+import ThemeInit from '@/components/ThemeInit';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -31,39 +31,12 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
   viewportFit: 'cover',
   themeColor: [
     { media: '(prefers-color-scheme: light)', color: '#F6F4EE' },
     { media: '(prefers-color-scheme: dark)', color: '#0E1411' },
   ],
 };
-
-const themeScript = `
-(function() {
-  try {
-    var stored = localStorage.getItem('kupkop-theme');
-    var isDark = false;
-    if (stored === 'dark') {
-      isDark = true;
-    } else if (stored === 'light') {
-      isDark = false;
-    } else {
-      isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-    }
-    if (isDark) {
-      document.documentElement.classList.add('dark');
-      document.documentElement.setAttribute('data-theme', 'dark');
-      document.documentElement.style.colorScheme = 'dark';
-    } else {
-      document.documentElement.classList.remove('dark');
-      document.documentElement.setAttribute('data-theme', 'light');
-      document.documentElement.style.colorScheme = 'light';
-    }
-  } catch (e) {}
-})();
-`;
 
 export default function RootLayout({
   children,
@@ -72,14 +45,8 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`${inter.variable} ${bricolage.variable} h-full antialiased`} suppressHydrationWarning>
-      <head>
-        <Script
-          id="theme-script"
-          strategy="beforeInteractive"
-          dangerouslySetInnerHTML={{ __html: themeScript }}
-        />
-      </head>
       <body className="min-h-full bg-page text-fg font-sans flex flex-col items-center">
+        <ThemeInit />
         {/* Mobile viewport container */}
         <div className="w-full max-w-md min-h-screen bg-page border-x border-border shadow-sm flex flex-col relative pb-28 transition-colors duration-150">
           <TestModeBanner />

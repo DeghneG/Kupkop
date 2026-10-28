@@ -1,10 +1,9 @@
 'use client';
 
 import React from 'react';
-import { Camera, MapPin } from 'lucide-react';
+import { ArrowUp, Camera } from 'lucide-react';
 import { calculateEscalation, calculateClaimTimer } from '@/lib/sos/escalation';
 import TriageGlyph from '@/components/icons/TriageGlyph';
-import { getDirectionalBearing } from '@/lib/sos/utils';
 
 export interface IncidentData {
   id: string;
@@ -12,7 +11,9 @@ export interface IncidentData {
   animal: string;
   type: string;
   location: string;
-  distance: string;
+  /** Set only when the device position is known. */
+  distance?: string;
+  bearing?: string;
   timeAgo: string;
   state: 'reported' | 'claimed' | 'admitted' | 'healing' | 'resolved';
   blurred?: boolean;
@@ -33,62 +34,37 @@ export interface IncidentCardProps {
   isLast?: boolean;
 }
 
-export function IncidentCard({ incident, onClick }: IncidentCardProps) {
-  const escalation = incident.state === 'reported' ? calculateEscalation(incident.createdAt, incident.type) : null;
-  const claimStatus = incident.state === 'claimed' ? calculateClaimTimer(incident.claimedAt) : null;
-
-  // Status indicator config with bespoke TriageGlyphs and live escalation cues
-  const renderStatus = () => {
-    switch (incident.state) {
-      case 'claimed': {
-        const isTimerValid = claimStatus && claimStatus.isClaimed && !claimStatus.isExpired;
-        const lockText = isTimerValid
-          ? claimStatus.remainingMinutes > 0
-            ? `${claimStatus.remainingMinutes}m lock`
-            : `${claimStatus.remainingSeconds}s lock`
-          : 'Claimed';
-
-        return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[12px] font-semibold bg-claimed-bg text-claimed-fg shrink-0 border border-claimed-fg/20">
-            <TriageGlyph state="claimed" size={13} className="text-claimed-fg shrink-0" />
-            <span>{lockText}</span>
-          </span>
-        );
-      }
-      case 'healing':
-      case 'admitted':
-        return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[12px] font-semibold bg-healing-bg text-healing-fg shrink-0 border border-healing-fg/20">
-            <TriageGlyph state={incident.state} size={13} className="text-healing-fg shrink-0" />
-            <span>{incident.state === 'admitted' ? 'Admitted' : 'Healing'}</span>
-          </span>
-        );
-      case 'resolved':
-        return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[12px] font-semibold bg-resolved-bg text-resolved-fg shrink-0 border border-resolved-fg/20">
-            <TriageGlyph state="resolved" size={13} className="text-resolved-fg shrink-0" />
-            <span>Resolved</span>
-          </span>
-        );
-      case 'reported':
-      default: {
-        const isEscalated = escalation?.stage === 'alert';
-        const label = isEscalated ? 'Needs Rescuer' : 'Reported';
-
-        return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[12px] font-semibold bg-reported-bg text-reported-fg shrink-0 border border-reported-fg/20">
-            <TriageGlyph state="reported" emergencyType={incident.type} size={13} className="text-reported-fg shrink-0" />
-            <span>{label}</span>
-          </span>
-        );
-      }
+// Status reads as colored text, not a filled pill, so a full feed stays inside the color budget
+function getStatus(incident: IncidentData): { label: string; tone: string } {
+  switch (incident.state) {
+    case 'claimed': {
+      const timer = calculateClaimTimer(incident.claimedAt);
+      if (!timer.isClaimed || timer.isExpired) return { label: 'Claimed', tone: 'text-claimed-fg' };
+      const left = timer.remainingMinutes > 0 ? `${timer.remainingMinutes}m` : `${timer.remainingSeconds}s`;
+      return { label: `Claimed · ${left} lock`, tone: 'text-claimed-fg' };
     }
-  };
+    case 'admitted':
+      return { label: 'Admitted', tone: 'text-healing-fg' };
+    case 'healing':
+      return { label: 'Healing', tone: 'text-healing-fg' };
+    case 'resolved':
+      return { label: 'Resolved', tone: 'text-resolved-fg' };
+    case 'reported':
+    default: {
+      const escalated = calculateEscalation(incident.createdAt, incident.type)?.stage === 'alert';
+      return { label: escalated ? 'Needs rescuer' : 'Reported', tone: 'text-reported-fg' };
+    }
+  }
+}
 
-  // Clean triage category formatting
-  const formatTriageTag = (type: string) => {
-    return type.replace(/\s*[·•]\s*Critical/i, '').trim();
-  };
+// getDirectionalBearing returns one of these, clockwise from north; drawn as a rotated icon
+const BEARING_ARROWS = ['↑', '↗', '→', '↘', '↓', '↙', '←', '↖'];
+
+// Drop the "· Critical" suffix; the status line already carries urgency
+const formatTriageTag = (type: string) => type.replace(/\s*[·•]\s*Critical/i, '').trim();
+
+export function IncidentCard({ incident, onClick }: IncidentCardProps) {
+  const status = getStatus(incident);
 
   return (
     <article
@@ -101,75 +77,56 @@ export function IncidentCard({ incident, onClick }: IncidentCardProps) {
           onClick();
         }
       }}
-      aria-label={`View emergency report for ${incident.animal}, ${incident.type}, ${incident.location}`}
-      className="group w-full flex items-start gap-3.5 py-3.5 px-2 -mx-2 rounded-xl transition-all cursor-pointer text-left border-b border-border/70 hover:bg-surface-muted/50 active:scale-[0.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-action"
+      aria-label={`${status.label}: ${incident.animal}, ${incident.type}, ${incident.location}`}
+      className="w-full flex items-center gap-3 py-3 px-4 cursor-pointer text-left transition-colors hover:bg-surface-muted/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-action"
     >
-      {/* Left: 72px Clean Rounded Thumbnail with subtle blur & lens icon, NO watermark text */}
-      <div className="w-[72px] h-[72px] min-w-[72px] min-h-[72px] rounded-xl overflow-hidden bg-surface-muted border border-border shrink-0 flex items-center justify-center relative group-hover:border-fg-muted/40 transition-colors">
+      {/* Thumbnail is blurred so graphic injuries are not shown until the case is opened */}
+      <div className="w-16 h-16 rounded-xl overflow-hidden bg-surface-muted shrink-0 flex items-center justify-center">
         {incident.photoUrl ? (
           /* eslint-disable-next-line @next/next/no-img-element */
-          <img
-            src={incident.photoUrl}
-            alt={`Evidence for ${incident.animal}`}
-            className="w-full h-full object-cover blur-[1.5px] scale-105"
-          />
+          <img src={incident.photoUrl} alt="" className="w-full h-full object-cover blur-md scale-110" />
         ) : (
-          <div className="w-full h-full flex flex-col items-center justify-center bg-surface-muted">
-            <Camera className="w-5 h-5 text-fg-muted/40" aria-hidden="true" />
-          </div>
+          <Camera className="w-5 h-5 text-fg-muted" aria-hidden="true" />
         )}
-        {/* Subtle, Understated Lens Overlay (No bulky EVIDENCE text badge) */}
-        <div className="absolute inset-0 flex items-center justify-center bg-black/15 group-hover:bg-black/25 transition-colors">
-          <div className="w-7 h-7 rounded-full bg-black/40 backdrop-blur-xs flex items-center justify-center">
-            <Camera className="w-3.5 h-3.5 text-white/90 drop-shadow" aria-hidden="true" />
-          </div>
-        </div>
       </div>
 
-      {/* Right Details Column: Pure Typographic Hierarchy */}
-      <div className="flex-1 min-w-0 space-y-1">
-        {/* Top Meta Line: Single Status Pill + Timestamp & Distance (Never wraps) */}
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0">
-            {renderStatus()}
-            <span className="font-mono text-[12px] font-normal text-fg-muted/80 tabular-nums shrink-0">
-              #{incident.shortId}
-            </span>
-          </div>
-          <div className="flex items-center gap-1.5 text-[12px] text-fg-muted tabular-nums shrink-0">
-            <span>{incident.timeAgo}</span>
-            <span className="text-border" aria-hidden="true">•</span>
-            <span className="font-medium text-fg-muted inline-flex items-center gap-0.5">
-              <span className="text-[12px] text-fg-muted/70 font-mono" aria-hidden="true">
-                {getDirectionalBearing(incident.latitude, incident.longitude)}
+      <div className="flex-1 min-w-0 flex flex-col gap-1">
+        <div className="flex items-baseline justify-between gap-3">
+          <h3 className="text-[16px] font-semibold text-fg tracking-tight leading-snug truncate">
+            {incident.animal}
+            <span className="text-fg-muted font-normal text-[14px]"> · {formatTriageTag(incident.type)}</span>
+          </h3>
+          <span className="text-[12px] text-fg-muted tabular-nums shrink-0">{incident.timeAgo}</span>
+        </div>
+
+        <p className="text-[14px] text-fg-muted truncate leading-snug">{incident.location}</p>
+
+        <div className="flex items-center gap-2 text-[12px] text-fg-muted tabular-nums min-w-0">
+          <span className={`inline-flex items-center gap-1 font-semibold shrink-0 ${status.tone}`}>
+            <TriageGlyph state={incident.state} emergencyType={incident.type} size={13} className="shrink-0" />
+            {status.label}
+          </span>
+          {incident.distance && (
+            <>
+              <span aria-hidden="true">·</span>
+              <span className="inline-flex items-center gap-1 shrink-0">
+                {incident.bearing && BEARING_ARROWS.includes(incident.bearing) && (
+                  <ArrowUp
+                    className="w-3 h-3"
+                    style={{ transform: `rotate(${BEARING_ARROWS.indexOf(incident.bearing) * 45}deg)` }}
+                    aria-hidden="true"
+                  />
+                )}
+                {incident.distance}
               </span>
-              <span>{incident.distance}</span>
-            </span>
-          </div>
+            </>
+          )}
+          <span aria-hidden="true">·</span>
+          <span className="truncate">#{incident.shortId}</span>
         </div>
-
-        {/* Primary Headline: Animal + Triage Category unified seamlessly */}
-        <h3 className="text-[16px] font-semibold text-fg tracking-tight leading-snug group-hover:text-action transition-colors truncate">
-          <span>{incident.animal}</span>
-          <span className="text-fg-muted font-normal text-[14px]"> · {formatTriageTag(incident.type)}</span>
-        </h3>
-
-        {/* Location / Street Landmark */}
-        <div className="flex items-center gap-1.5 text-[12px] text-fg-muted">
-          <MapPin className="w-3.5 h-3.5 text-fg-muted shrink-0" aria-hidden="true" />
-          <span className="truncate leading-tight font-normal">{incident.location}</span>
-        </div>
-
-        {/* Optional Field Note */}
-        {incident.description && (
-          <p className="text-[12px] text-fg-muted/80 truncate pt-0.5">
-            {incident.description}
-          </p>
-        )}
       </div>
     </article>
   );
 }
 
 export default IncidentCard;
-

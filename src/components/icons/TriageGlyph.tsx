@@ -261,3 +261,38 @@ export default function TriageGlyph({
   // Default reported glyph: Pulse Beacon
   return <PulseBeacon size={size} className={className} />;
 }
+
+/**
+ * KupkopMark: Bespoke compact brand mark icon depicting a protective shelter arch
+ * cradling an animal companion silhouette with geometric precision.
+ */
+export function KupkopMark({ size = 20, className = '' }: { size?: number; className?: string }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+      aria-hidden="true"
+    >
+      {/* Protective Sheltering Canopy (Kupkop Arch) */}
+      <path
+        d="M3 13C3 7.8 7.2 3.5 12 3.5C16.8 3.5 21 7.8 21 13"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+      {/* Sheltered Companion Paw Center */}
+      <path
+        d="M12 18.5C10 18.5 8.5 17 8.5 15.2C8.5 13.8 9.8 12.5 12 11.2C14.2 12.5 15.5 13.8 15.5 15.2C15.5 17 14 18.5 12 18.5Z"
+        fill="currentColor"
+      />
+      {/* Surrounding Companion Pads */}
+      <circle cx="8" cy="10.2" r="1.4" fill="currentColor" />
+      <circle cx="16" cy="10.2" r="1.4" fill="currentColor" />
+      <circle cx="12" cy="7.8" r="1.4" fill="currentColor" />
+    </svg>
+  );
+}

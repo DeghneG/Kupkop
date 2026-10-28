@@ -15,7 +15,6 @@ import {
   MessageCircle,
   ExternalLink,
 } from 'lucide-react';
-import ThemeToggle from '@/components/ThemeToggle';
 import AuthModal from '@/components/AuthModal';
 import { createClient } from '@/lib/supabase/client';
 import { generateCaseId, formatCoordinates, compressVideoFrame, createSimulatedFrame } from '@/lib/sos/utils';
@@ -29,6 +28,9 @@ interface EmergencyOption {
   urgency: 'critical' | 'urgent' | 'moderate';
   urgencyLabel: string;
 }
+
+// The simulated lens exists only for desktop testing; real reports must come from the live camera
+const SHOW_DEV_LENS = process.env.NODE_ENV === 'development';
 
 const EMERGENCY_TIERS: EmergencyOption[] = [
   {
@@ -469,14 +471,14 @@ export default function SOSCameraPage() {
   // ---------------------------------------------------------------------------
   if ((dispatchStep === 'review' || dispatchStep === 'uploading') && stagedPreview) {
     return (
-      <div className="flex flex-col flex-1 px-4 pt-3 pb-8 space-y-3.5 max-w-lg mx-auto w-full">
+      <div className="flex flex-col flex-1 px-4 pt-3 pb-6 space-y-3 max-w-lg mx-auto w-full">
         {/* Top Bar */}
         <div className="flex items-center justify-between pb-0.5">
           <button
             type="button"
             disabled={dispatchStep === 'uploading'}
             onClick={handleRetakePhoto}
-            className="flex items-center gap-1.5 text-fg-muted hover:text-fg min-w-[44px] min-h-[44px] text-[12px] font-semibold transition-colors cursor-pointer disabled:opacity-50"
+            className="flex items-center gap-2 text-fg-muted hover:text-fg min-w-[44px] min-h-[44px] text-[12px] font-semibold transition-colors cursor-pointer disabled:opacity-50"
             aria-label="Retake Photo"
           >
             <ArrowLeft className="w-4 h-4" aria-hidden="true" />
@@ -486,7 +488,7 @@ export default function SOSCameraPage() {
             <h1 className="text-[16px] font-semibold text-fg">Confirm Emergency</h1>
             <p className="text-[12px] text-fg-muted">Review before dispatch</p>
           </div>
-          <ThemeToggle />
+          <div className="w-11" aria-hidden="true" />
         </div>
 
         {/* Captured Photo Preview Card */}
@@ -499,9 +501,9 @@ export default function SOSCameraPage() {
               className="w-full h-full object-cover"
             />
             {/* Overlay Badges */}
-            <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between gap-2 text-[11px] font-mono text-white pointer-events-none">
-              <span className="bg-black/65 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/20 flex items-center gap-1.5">
-                <MapPin className="w-3 h-3 text-accent shrink-0" />
+            <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between gap-2 text-[12px] font-mono text-white pointer-events-none">
+              <span className="bg-black/65 backdrop-blur-md px-3 py-1 rounded-full border border-white/20 flex items-center gap-2">
+                <MapPin className="w-3 h-3 text-white/70 shrink-0" aria-hidden="true" />
                 {coords ? (
                   <span>
                     {coords.lat.toFixed(4)}°, {coords.lng.toFixed(4)}° (±{coords.accuracy}m)
@@ -510,7 +512,7 @@ export default function SOSCameraPage() {
                   <span>Acquiring GPS...</span>
                 )}
               </span>
-              <span className="bg-black/65 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/20 flex items-center gap-1">
+              <span className="bg-black/65 backdrop-blur-md px-3 py-1 rounded-full border border-white/20 flex items-center gap-1">
                 <Clock className="w-3 h-3 text-white/70 shrink-0" />
                 {currentTime}
               </span>
@@ -520,13 +522,13 @@ export default function SOSCameraPage() {
           {/* Location Verification Banner */}
           <div className="p-3 bg-surface-muted border-t border-border flex items-center justify-between gap-3 text-[12px]">
             <div className="flex items-center gap-2 truncate">
-              <MapPin className="w-4 h-4 text-accent shrink-0" aria-hidden="true" />
+              <MapPin className="w-4 h-4 text-fg-muted shrink-0" aria-hidden="true" />
               <div className="truncate">
                 <p className="font-semibold text-fg truncate">
                   {resolvedAddress || (coords ? `${coords.lat.toFixed(4)}°, ${coords.lng.toFixed(4)}°` : 'Acquiring device GPS...')}
                 </p>
                 {coords && (
-                  <p className="text-[11px] text-fg-muted font-mono">
+                  <p className="text-[12px] text-fg-muted font-mono">
                     Accurate to within {coords.accuracy} meters
                   </p>
                 )}
@@ -535,16 +537,16 @@ export default function SOSCameraPage() {
             <button
               type="button"
               onClick={requestLocation}
-              className="text-[11px] font-semibold text-link underline shrink-0 cursor-pointer"
+              className="text-[12px] font-semibold text-link underline shrink-0 cursor-pointer"
             >
               Update GPS
             </button>
           </div>
 
-          <div className="p-3.5 space-y-3">
+          <div className="p-4 space-y-3">
             {/* Animal Selection */}
             <div className="space-y-1">
-              <label className="text-[12px] font-semibold text-fg-muted">1. Animal</label>
+              <label className="text-[12px] font-semibold text-fg-muted">Animal</label>
               <div className="grid grid-cols-3 gap-2">
                 {(['dog', 'cat', 'other'] as const).map((type) => (
                   <button
@@ -566,7 +568,7 @@ export default function SOSCameraPage() {
 
             {/* Severity Selection */}
             <div className="space-y-1">
-              <label className="text-[12px] font-semibold text-fg-muted">2. Severity Level</label>
+              <label className="text-[12px] font-semibold text-fg-muted">Severity</label>
               <div className="grid grid-cols-3 gap-2">
                 {EMERGENCY_TIERS.map((tier) => (
                   <button
@@ -582,8 +584,8 @@ export default function SOSCameraPage() {
                   >
                     <span>{tier.label.split('/')[0].trim()}</span>
                     <span
-                      className={`text-[10px] font-medium mt-0.5 ${
-                        tier.urgency === 'critical' ? 'text-reported-fg font-bold' : 'text-fg-muted'
+                      className={`text-[12px] font-normal mt-0.5 ${
+                        tier.urgency === 'critical' ? 'text-reported-fg font-semibold' : 'text-fg-muted'
                       }`}
                     >
                       {tier.urgencyLabel}
@@ -596,7 +598,7 @@ export default function SOSCameraPage() {
             {/* 3. Actual Street Location */}
             <div className="space-y-1">
               <label htmlFor="review-location-input" className="text-[12px] font-semibold text-fg-muted">
-                3. Location / Street Address
+                Street or landmark
               </label>
               <div className="relative">
                 <input
@@ -605,7 +607,7 @@ export default function SOSCameraPage() {
                   value={locationText}
                   onChange={(e) => setLocationText(e.target.value)}
                   placeholder="e.g., Aurora Blvd near J. Ruiz, San Juan"
-                  className="w-full min-h-[42px] px-3.5 pl-9 text-[13px] bg-surface text-fg rounded-xl border border-border outline-none focus:ring-2 focus:ring-action"
+                  className="w-full min-h-[42px] px-4 pl-9 text-[14px] bg-surface text-fg rounded-xl border border-border outline-none focus:ring-2 focus:ring-action"
                 />
                 <MapPin className="w-4 h-4 text-fg-muted absolute left-3 top-3" aria-hidden="true" />
               </div>
@@ -614,7 +616,7 @@ export default function SOSCameraPage() {
             {/* 4. Scene Description & Landmark */}
             <div className="space-y-1">
               <label htmlFor="review-description-input" className="text-[12px] font-semibold text-fg-muted">
-                4. Scene Landmark & Notes (e.g., front of red car)
+                Notes for the responder
               </label>
               <textarea
                 id="review-description-input"
@@ -622,7 +624,7 @@ export default function SOSCameraPage() {
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="e.g., In front of red car, lying under mango tree, bleeding on left paw..."
-                className="w-full p-3 text-[13px] bg-surface text-fg rounded-xl border border-border outline-none focus:ring-2 focus:ring-action resize-none placeholder:text-fg-muted/60"
+                className="w-full p-3 text-[14px] bg-surface text-fg rounded-xl border border-border outline-none focus:ring-2 focus:ring-action resize-none placeholder:text-fg-muted/60"
               />
             </div>
           </div>
@@ -630,7 +632,7 @@ export default function SOSCameraPage() {
 
         {/* Dispatch Error Banner */}
         {dispatchError && (
-          <div className="p-3 rounded-xl bg-reported-bg border border-reported-border text-reported-fg text-[12px] flex items-center gap-2">
+          <div className="p-3 rounded-xl bg-reported-bg border border-reported-fg/20 text-reported-fg text-[12px] flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 shrink-0" aria-hidden="true" />
             <span>{dispatchError}</span>
           </div>
@@ -658,7 +660,7 @@ export default function SOSCameraPage() {
             type="button"
             disabled={dispatchStep === 'uploading'}
             onClick={handleRetakePhoto}
-            className="w-full min-h-[44px] rounded-xl border border-border bg-surface text-fg font-semibold text-[12px] flex items-center justify-center gap-1.5 hover:bg-surface-muted disabled:opacity-60 transition-colors cursor-pointer"
+            className="w-full min-h-[44px] rounded-xl border border-border bg-surface text-fg font-semibold text-[12px] flex items-center justify-center gap-2 hover:bg-surface-muted disabled:opacity-60 transition-colors cursor-pointer"
           >
             <RotateCcw className="w-3.5 h-3.5 text-fg-muted" aria-hidden="true" />
             <span>Retake Photo</span>
@@ -680,18 +682,18 @@ export default function SOSCameraPage() {
   // ---------------------------------------------------------------------------
   if (dispatchStep === 'success' && dispatchedData) {
     return (
-      <div className="flex flex-col flex-1 px-4 pt-4 pb-8 space-y-4 max-w-lg mx-auto w-full">
+      <div className="flex flex-col flex-1 px-4 pt-3 pb-6 space-y-4 max-w-lg mx-auto w-full">
         {/* Top Bar */}
         <div className="flex items-center justify-between pb-1">
           <Link
             href="/"
-            className="flex items-center gap-1.5 text-fg-muted hover:text-fg min-w-[44px] min-h-[44px] text-[14px] font-semibold transition-colors"
+            className="flex items-center gap-2 text-fg-muted hover:text-fg min-w-[44px] min-h-[44px] text-[14px] font-semibold transition-colors"
           >
             <ArrowLeft className="w-4 h-4" aria-hidden="true" />
             <span>Feed</span>
           </Link>
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[12px] font-semibold bg-reported-bg text-reported-fg border border-reported-border">
-            <span className="w-1.5 h-1.5 rounded-full bg-reported-fg animate-pulse" />
+          <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-[12px] font-semibold bg-reported-bg text-reported-fg border border-reported-fg/20">
+            <span className="w-1.5 h-1.5 rounded-full bg-reported-fg" />
             Reported
           </span>
         </div>
@@ -700,18 +702,16 @@ export default function SOSCameraPage() {
         <div className="bg-surface border border-border rounded-2xl p-4 shadow-sm space-y-4">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-[12px] font-semibold text-fg-muted uppercase tracking-wider">Emergency Dispatched</p>
-              <h1 className="text-[22px] font-semibold text-fg font-mono tracking-tight mt-0.5">
-                {dispatchedData.shortId}
-              </h1>
+              <h1 className="text-[22px] font-semibold text-fg tracking-tight">Report sent</h1>
+              <p className="text-[14px] text-fg-muted font-mono mt-1">Case #{dispatchedData.shortId}</p>
             </div>
-            <div className="w-10 h-10 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+            <div className="w-10 h-10 rounded-full bg-resolved-bg text-resolved-fg flex items-center justify-center shrink-0">
               <CheckCircle2 className="w-5 h-5" aria-hidden="true" />
             </div>
           </div>
 
           {/* Captured Snap Preview & Meta */}
-          <div className="flex gap-3 items-center bg-surface-muted rounded-xl p-3 border border-border">
+          <div className="flex gap-3 items-center">
             {/* Thumbnail */}
             {dispatchedData.previewUrl && (
               <div className="w-16 h-16 rounded-lg overflow-hidden border border-border shrink-0 bg-surface">
@@ -729,7 +729,7 @@ export default function SOSCameraPage() {
                 <span className="text-reported-fg font-semibold">{dispatchedData.urgencyLabel}</span>
               </div>
               <div className="flex items-center gap-1 text-fg-muted font-mono text-[12px] truncate">
-                <MapPin className="w-3.5 h-3.5 shrink-0 text-accent" aria-hidden="true" />
+                <MapPin className="w-3.5 h-3.5 shrink-0 text-fg-muted" aria-hidden="true" />
                 <span>{formatCoordinates(dispatchedData.coords.lat, dispatchedData.coords.lng)}</span>
               </div>
               <div className="flex items-center gap-1 text-fg-muted text-[12px]">
@@ -740,17 +740,17 @@ export default function SOSCameraPage() {
           </div>
 
           {/* On-Scene First-Aid Advisory (Calm & Clear) */}
-          <div className="bg-surface-card border border-border rounded-xl p-3.5 space-y-2">
-            <div className="flex items-center gap-1.5 text-accent font-semibold text-[14px]">
-              <ShieldAlert className="w-4 h-4 text-accent" aria-hidden="true" />
+          <div className="pt-4 border-t border-border space-y-2">
+            <div className="flex items-center gap-2 text-fg font-semibold text-[14px]">
+              <ShieldAlert className="w-4 h-4 text-fg-muted" aria-hidden="true" />
               <span>While waiting for responders:</span>
             </div>
-            <ul className="text-[12px] text-fg-muted space-y-1.5 list-disc pl-4">
+            <ul className="text-[12px] text-fg-muted space-y-2 list-disc pl-4">
               <li>
-                <strong className="text-fg font-medium">Keep a safe distance</strong> if the animal is in pain or frightened.
+                <strong className="text-fg font-normal">Keep a safe distance</strong> if the animal is in pain or frightened.
               </li>
               <li>
-                <strong className="text-fg font-medium">Do not give human medicine</strong> — paracetamol and ibuprofen are lethal to animals.
+                <strong className="text-fg font-normal">Do not give human medicine</strong> — paracetamol and ibuprofen are lethal to animals.
               </li>
               <li>
                 Cover gently with a clean cloth or carton to keep warm and calm if safe.
@@ -762,7 +762,7 @@ export default function SOSCameraPage() {
           <div className="space-y-2 pt-1">
             <Link
               href="/rafa"
-              className="w-full min-h-[48px] rounded-xl bg-accent text-accent-fg font-semibold text-[14px] flex items-center justify-center gap-2 shadow-sm hover:opacity-95 active:scale-[0.99] transition-all"
+              className="w-full min-h-[48px] rounded-xl bg-action text-action-fg font-semibold text-[14px] flex items-center justify-center gap-2 shadow-sm hover:opacity-95 active:scale-[0.99] transition-all"
             >
               <MessageCircle className="w-4 h-4" aria-hidden="true" />
               <span>Ask Rafa for First-Aid Help</span>
@@ -771,7 +771,7 @@ export default function SOSCameraPage() {
             <div className="grid grid-cols-2 gap-2">
               <Link
                 href="/"
-                className="min-h-[44px] rounded-xl border border-border bg-surface text-fg font-semibold text-[12px] flex items-center justify-center gap-1.5 hover:bg-surface-muted transition-colors"
+                className="min-h-[44px] rounded-xl border border-border bg-surface text-fg font-semibold text-[12px] flex items-center justify-center gap-2 hover:bg-surface-muted transition-colors"
               >
                 <span>View Live Feed</span>
                 <ExternalLink className="w-3.5 h-3.5 text-fg-muted" aria-hidden="true" />
@@ -784,7 +784,7 @@ export default function SOSCameraPage() {
                   setDispatchStep('camera');
                   startCamera();
                 }}
-                className="min-h-[44px] rounded-xl border border-border bg-surface text-fg font-semibold text-[12px] flex items-center justify-center gap-1.5 hover:bg-surface-muted transition-colors cursor-pointer"
+                className="min-h-[44px] rounded-xl border border-border bg-surface text-fg font-semibold text-[12px] flex items-center justify-center gap-2 hover:bg-surface-muted transition-colors cursor-pointer"
               >
                 <RotateCcw className="w-3.5 h-3.5 text-fg-muted" aria-hidden="true" />
                 <span>Report Another</span>
@@ -800,7 +800,7 @@ export default function SOSCameraPage() {
   // RENDER: Live Camera Viewfinder & Dispatch
   // ---------------------------------------------------------------------------
   return (
-    <div className="flex flex-col flex-1 px-4 pt-3 pb-8 space-y-3 max-w-lg mx-auto w-full">
+    <div className="flex flex-col flex-1 px-4 pt-3 pb-6 space-y-3 max-w-lg mx-auto w-full">
       {/* Shutter flash overlay */}
       {shutterFlashing && (
         <div className="fixed inset-0 bg-white z-50 pointer-events-none transition-opacity duration-150" />
@@ -820,7 +820,7 @@ export default function SOSCameraPage() {
           <h1 className="text-[16px] font-semibold text-fg">Live SOS Camera</h1>
           <p className="text-[12px] text-fg-muted">Snap & Dispatch</p>
         </div>
-        <ThemeToggle />
+        <div className="w-11" aria-hidden="true" />
       </div>
 
       {/* Viewfinder Frame */}
@@ -844,15 +844,15 @@ export default function SOSCameraPage() {
 
         {/* Simulated Lens Viewfinder (Desktop Dev Mode) */}
         {cameraStatus === 'simulated' && (
-          <div className="absolute inset-0 bg-stone-900/95 flex flex-col items-center justify-between p-4 text-center">
+          <div className="absolute inset-0 bg-black/90 flex flex-col items-center justify-between p-4 text-center">
             <div className="flex-1 flex flex-col items-center justify-center space-y-2 my-auto">
-              <div className="w-24 h-24 border-2 border-dashed border-red-500/60 rounded-2xl flex flex-col items-center justify-center space-y-1 bg-black/40">
+              <div className="w-24 h-24 border-2 border-dashed border-accent/60 rounded-2xl flex flex-col items-center justify-center space-y-1 bg-black/40">
                 <Camera className="w-8 h-8 text-accent" aria-hidden="true" />
                 <span className="text-[12px] font-mono uppercase text-accent font-semibold tracking-wider">
                   {animal}
                 </span>
               </div>
-              <p className="text-[12px] font-medium text-white/90">
+              <p className="text-[12px] font-semibold text-white/90">
                 Dev Simulated Lens Active
               </p>
             </div>
@@ -865,30 +865,30 @@ export default function SOSCameraPage() {
           <button
             type="button"
             onClick={requestLocation}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-mono bg-black/60 text-white border border-white/20 backdrop-blur-md shadow-sm cursor-pointer"
+            className="flex items-center gap-2 px-3 py-2 rounded-full text-[12px] font-mono bg-black/60 text-white border border-white/20 backdrop-blur-md shadow-sm cursor-pointer"
           >
             {gpsStatus === 'acquiring' ? (
               <>
-                <Loader2 className="w-3.5 h-3.5 shrink-0 text-amber-400 animate-spin" aria-hidden="true" />
+                <Loader2 className="w-3.5 h-3.5 shrink-0 text-white/70 animate-spin" aria-hidden="true" />
                 <span>Acquiring GPS...</span>
               </>
             ) : gpsStatus === 'locked' && coords ? (
               <>
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" aria-hidden="true" />
+                <MapPin className="w-3.5 h-3.5 shrink-0 text-white/70" aria-hidden="true" />
                 <span className="truncate max-w-[170px]">
                   {coords.lat.toFixed(4)}°, {coords.lng.toFixed(4)}°
                 </span>
               </>
             ) : (
               <>
-                <MapPin className="w-3.5 h-3.5 shrink-0 text-amber-400" aria-hidden="true" />
+                <MapPin className="w-3.5 h-3.5 shrink-0 text-white/70" aria-hidden="true" />
                 <span>Tap to allow GPS</span>
               </>
             )}
           </button>
 
           {/* Live Atomic Clock Badge */}
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-mono bg-black/60 text-white border border-white/20 backdrop-blur-md shadow-sm">
+          <div className="flex items-center gap-2 px-3 py-2 rounded-full text-[12px] font-mono bg-black/60 text-white border border-white/20 backdrop-blur-md shadow-sm">
             <Clock className="w-3.5 h-3.5 text-white/70" aria-hidden="true" />
             <span className="tabular-nums">{currentTime || 'Syncing...'}</span>
           </div>
@@ -909,19 +909,22 @@ export default function SOSCameraPage() {
                   : 'Desktop Camera Unavailable'}
               </h2>
               <p className="text-[12px] text-fg-muted max-w-[260px]">
-                {cameraError || 'Use the dev simulated lens to test the emergency flow on your desktop.'}
+                {cameraError ||
+                  (SHOW_DEV_LENS
+                    ? 'Use the dev simulated lens to test the emergency flow on your desktop.'
+                    : 'Allow camera access to report an emergency. Photos must be taken live.')}
               </p>
             </div>
             {availableCameras.length > 1 && (
               <div className="w-full max-w-[240px] text-left">
-                <label className="text-[11px] font-medium text-fg-muted">Switch Camera Device:</label>
+                <label className="text-[12px] font-normal text-fg-muted">Switch Camera Device:</label>
                 <select
                   value={selectedCameraId}
                   onChange={(e) => {
                     setSelectedCameraId(e.target.value);
                     handleRetryCamera(e.target.value);
                   }}
-                  className="w-full mt-1 bg-surface-card text-fg border border-border rounded-xl text-[12px] p-2.5 cursor-pointer font-medium shadow-sm"
+                  className="w-full mt-1 bg-surface text-fg border border-border rounded-xl text-[12px] p-2.5 cursor-pointer font-normal shadow-sm"
                 >
                   {availableCameras.map((cam, idx) => (
                     <option key={cam.deviceId || idx} value={cam.deviceId}>
@@ -941,13 +944,15 @@ export default function SOSCameraPage() {
                 >
                   Retry Camera Access
                 </button>
-                <button
-                  type="button"
-                  onClick={handleUseSimulatedCamera}
-                  className="min-h-[44px] px-4 rounded-xl bg-fg text-surface font-semibold text-[12px] hover:opacity-90 active:scale-95 transition-all cursor-pointer shadow-sm"
-                >
-                  Use Dev Simulated Lens
-                </button>
+                {SHOW_DEV_LENS && (
+                  <button
+                    type="button"
+                    onClick={handleUseSimulatedCamera}
+                    className="min-h-[44px] px-4 rounded-xl bg-fg text-surface font-semibold text-[12px] hover:opacity-90 active:scale-95 transition-all cursor-pointer shadow-sm"
+                  >
+                    Use Dev Simulated Lens
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -959,21 +964,21 @@ export default function SOSCameraPage() {
             <div className="w-24 h-24 border-2 border-white/40 rounded-2xl relative flex items-center justify-center">
               <div className="w-2 h-2 rounded-full bg-white/80" />
             </div>
-            <span className="text-[12px] font-medium text-white/90 drop-shadow mt-1">Center animal</span>
+            <span className="text-[12px] font-semibold text-white/90 drop-shadow mt-1">Center animal</span>
           </div>
         )}
 
         {/* Viewfinder Bottom Anti-Tampering Notice */}
         <div className="relative z-10 p-2 text-center bg-gradient-to-t from-black/80 to-transparent">
-          <p className="text-[12px] font-medium text-white/80 tracking-wide">
+          <p className="text-[12px] font-semibold text-white/80 tracking-wide">
             Live lens only • No gallery uploads • Database timestamp
           </p>
         </div>
       </div>
 
-      {/* Dev Lens Switcher (Quick 1-tap toggle for desktop testing) */}
-      <div className="flex items-center justify-between px-1 text-[12px]">
-        <span className="text-fg-muted font-medium">
+      {/* Dev Lens Switcher: development builds only */}
+      {SHOW_DEV_LENS && <div className="flex items-center justify-between px-1 text-[12px]">
+        <span className="text-fg-muted font-normal">
           Lens: <strong className="text-fg capitalize font-semibold">{cameraStatus}</strong>
         </span>
         <button
@@ -989,11 +994,11 @@ export default function SOSCameraPage() {
         >
           {cameraStatus === 'simulated' ? 'Switch to Live Webcam' : 'Switch to Simulated Lens'}
         </button>
-      </div>
+      </div>}
 
       {/* Dispatch Error Banner */}
       {dispatchError && (
-        <div className="p-3 rounded-xl bg-reported-bg border border-reported-border text-reported-fg text-[12px] flex items-center gap-2">
+        <div className="p-3 rounded-xl bg-reported-bg border border-reported-fg/20 text-reported-fg text-[12px] flex items-center gap-2">
           <AlertTriangle className="w-4 h-4 shrink-0" aria-hidden="true" />
           <span>{dispatchError}</span>
         </div>
@@ -1001,7 +1006,7 @@ export default function SOSCameraPage() {
 
       {/* Animal Selection (Tap 1) */}
       <div className="space-y-1">
-        <label className="text-[12px] font-semibold text-fg-muted">1. Animal Type</label>
+        <label className="text-[12px] font-semibold text-fg-muted">Animal</label>
         <div className="grid grid-cols-3 gap-2">
           {(['dog', 'cat', 'other'] as const).map((type) => (
             <button
@@ -1022,7 +1027,7 @@ export default function SOSCameraPage() {
 
       {/* Urgency Selection (Tap 2) */}
       <div className="space-y-1">
-        <label className="text-[12px] font-semibold text-fg-muted">2. Severity Level</label>
+        <label className="text-[12px] font-semibold text-fg-muted">Severity</label>
         <div className="grid grid-cols-3 gap-2">
           {EMERGENCY_TIERS.map((tier) => (
             <button
@@ -1037,8 +1042,8 @@ export default function SOSCameraPage() {
             >
               <span>{tier.label}</span>
               <span
-                className={`text-[10px] font-medium mt-0.5 ${
-                  tier.urgency === 'critical' ? 'text-reported-fg font-bold' : 'text-fg-muted'
+                className={`text-[12px] font-normal mt-0.5 ${
+                  tier.urgency === 'critical' ? 'text-reported-fg font-semibold' : 'text-fg-muted'
                 }`}
               >
                 {tier.urgencyLabel}
@@ -1055,7 +1060,7 @@ export default function SOSCameraPage() {
           id="shutter-button"
           disabled={(cameraStatus !== 'active' && cameraStatus !== 'simulated') || dispatchStep === 'uploading'}
           onClick={handleShutterPress}
-          className="w-16 h-16 min-w-[48px] min-h-[48px] rounded-full bg-accent hover:opacity-90 active:scale-95 disabled:opacity-50 text-accent-fg shadow-lg shadow-red-500/30 flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-accent transition-transform border-none cursor-pointer"
+          className="w-16 h-16 min-w-[48px] min-h-[48px] rounded-full bg-accent hover:opacity-90 active:scale-95 disabled:opacity-50 text-accent-fg shadow-md flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-accent transition-transform border-none cursor-pointer"
           aria-label="Capture live photo and dispatch emergency"
         >
           {dispatchStep === 'uploading' ? (
@@ -1064,7 +1069,7 @@ export default function SOSCameraPage() {
             <Camera className="w-7 h-7 text-accent-fg" aria-hidden="true" />
           )}
         </button>
-        <p className="text-[11px] text-fg-muted font-medium text-center">
+        <p className="text-[12px] text-fg-muted font-normal text-center">
           Tap shutter to snap & dispatch immediately
         </p>
       </div>

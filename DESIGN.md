@@ -1,7 +1,5 @@
 # Design System
 
-<!-- impeccable:design-schema 1 -->
-
 ## Visual World: Manila Field Dispatch & Organic Sanctuary
 
 An authentic rescue field docket aesthetic tailored for high legibility under harsh sunlight, tropical rain, and street emergencies in the Philippines. Breaks away from generic "AI card slop" through unboxed editorial typography, tactile evidence frames, and an ergonomic single-tier cockpit dock.
@@ -35,6 +33,11 @@ All components use CSS variable tokens defined in `src/app/globals.css`. Hardcod
 - **Claimed:** `--claimed-bg` (`#FEF3C7` / `#382508`), `--claimed-fg` (`#92400E` / `#FCD34D`) with `Lock`.
 - **Healing / Admitted:** `--healing-bg` (`#E6F7F0` / `#0F2E22`), `--healing-fg` (`#0D7A55` / `#6EE7B7`) with `HeartPulse`.
 - **Resolved:** `--resolved-bg` (`#DCFCE7` / `#0E321C`), `--resolved-fg` (`#15803D` / `#86EFAC`) with `CheckCircle2`.
+
+### Feed
+- Flat full-bleed rows separated by 1px `border-border` hairlines; no cards. 64px blurred photo tile, then: animal · type (16/14) with time ago, location (14 muted), status line (12).
+- In the feed, status is colored text with its TriageGlyph (status `-fg` token), not a filled pill, so a long list stays within the color budget. Filled pills remain for the detail sheet.
+- Filters are underlined text tabs (14px, 44px tall) with per-type counts; the active tab is `--fg` weight 600 with a 2px `--fg` underline.
 
 ### Typography Scale
 Strict scale: 12 meta, 14 body, 16 card title, 22 headline. Weights 400 and 600 only. Never below 12px.

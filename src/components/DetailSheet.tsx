@@ -1,5 +1,6 @@
 'use client';
 import React, { useEffect, useRef, useState, useCallback } from 'react';
+import Link from 'next/link';
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
 import {
@@ -7,8 +8,6 @@ import {
   Camera,
   Eye,
   EyeOff,
-  AlertCircle,
-  Lock,
   HeartPulse,
   CheckCircle2,
   MapPin,
@@ -28,7 +27,8 @@ import TriageGlyph from '@/components/icons/TriageGlyph';
 interface DetailSheetProps {
   incident: IncidentData | null;
   onClose: () => void;
-  mockRole: 'citizen' | 'volunteer' | 'facility' | 'admin';
+  role: 'citizen' | 'volunteer' | 'facility' | 'admin';
+  actionError?: string | null;
   triggerElement?: HTMLElement | null;
   onClaim?: (incident: IncidentData) => Promise<void> | void;
   onReleaseClaim?: (incident: IncidentData) => Promise<void> | void;
@@ -38,7 +38,8 @@ interface DetailSheetProps {
 export default function DetailSheet({
   incident,
   onClose,
-  mockRole,
+  role,
+  actionError,
   triggerElement,
   onClaim,
   onReleaseClaim,
@@ -163,7 +164,7 @@ export default function DetailSheet({
     switch (incident.state) {
       case 'claimed':
         return (
-          <span className="inline-flex items-center gap-1.5 text-[14px] font-semibold text-claimed-fg">
+          <span className="inline-flex items-center gap-2 text-[14px] font-semibold text-claimed-fg">
             <TriageGlyph state="claimed" size={16} className="text-claimed-fg shrink-0" />
             <span>Claimed</span>
           </span>
@@ -171,14 +172,14 @@ export default function DetailSheet({
       case 'healing':
       case 'admitted':
         return (
-          <span className="inline-flex items-center gap-1.5 text-[14px] font-semibold text-healing-fg">
+          <span className="inline-flex items-center gap-2 text-[14px] font-semibold text-healing-fg">
             <TriageGlyph state={incident.state} size={16} className="text-healing-fg shrink-0" />
             <span>{incident.state === 'admitted' ? 'Admitted' : 'Healing'}</span>
           </span>
         );
       case 'resolved':
         return (
-          <span className="inline-flex items-center gap-1.5 text-[14px] font-semibold text-resolved-fg">
+          <span className="inline-flex items-center gap-2 text-[14px] font-semibold text-resolved-fg">
             <TriageGlyph state="resolved" size={16} className="text-resolved-fg shrink-0" />
             <span>Resolved</span>
           </span>
@@ -186,7 +187,7 @@ export default function DetailSheet({
       case 'reported':
       default:
         return (
-          <span className="inline-flex items-center gap-1.5 text-[14px] font-semibold text-reported-fg">
+          <span className="inline-flex items-center gap-2 text-[14px] font-semibold text-reported-fg">
             <TriageGlyph state="reported" emergencyType={incident.type} size={16} className="text-reported-fg shrink-0" />
             <span>Reported</span>
           </span>
@@ -230,9 +231,9 @@ export default function DetailSheet({
         </div>
 
         {/* Scrollable Sheet Content */}
-        <div className="overflow-y-auto px-5 pb-6 space-y-4">
+        <div className="overflow-y-auto px-4 pb-6 space-y-4">
           {/* Large Photo with Reveal Toggle */}
-          <div className="relative w-full h-52 rounded-[18px] overflow-hidden bg-surface-muted border border-border flex items-center justify-center">
+          <div className="relative w-full h-52 rounded-2xl overflow-hidden bg-surface-muted border border-border flex items-center justify-center">
             {incident.photoUrl ? (
               /* eslint-disable-next-line @next/next/no-img-element */
               <img
@@ -280,7 +281,7 @@ export default function DetailSheet({
               <h2 id="detail-sheet-title" className="text-[22px] font-semibold text-fg tracking-tight">
                 {incident.animal}
               </h2>
-              <span className="font-mono text-[12px] font-semibold text-fg-muted bg-surface-muted px-2.5 py-1 rounded-full border border-border tabular-nums shrink-0">
+              <span className="font-mono text-[12px] font-semibold text-fg-muted bg-surface-muted px-3 py-1 rounded-full border border-border tabular-nums shrink-0">
                 {incident.shortId}
               </span>
             </div>
@@ -295,7 +296,7 @@ export default function DetailSheet({
 
           {/* Progressive escalation status notice */}
           {incident.state === 'reported' && calculateEscalation(incident.createdAt, incident.type).isWidened && (
-            <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-surface-muted border border-border text-[12px] text-fg-muted font-normal">
+            <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-surface-muted border border-border text-[12px] text-fg-muted font-normal">
               <span
                 className={`w-2 h-2 rounded-full shrink-0 ${
                   calculateEscalation(incident.createdAt, incident.type).isAlert
@@ -313,14 +314,18 @@ export default function DetailSheet({
           )}
 
           {/* Location & Time details */}
-          <div className="bg-surface-muted rounded-[16px] p-3.5 space-y-2 border border-border">
+          <div className="bg-surface-muted rounded-2xl p-4 space-y-2 border border-border">
             <div className="flex items-start gap-2 text-[14px] text-fg-muted">
               <MapPin className="w-4 h-4 text-fg-muted shrink-0 mt-0.5" aria-hidden="true" />
               <span className="text-fg font-normal leading-snug">{incident.location}</span>
             </div>
             <div className="flex items-center gap-3 text-[14px] text-fg-muted tabular-nums pl-6">
-              <span>{incident.distance} away</span>
-              <span>•</span>
+              {incident.distance && (
+                <>
+                  <span>{incident.distance} away</span>
+                  <span aria-hidden="true">•</span>
+                </>
+              )}
               <div className="flex items-center gap-1">
                 <Clock className="w-3.5 h-3.5" aria-hidden="true" />
                 <span>Reported {incident.timeAgo}</span>
@@ -330,8 +335,8 @@ export default function DetailSheet({
 
           {/* On-Scene Description & Landmark */}
           {incident.description && (
-            <div className="bg-surface-muted rounded-[16px] p-3.5 space-y-1.5 border border-border">
-              <div className="flex items-center gap-1.5 text-[12px] font-semibold text-fg-muted uppercase tracking-wider">
+            <div className="bg-surface-muted rounded-2xl p-4 space-y-2 border border-border">
+              <div className="flex items-center gap-2 text-[12px] font-semibold text-fg-muted">
                 <FileText className="w-3.5 h-3.5 text-fg-muted shrink-0" aria-hidden="true" />
                 <span>Scene Details & Landmark</span>
               </div>
@@ -345,7 +350,7 @@ export default function DetailSheet({
           {callNotice && (
             <div
               role="alert"
-              className="p-3 rounded-[14px] bg-banner-bg text-banner-fg text-[12px] font-semibold text-center border border-border"
+              className="p-3 rounded-2xl bg-banner-bg text-banner-fg text-[12px] font-semibold text-center border border-border"
             >
               {callNotice}
             </div>
@@ -355,9 +360,9 @@ export default function DetailSheet({
           <div className="space-y-3 pt-2">
             {/* 1. If Claimed: Render Lock Countdown Timer Card */}
             {incident.state === 'claimed' && (
-              <div className="bg-claimed-bg text-claimed-fg border border-claimed-fg/20 rounded-2xl p-3.5 space-y-2">
+              <div className="bg-claimed-bg text-claimed-fg border border-claimed-fg/20 rounded-2xl p-4 space-y-2">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5 font-semibold text-[14px]">
+                  <div className="flex items-center gap-2 font-semibold text-[14px]">
                     <TriageGlyph state="claimed" size={16} className="text-claimed-fg shrink-0" />
                     <span>Volunteer Claim Lock</span>
                   </div>
@@ -385,9 +390,9 @@ export default function DetailSheet({
 
             {/* 2. If Admitted/Healing: Render 14-Day Inactivity Clock Card */}
             {(incident.state === 'admitted' || incident.state === 'healing') && (
-              <div className="bg-healing-bg text-healing-fg border border-healing-fg/20 rounded-2xl p-3.5 space-y-2">
+              <div className="bg-healing-bg text-healing-fg border border-healing-fg/20 rounded-2xl p-4 space-y-2">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5 font-semibold text-[14px]">
+                  <div className="flex items-center gap-2 font-semibold text-[14px]">
                     <TriageGlyph state="healing" size={16} className="text-healing-fg shrink-0" />
                     <span>14-Day Facility Inactivity Clock</span>
                   </div>
@@ -403,22 +408,26 @@ export default function DetailSheet({
 
             {/* 3. Action Buttons Based on Role and State */}
             <div className="space-y-2 pt-1">
+              {actionError && (
+                <p role="alert" className="text-[14px] text-reported-fg bg-reported-bg rounded-xl px-3 py-2">
+                  {actionError}
+                </p>
+              )}
               {incident.state === 'reported' ? (
-                mockRole === 'citizen' ? (
+                role !== 'volunteer' && role !== 'admin' ? (
                   <div className="text-center py-2 space-y-1">
                     <p className="text-[12px] text-fg-muted font-normal">
-                      Field rescues can only be claimed by registered volunteers.
+                      Field rescues can only be claimed by approved volunteers.
                     </p>
-                    <button
-                      type="button"
-                      onClick={() => alert('Volunteer application mock: in prototype, switch your role to Volunteer in Settings.')}
+                    <Link
+                      href="/settings#volunteer"
                       className="text-[14px] font-semibold text-link underline cursor-pointer"
                     >
-                      Become a volunteer in Settings
-                    </button>
+                      Apply to become a volunteer
+                    </Link>
                   </div>
                 ) : (
-                  <div className="space-y-1.5">
+                  <div className="space-y-2">
                     <button
                       type="button"
                       onClick={() => onClaim ? onClaim(incident) : alert(`Claimed rescue ${incident.shortId}`)}
@@ -433,7 +442,7 @@ export default function DetailSheet({
                   </div>
                 )
               ) : incident.state === 'claimed' ? (
-                mockRole === 'volunteer' || mockRole === 'admin' ? (
+                role === 'volunteer' || role === 'admin' ? (
                   <div className="space-y-2">
                     <button
                       type="button"
@@ -481,7 +490,7 @@ export default function DetailSheet({
           {/* Live Incident Scene Map (Under Call Button) */}
           <div className="pt-2 space-y-2 border-t border-border">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5 text-[14px] font-semibold text-fg">
+              <div className="flex items-center gap-2 text-[14px] font-semibold text-fg">
                 <MapPin className="w-4 h-4 text-fg-muted" aria-hidden="true" />
                 <span>Live Scene Location</span>
               </div>
@@ -491,7 +500,7 @@ export default function DetailSheet({
             </div>
 
             {/* Embedded Interactive Map Card */}
-            <div className="relative w-full h-48 rounded-[16px] overflow-hidden border border-border bg-surface-muted shadow-sm">
+            <div className="relative w-full h-48 rounded-2xl overflow-hidden border border-border bg-surface-muted shadow-sm">
               <iframe
                 title={`Live location map for ${incident.animal}`}
                 src={`https://www.openstreetmap.org/export/embed.html?bbox=${(mapLng - 0.005).toFixed(4)}%2C${(mapLat - 0.0035).toFixed(4)}%2C${(mapLng + 0.005).toFixed(4)}%2C${(mapLat + 0.0035).toFixed(4)}&layer=mapnik&marker=${mapLat}%2C${mapLng}`}
@@ -500,7 +509,7 @@ export default function DetailSheet({
               />
               {/* GPS status badge without decorative pulse */}
               <div className="absolute top-2.5 left-2.5 pointer-events-none">
-                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[12px] font-medium bg-surface/90 text-fg border border-border shadow-xs backdrop-blur-sm">
+                <span className="inline-flex items-center gap-2 px-2 py-0.5 rounded-full text-[12px] font-normal bg-surface/90 text-fg border border-border shadow-xs backdrop-blur-sm">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" aria-hidden="true" />
                   <span>GPS Active</span>
                 </span>
@@ -512,7 +521,7 @@ export default function DetailSheet({
               href={`https://www.google.com/maps/search/?api=1&query=${mapLat},${mapLng}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="w-full min-h-[44px] rounded-[14px] border border-border bg-surface hover:bg-surface-muted text-fg font-semibold text-[14px] flex items-center justify-center gap-2 transition-colors cursor-pointer"
+              className="w-full min-h-[44px] rounded-2xl border border-border bg-surface hover:bg-surface-muted text-fg font-semibold text-[14px] flex items-center justify-center gap-2 transition-colors cursor-pointer"
             >
               <Navigation className="w-4 h-4 text-fg-muted" aria-hidden="true" />
               <span>Open in Google Maps / Directions</span>
