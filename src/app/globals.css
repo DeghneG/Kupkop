@@ -131,6 +131,14 @@ body {
   border-radius: 9999px;
 }
 
+/* Horizontal scrollers (feed filter tabs) hide their bar; the edge fade shows they scroll */
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 /* Reduced motion helper */
 @media (prefers-reduced-motion: reduce) {
   *, ::before, ::after {

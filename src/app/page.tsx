@@ -6,9 +6,13 @@ import DetailSheet from '@/components/DetailSheet';
 import ActiveCaseBar from '@/components/ActiveCaseBar';
 import { useProfile } from '@/lib/supabase/useProfile';
 import { createClient } from '@/lib/supabase/client';
-import { useUserPosition } from '@/lib/useUserPosition';
+import { useLocation } from '@/lib/useUserPosition';
+import { usePullToRefresh } from '@/lib/usePullToRefresh';
 import { distanceKm, formatDistance, getDirectionalBearing } from '@/lib/sos/utils';
 import { KupkopMark } from '@/components/icons/TriageGlyph';
+import { calculateEscalation } from '@/lib/sos/escalation';
+import Link from 'next/link';
+import { RotateCw } from 'lucide-react';
 
 function formatTimeAgo(dateString?: string | null): string {
   if (!dateString) return 'Just now';
@@ -84,17 +88,45 @@ function matchesChannel(incident: IncidentData, channelId: string): boolean {
   return true;
 }
 
+const STAGE_RANK = { alert: 0, widened: 1, standard: 2 } as const;
+const TIER_RANK = { critical: 0, urgent: 1, moderate: 2 } as const;
+const createdMs = (incident: IncidentData) => (incident.createdAt ? new Date(incident.createdAt).getTime() : 0);
+
+// Most urgent first: furthest along the escalation clock, then highest tier, then oldest
+function byUrgency(a: IncidentData, b: IncidentData): number {
+  const ea = calculateEscalation(a.createdAt, a.type);
+  const eb = calculateEscalation(b.createdAt, b.type);
+  return (
+    STAGE_RANK[ea.stage] - STAGE_RANK[eb.stage] ||
+    TIER_RANK[ea.tier] - TIER_RANK[eb.tier] ||
+    createdMs(a) - createdMs(b)
+  );
+}
+
 export default function HomePage() {
   const [emergencies, setEmergencies] = useState<IncidentData[]>([]);
   const [reloadKey, setReloadKey] = useState(0);
   const [feedStatus, setFeedStatus] = useState<'loading' | 'live' | 'sample' | 'error'>('loading');
-  const userPosition = useUserPosition();
+  const { position: userPosition, status: locationStatus, request: requestLocation } = useLocation();
+  const [realtimeState, setRealtimeState] = useState<'connecting' | 'live' | 'down'>('connecting');
+  const [lastUpdated, setLastUpdated] = useState<number | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [claimingId, setClaimingId] = useState<string | null>(null);
   const [selectedIncident, setSelectedIncident] = useState<IncidentData | null>(null);
   const [selectedChannel, setSelectedChannel] = useState<string>('all');
   const [activeTriggerEl, setActiveTriggerEl] = useState<HTMLElement | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [dismissedCaseId, setDismissedCaseId] = useState<string | null>(null);
+  // Clock for relative labels; set from timers and fetches, never read during render
+  const [now, setNow] = useState(0);
   const profile = useProfile();
+
+  // Re-render twice a minute so escalation labels and ordering stay current
+  useEffect(() => {
+    setNow(Date.now());
+    const interval = setInterval(() => setNow(Date.now()), 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     const supabase = createClient();
@@ -110,6 +142,10 @@ export default function HomePage() {
           setFeedStatus((prev) => (prev === 'live' ? prev : 'error'));
           return;
         }
+
+        const fetchedAt = Date.now();
+        setLastUpdated(fetchedAt);
+        setNow(fetchedAt);
 
         if (!data || data.length === 0) {
           setEmergencies(initialEmergencies);
@@ -173,12 +209,14 @@ export default function HomePage() {
       } catch (err) {
         console.error('Failed to load live reports:', err);
         setFeedStatus((prev) => (prev === 'live' ? prev : 'error'));
+      } finally {
+        setRefreshing(false);
       }
     };
 
     fetchLiveReports();
 
-    // Listen for new dispatches in real-time
+    // Listen for new dispatches in real-time; "Live" is shown only while this channel is connected
     const channel = supabase
       .channel('sos_reports_feed')
       .on(
@@ -188,12 +226,23 @@ export default function HomePage() {
           fetchLiveReports();
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') setRealtimeState('live');
+        else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') setRealtimeState('down');
+      });
 
     return () => {
+      setRealtimeState('connecting');
       supabase.removeChannel(channel);
     };
   }, [reloadKey]);
+
+  const refreshFeed = () => {
+    setRefreshing(true);
+    setReloadKey((k) => k + 1);
+  };
+
+  const pull = usePullToRefresh(refreshFeed, refreshing);
 
   const handleRowClick = (incident: IncidentData, e?: React.MouseEvent<HTMLElement>) => {
     if (e) {
@@ -231,6 +280,16 @@ export default function HomePage() {
     if (isLiveReport(incident) && !(await callCaseFunction('claim_sos_report', { p_report_id: incident.id! }))) return;
     setDismissedCaseId(null);
     applyUpdate({ ...incident, state: 'claimed', claimedAt: new Date().toISOString(), claimedBy: profile.user?.id ?? null });
+  };
+
+  // Quick claim from the feed row; on success the active case bar takes over
+  const handleQuickClaim = async (incident: IncidentData) => {
+    setClaimingId(incident.id);
+    try {
+      await handleClaimIncident(incident);
+    } finally {
+      setClaimingId(null);
+    }
   };
 
   const handleReleaseClaim = async (incident: IncidentData) => {
@@ -284,11 +343,91 @@ export default function HomePage() {
       ) ?? null
     : null;
 
-  const openCount = emergencies.filter((incident) => incident.state === 'reported').length;
   const showCounts = feedStatus === 'live' || feedStatus === 'sample';
+  const openCases = emergencies.filter((incident) => incident.state === 'reported');
+  const inProgressCount = emergencies.filter((incident) =>
+    ['claimed', 'admitted', 'healing'].includes(incident.state)
+  ).length;
+
+  // Nearest case still waiting for a rescuer; only when the device position is already known
+  const nearestOpenKm = userPosition
+    ? openCases.reduce<number | null>((nearest, incident) => {
+        if (incident.latitude == null || incident.longitude == null) return nearest;
+        const km = distanceKm(userPosition, { lat: incident.latitude, lng: incident.longitude });
+        return nearest == null || km < nearest ? km : nearest;
+      }, null)
+    : null;
+
+  const feedGroups = [
+    {
+      id: 'open',
+      title: 'Needs a rescuer',
+      items: filteredEmergencies.filter((incident) => incident.state === 'reported').sort(byUrgency),
+    },
+    {
+      id: 'progress',
+      title: 'In progress',
+      items: filteredEmergencies
+        .filter((incident) => ['claimed', 'admitted', 'healing'].includes(incident.state))
+        .sort((a, b) => createdMs(b) - createdMs(a)),
+    },
+    {
+      id: 'resolved',
+      title: 'Resolved',
+      items: filteredEmergencies
+        .filter((incident) => incident.state === 'resolved')
+        .sort((a, b) => createdMs(b) - createdMs(a)),
+    },
+  ].filter((group) => group.items.length > 0);
+
+  // Responders get a Claim button on open rows; the database still decides who may claim.
+  // Hidden while the user already holds a case so the bar stays the one place to act on it.
+  const canQuickClaim = (profile.role === 'volunteer' || profile.role === 'admin') && !activeCase;
+
+  const updatedLabel = (() => {
+    if (lastUpdated == null) return null;
+    const seconds = Math.max(0, Math.floor((now - lastUpdated) / 1000));
+    if (seconds < 60) return 'Updated just now';
+    const minutes = Math.floor(seconds / 60);
+    return minutes < 60 ? `Updated ${minutes}m ago` : `Updated ${Math.floor(minutes / 60)}h ago`;
+  })();
+
+  const liveLabel =
+    feedStatus === 'sample'
+      ? 'Sample data'
+      : realtimeState === 'live'
+        ? 'Live'
+        : realtimeState === 'down'
+          ? 'Reconnecting…'
+          : 'Connecting…';
 
   return (
     <div className={`flex flex-col flex-1 pt-4 ${activeCase ? 'pb-56' : 'pb-6'}`}>
+      {/* Pull-to-refresh indicator; only this pill moves so the fixed case bar is unaffected */}
+      {(pull.distance > 0 || refreshing) && (
+        <div
+          role="status"
+          className="fixed left-0 right-0 z-40 flex justify-center pointer-events-none"
+          style={{ top: 'calc(var(--banner-h, 0px) + 8px)' }}
+        >
+          <span
+            className="inline-flex items-center gap-2 h-9 px-4 rounded-full border border-border bg-surface text-[12px] font-semibold text-fg shadow-sm"
+            style={
+              refreshing
+                ? undefined
+                : { transform: `translateY(${pull.distance - 40}px)`, opacity: Math.min(1, pull.distance / 48) }
+            }
+          >
+            <RotateCw
+              className="w-3.5 h-3.5 motion-safe:transition-transform"
+              style={refreshing ? undefined : { transform: `rotate(${pull.distance * 4}deg)` }}
+              aria-hidden="true"
+            />
+            {refreshing ? 'Refreshing…' : pull.armed ? 'Release to refresh' : 'Pull to refresh'}
+          </span>
+        </div>
+      )}
+
       <header className="flex items-center justify-between gap-3 px-4">
         <div className="flex items-center gap-3 min-w-0">
           <div className="w-10 h-10 rounded-xl bg-fg flex items-center justify-center shrink-0">
@@ -304,31 +443,87 @@ export default function HomePage() {
         {showCounts && (
           <span className="inline-flex items-center gap-2 text-[12px] font-semibold text-fg-muted shrink-0">
             <span
-              className={`w-2 h-2 rounded-full ${feedStatus === 'live' ? 'bg-action' : 'bg-fg-muted'}`}
+              className={`w-2 h-2 rounded-full ${liveLabel === 'Live' ? 'bg-action' : 'bg-fg-muted'}`}
               aria-hidden="true"
             />
-            {feedStatus === 'live' ? 'Live' : 'Sample data'}
+            <span aria-live="polite">{liveLabel}</span>
           </span>
         )}
       </header>
 
+      {/* Summary: counts across all cases, independent of the filter */}
+      {showCounts && (
+        <dl className="mt-5 mx-4 grid grid-cols-3 divide-x divide-border border-y border-border">
+          <div className="py-3 pr-3 flex flex-col gap-1">
+            <dt className="text-[12px] text-fg-muted">Need rescuer</dt>
+            <dd
+              className={`text-[16px] font-semibold tabular-nums ${
+                openCases.length > 0 ? 'text-reported-fg' : 'text-fg'
+              }`}
+            >
+              {openCases.length}
+            </dd>
+          </div>
+          <div className="py-3 px-3 flex flex-col gap-1">
+            <dt className="text-[12px] text-fg-muted">In progress</dt>
+            <dd className="text-[16px] font-semibold tabular-nums text-fg">{inProgressCount}</dd>
+          </div>
+          <div className="py-3 pl-3 flex flex-col gap-1">
+            <dt className="text-[12px] text-fg-muted">Nearest open</dt>
+            <dd className="text-[16px] font-semibold tabular-nums text-fg">
+              {nearestOpenKm != null ? (
+                formatDistance(nearestOpenKm)
+              ) : userPosition ? (
+                <span className="text-[14px] font-normal text-fg-muted">None</span>
+              ) : locationStatus === 'off' || locationStatus === 'requesting' ? (
+                // Prompts only on this tap; Home never asks for location on its own
+                <button
+                  type="button"
+                  onClick={requestLocation}
+                  disabled={locationStatus === 'requesting'}
+                  className="-my-3 min-h-[44px] text-[14px] font-semibold text-link cursor-pointer hover:underline underline-offset-4 disabled:cursor-wait"
+                >
+                  {locationStatus === 'requesting' ? 'Locating…' : 'Show distances'}
+                </button>
+              ) : (
+                <span className="text-[14px] font-normal text-fg-muted">
+                  {locationStatus === 'denied'
+                    ? 'Location blocked'
+                    : locationStatus === 'unsupported'
+                      ? 'Unavailable'
+                      : '…'}
+                </span>
+              )}
+            </dd>
+          </div>
+        </dl>
+      )}
+
       <section aria-labelledby="nearby-heading" className="mt-6">
-        <div className="flex items-baseline justify-between gap-3 px-4">
+        <div className="flex items-center justify-between gap-3 px-4">
           <h2 id="nearby-heading" className="text-[16px] font-semibold text-fg tracking-tight">
             Nearby cases
           </h2>
-          {showCounts && (
-            <span className="text-[12px] text-fg-muted tabular-nums">
-              {openCount} need {openCount === 1 ? 'a rescuer' : 'rescuers'}
-            </span>
+          {updatedLabel && (
+            <button
+              type="button"
+              onClick={refreshFeed}
+              disabled={refreshing}
+              aria-label={`${updatedLabel}. Refresh cases`}
+              className="-mr-2 min-h-[44px] px-2 inline-flex items-center gap-1.5 rounded-xl text-[12px] text-fg-muted tabular-nums cursor-pointer hover:text-fg hover:bg-surface-muted disabled:cursor-wait"
+            >
+              <RotateCw className={`w-3.5 h-3.5 ${refreshing ? 'motion-safe:animate-spin' : ''}`} aria-hidden="true" />
+              {refreshing ? 'Refreshing…' : updatedLabel}
+            </button>
           )}
         </div>
 
-        {/* Filters: underlined text tabs with live counts, scrollable at narrow widths */}
+        {/* Filters: underlined text tabs with live counts; sticks under the test banner while scrolling */}
+        <div className="sticky top-[var(--banner-h,0px)] z-20 bg-page mt-1 border-b border-border">
         <div
           role="group"
           aria-label="Filter by emergency type"
-          className="mt-2 flex items-center gap-5 overflow-x-auto no-scrollbar px-4 border-b border-border"
+          className="flex items-center gap-5 overflow-x-auto no-scrollbar px-4"
         >
           {triageChannels.map((channel) => {
             const isActive = selectedChannel === channel.id;
@@ -357,6 +552,12 @@ export default function HomePage() {
             );
           })}
         </div>
+          {/* Edge fade hints that the tab row scrolls */}
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-page to-transparent"
+          />
+        </div>
 
         {feedStatus === 'sample' && (
           <p className="px-4 pt-3 text-[12px] text-fg-muted">
@@ -364,7 +565,14 @@ export default function HomePage() {
           </p>
         )}
 
-        <div className="flex flex-col divide-y divide-border border-b border-border">
+        {/* Quick-claim failures; the sheet and the case bar show their own errors */}
+        {actionError && !selectedIncident && !activeCase && (
+          <p role="alert" className="px-4 pt-3 text-[12px] font-semibold text-reported-fg">
+            {actionError}
+          </p>
+        )}
+
+        <div className="flex flex-col">
           {feedStatus === 'loading' ? (
             <ListRowSkeleton />
           ) : feedStatus === 'error' ? (
@@ -394,13 +602,51 @@ export default function HomePage() {
               </button>
             </div>
           ) : (
-            filteredEmergencies.map((incident) => (
-              <IncidentCard
-                key={incident.id}
-                incident={withDistance(incident)}
-                onClick={() => handleRowClick(incident)}
-              />
-            ))
+            <>
+              {feedGroups.map((group) => (
+                <section key={group.id} aria-labelledby={`group-${group.id}`}>
+                  <h3
+                    id={`group-${group.id}`}
+                    className="px-4 pt-5 pb-2 flex items-baseline gap-2 text-[14px] font-semibold text-fg"
+                  >
+                    {group.title}
+                    <span className="text-[12px] font-normal text-fg-muted tabular-nums">{group.items.length}</span>
+                  </h3>
+                  <div className="divide-y divide-border border-y border-border">
+                    {group.items.map((incident) => (
+                      <IncidentCard
+                        key={incident.id}
+                        incident={withDistance(incident)}
+                        onClick={() => handleRowClick(incident)}
+                        onClaim={canQuickClaim ? () => handleQuickClaim(incident) : undefined}
+                        claiming={claimingId === incident.id}
+                      />
+                    ))}
+                  </div>
+                </section>
+              ))}
+
+              {/* End of list: says the list is complete and offers the next useful step */}
+              <div className="px-4 pt-8 pb-4 flex flex-col items-center gap-4 text-center">
+                <p className="text-[14px] text-fg-muted max-w-[280px]">
+                  That&apos;s every case near you. New reports appear here as soon as they&apos;re filed.
+                </p>
+                <div className="flex items-center gap-3">
+                  <Link
+                    href="/rafa"
+                    className="min-h-[44px] px-4 rounded-xl border border-border bg-surface hover:bg-surface-muted text-fg font-semibold text-[14px] flex items-center"
+                  >
+                    Ask Rafa for first aid
+                  </Link>
+                  <Link
+                    href="/sos"
+                    className="min-h-[44px] px-4 rounded-xl text-link font-semibold text-[14px] flex items-center hover:underline underline-offset-4"
+                  >
+                    Report an emergency
+                  </Link>
+                </div>
+              </div>
+            </>
           )}
         </div>
       </section>

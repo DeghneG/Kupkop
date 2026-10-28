@@ -37,7 +37,15 @@ All components use CSS variable tokens defined in `src/app/globals.css`. Hardcod
 ### Feed
 - Flat full-bleed rows separated by 1px `border-border` hairlines; no cards. 64px blurred photo tile, then: animal · type (16/14) with time ago, location (14 muted), status line (12).
 - In the feed, status is colored text with its TriageGlyph (status `-fg` token), not a filled pill, so a long list stays within the color budget. Filled pills remain for the detail sheet.
-- Filters are underlined text tabs (14px, 44px tall) with per-type counts; the active tab is `--fg` weight 600 with a 2px `--fg` underline.
+- Filters are underlined text tabs (14px, 44px tall) with per-type counts; the active tab is `--fg` weight 600 with a 2px `--fg` underline. The row scrolls with no visible bar and an edge fade.
+- Summary strip under the header: Need rescuer / In progress / Nearest open, hairline-divided, counts across all cases (not the filter). Nearest shows only from an already-granted device position.
+- Rows are grouped: "Needs a rescuer" (sorted by escalation stage, then tier, then oldest), "In progress", "Resolved". Reported rows say what the escalation clock does next ("widens in 2m", "alert in 4m", "No responder yet").
+- The list ends with a one-line "that's every case" note plus Rafa and Report links.
+- "Needs a rescuer" rows carry a faint `--reported-bg` tint (40%), never a colored side border.
+- Filter tabs stick under the test-mode banner (`--banner-h`, published by the banner) while scrolling.
+- The header label reflects the realtime channel: "Connecting…", "Live", "Reconnecting…", or "Sample data". "Updated Xm ago" beside the heading is also the refresh button; touch pull-to-refresh moves only its pill, never the page.
+- Nearest open offers "Show distances", which asks for location only on that tap.
+- Responders (volunteer/admin) get a 44px secondary "Claim" button on open rows, as a sibling of the row (never nested), hidden while they already hold a case.
 
 ### Typography Scale
 Strict scale: 12 meta, 14 body, 16 card title, 22 headline. Weights 400 and 600 only. Never below 12px.

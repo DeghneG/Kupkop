@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { ArrowUp, Camera } from 'lucide-react';
-import { calculateEscalation, calculateClaimTimer } from '@/lib/sos/escalation';
+import { calculateEscalation, calculateClaimTimer, ESCALATION_CONFIG } from '@/lib/sos/escalation';
 import TriageGlyph from '@/components/icons/TriageGlyph';
 
 export interface IncidentData {
@@ -32,6 +32,9 @@ export interface IncidentCardProps {
   incident: IncidentData;
   onClick: () => void;
   isLast?: boolean;
+  /** Shown only for responders on open cases; claims without opening the sheet. */
+  onClaim?: () => void;
+  claiming?: boolean;
 }
 
 // Status reads as colored text, not a filled pill, so a full feed stays inside the color budget
@@ -51,8 +54,20 @@ function getStatus(incident: IncidentData): { label: string; tone: string } {
       return { label: 'Resolved', tone: 'text-resolved-fg' };
     case 'reported':
     default: {
-      const escalated = calculateEscalation(incident.createdAt, incident.type)?.stage === 'alert';
-      return { label: escalated ? 'Needs rescuer' : 'Reported', tone: 'text-reported-fg' };
+      // Say what happens next on the escalation clock, so urgency reads without opening the case
+      const escalation = calculateEscalation(incident.createdAt, incident.type);
+      const tier = ESCALATION_CONFIG[escalation.tier];
+      if (escalation.stage === 'alert') return { label: 'No responder yet', tone: 'text-reported-fg' };
+      if (escalation.stage === 'widened') {
+        return {
+          label: `Search widened · alert in ${tier.alertMinutes - escalation.elapsedMinutes}m`,
+          tone: 'text-reported-fg',
+        };
+      }
+      return {
+        label: `Reported · widens in ${tier.widenMinutes - escalation.elapsedMinutes}m`,
+        tone: 'text-reported-fg',
+      };
     }
   }
 }
@@ -63,10 +78,19 @@ const BEARING_ARROWS = ['↑', '↗', '→', '↘', '↓', '↙', '←', '↖'];
 // Drop the "· Critical" suffix; the status line already carries urgency
 const formatTriageTag = (type: string) => type.replace(/\s*[·•]\s*Critical/i, '').trim();
 
-export function IncidentCard({ incident, onClick }: IncidentCardProps) {
+export function IncidentCard({ incident, onClick, onClaim, claiming }: IncidentCardProps) {
   const status = getStatus(incident);
+  const needsRescuer = incident.state === 'reported';
 
+  const showClaim = !!onClaim && needsRescuer;
+
+  // The row and the Claim button are siblings so no control is nested inside another
   return (
+    <div
+      className={`w-full flex items-center gap-2 transition-colors ${showClaim ? 'pr-4' : ''} ${
+        needsRescuer ? 'bg-reported-bg/40 hover:bg-reported-bg/70' : 'hover:bg-surface-muted/60'
+      }`}
+    >
     <article
       role="button"
       tabIndex={0}
@@ -78,7 +102,7 @@ export function IncidentCard({ incident, onClick }: IncidentCardProps) {
         }
       }}
       aria-label={`${status.label}: ${incident.animal}, ${incident.type}, ${incident.location}`}
-      className="w-full flex items-center gap-3 py-3 px-4 cursor-pointer text-left transition-colors hover:bg-surface-muted/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-action"
+      className={`flex-1 min-w-0 flex items-center gap-3 py-3 pl-4 ${showClaim ? '' : 'pr-4'} cursor-pointer text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-action`}
     >
       {/* Thumbnail is blurred so graphic injuries are not shown until the case is opened */}
       <div className="w-16 h-16 rounded-xl overflow-hidden bg-surface-muted shrink-0 flex items-center justify-center">
@@ -126,6 +150,19 @@ export function IncidentCard({ incident, onClick }: IncidentCardProps) {
         </div>
       </div>
     </article>
+
+      {showClaim && (
+        <button
+          type="button"
+          disabled={claiming}
+          onClick={onClaim}
+          aria-label={`Claim case #${incident.shortId}`}
+          className="shrink-0 h-11 px-4 rounded-xl border border-border bg-surface text-[14px] font-semibold text-fg cursor-pointer hover:bg-surface-muted disabled:opacity-60 disabled:cursor-wait"
+        >
+          {claiming ? 'Claiming…' : 'Claim'}
+        </button>
+      )}
+    </div>
   );
 }
 
