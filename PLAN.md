@@ -20,6 +20,12 @@
 - [x] Landing page `/welcome` with shared sign-in (email link; Google/Facebook buttons ready) (D-026).
 - [ ] Verify claim lock with two real accounts (one volunteer approved via `review_role_application`).
 
+### Mobile app (React Native / Expo, D-028)
+- [x] Port all Phase 1-2 screens to mobile/ (Feed, SOS, Rafa, Clinics, Settings, Welcome).
+- [ ] Run on a real Android phone in Expo Go: SOS end to end, claim with two accounts.
+- [ ] First APK via EAS (preview profile) shared with a tester.
+- [ ] Later: push notifications for new SOS reports, Google sign-in, admin tools.
+
 ### To Do (Phase 0 - Setup)
 *(All Phase 0 setup tasks completed)*
 

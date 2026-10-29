@@ -1,6 +1,11 @@
-PROJECT: KupKop, mobile-web app for street animal emergencies.
-STACK: Next.js, Tailwind, Supabase (Auth, Postgres + RLS, Storage), Gemini API
-(Rafa via /api/chat), GSAP (npm: gsap, @gsap/react).
+PROJECT: KupKop, Android/iPhone app for street animal emergencies (Expo, in
+mobile/), with the Next.js web app kept live as backup and as the app's backend.
+STACK: Web: Next.js, Tailwind, GSAP (npm: gsap, @gsap/react). Mobile: Expo SDK 58,
+Expo Router, React Native, Reanimated (see mobile/AGENTS.md and mobile/README.md).
+Shared: Supabase (Auth, Postgres + RLS, Storage), Gemini API (Rafa via the web
+app's /api/chat; the key never ships in the app). Pure logic shared by both lives
+in src/lib/sos/escalation.ts, src/lib/sos/geo.ts, src/types/database.ts: no DOM or
+React Native imports there.
 PILLARS: SOS (live camera only, GPS, server-side timestamp), Feed with claim
 lock, 14-day facility inactivity clock, Rafa (first-aid + rules helper,
 English/Filipino, calm and warm). Later: Lost & Found, donations, adoption, Saludo.
@@ -15,15 +20,17 @@ CASE STATES: reported, claimed, admitted, healing, resolved.
 ESCALATION (config constants, tunable): Hit-and-Run/Bleeding critical at once,
 widen at 3 min, "no responder" at 10. Fracture/Trapped-Abused: 5 / 15.
 Sick/Mange: 15 / 60.
-MOTION: GSAP via @gsap/react useGSAP, client components only. Animate
-transform/opacity only. Wrap in gsap.matchMedia() for prefers-reduced-motion.
-Clean up on unmount. No animation on the SOS camera screen except the shutter
-flash. Functional motion before decorative.
+MOTION: Web: GSAP via @gsap/react useGSAP, client components only, wrapped in
+gsap.matchMedia() for prefers-reduced-motion. Mobile: Reanimated, respecting
+useReducedMotion(). Both: animate transform/opacity only, clean up on unmount,
+no animation on the SOS camera screen except the shutter flash, functional motion
+before decorative.
 PROTOTYPE RULES: fake plate/face images only; TEST MODE banner on; facilities
 labeled "Listed", never "Verified".
 DESIGN SOURCE: Claude Design project "KupKop" (https://claude.ai/design/p/8a049058-372f-400f-9aa3-bf6c53b2771d). Local reference
 copies: DESIGN.md (tokens, type, spacing, dock) and PRODUCT.md (users, purpose).
-Tokens live in src/app/globals.css; components use tokens, not hardcoded colors.
+Tokens live in src/app/globals.css (web) and mobile/src/theme/tokens.ts (app),
+kept identical; components use tokens, not hardcoded colors.
 DESIGN FLOOR (holds even if the design source changes):
 - Text never below 12px; text and icons >= 4.5:1 contrast in light and dark.
 - Coral = emergency action + Reported status only; max 2 saturated filled elements per screen.

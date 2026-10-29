@@ -255,3 +255,16 @@
   - Google and Facebook still not enabled in Supabase.
   - The Gemini key was shared in a chat session: rotate it and set a spend cap in Google Cloud.
   - Phase 1 real-phone test not run yet.
+
+### D-028: Move to React Native (Expo); keep the web app as backup and backend
+- **Date:** 2026-10-29
+- **Decision (approved by the builder):**
+  1. New Expo app in `mobile/` (SDK 58, Expo Router, React Native). Android first; the same code runs on iPhone in Expo Go. Real iPhone builds wait for the Apple Developer Program ($99/yr).
+  2. The Next.js app stays deployed on Vercel. It is the backup UI and the app's backend: `/api/chat` (Rafa; the Gemini key stays server-side), `/api/geocode/reverse`, `/api/auth/validate-email`. Same Supabase project, so reports from either show up in both.
+  3. Pure logic is shared, not copied: `src/lib/sos/escalation.ts`, new `src/lib/sos/geo.ts` (split out of `utils.ts`, which re-exports it), `src/types/database.ts`. Metro watches those folders; aliases `@shared/*`, `@shared-types/*`.
+  4. Motion: Reanimated replaces GSAP in the app (same rules; only the shutter flash on the camera screen). AGENTS.md updated.
+  5. Styling: plain StyleSheet with `mobile/src/theme/tokens.ts`, identical to `globals.css`, instead of NativeWind (fewer build parts; tokens stay the single source per platform).
+  6. Sign-in in the app is email + 6-digit code only (no link), so it never signs in "somewhere else". Session kept with expo-sqlite localStorage per the Expo Supabase guide.
+  7. Ported screens: Feed (realtime, groups, filters, distances, pull to refresh, claim, detail sheet, Active Case Bar), SOS (expo-camera live only, expo-location quick fix + GPS watch, compression, upload, Case ID retry, sign-in before send), Rafa, Clinics, Settings (theme, volunteer application), Welcome.
+- **Not ported yet:** admin "View as", Google/Facebook sign-in, recovery updates, facility picker on admit (still first Listed facility, same as web), push notifications.
+- **Checks run:** `tsc`, `expo lint`, `expo export --platform android` (bundle builds), `expo-doctor` 20/20. Not yet run on a phone.
