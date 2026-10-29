@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { IncidentCard, ListRowSkeleton, IncidentData } from '@/components/ListRow';
+import AccountButton from '@/components/AccountButton';
 import DetailSheet from '@/components/DetailSheet';
 import ActiveCaseBar from '@/components/ActiveCaseBar';
 import { useProfile } from '@/lib/supabase/useProfile';
@@ -464,15 +465,18 @@ export default function HomePage() {
             <p className="text-[12px] text-fg-muted mt-1 truncate">Street animal emergency network</p>
           </div>
         </div>
-        {showCounts && (
-          <span className="inline-flex items-center gap-2 text-[12px] font-semibold text-fg-muted shrink-0">
-            <span
-              className={`w-2 h-2 rounded-full ${liveLabel === 'Live' ? 'bg-action' : 'bg-fg-muted'}`}
-              aria-hidden="true"
-            />
-            <span aria-live="polite">{liveLabel}</span>
-          </span>
-        )}
+        <div className="flex items-center gap-3 shrink-0">
+          {showCounts && (
+            <span className="inline-flex items-center gap-2 text-[12px] font-semibold text-fg-muted">
+              <span
+                className={`w-2 h-2 rounded-full ${liveLabel === 'Live' ? 'bg-action' : 'bg-fg-muted'}`}
+                aria-hidden="true"
+              />
+              <span aria-live="polite">{liveLabel}</span>
+            </span>
+          )}
+          <AccountButton />
+        </div>
       </header>
 
       {/* Summary: counts across all cases, independent of the filter */}
