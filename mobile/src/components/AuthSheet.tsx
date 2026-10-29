@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import * as Linking from 'expo-linking';
+import * as WebBrowser from 'expo-web-browser';
 import {
   KeyboardAvoidingView,
   Modal,
@@ -13,11 +15,35 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useReducedMotion } from 'react-native-reanimated';
 import { X } from 'lucide-react-native';
 import { AppText, Button } from '@/components/ui';
-import { supabase, API_BASE } from '@/lib/supabase';
+import { supabase, API_BASE, completeOAuth } from '@/lib/supabase';
 import { useTheme } from '@/theme/ThemeProvider';
 import { radius, size, type as typeScale } from '@/theme/tokens';
 
 type Mode = 'login' | 'signup';
+
+/**
+ * Whether Google is switched on in Supabase. A disabled provider fails on Supabase's own error page,
+ * so check first (same as web). null = unknown: show the button and let it try.
+ */
+function useGoogleEnabled(active: boolean): boolean | null {
+  const [enabled, setEnabled] = useState<boolean | null>(null);
+  useEffect(() => {
+    const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
+    const key = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+    if (!active || !url || !key) return;
+    let live = true;
+    fetch(`${url}/auth/v1/settings`, { headers: { apikey: key } })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((settings) => {
+        if (live && settings?.external) setEnabled(!!settings.external.google);
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [active]);
+  return enabled;
+}
 
 type Props = {
   visible: boolean;
@@ -41,6 +67,38 @@ export default function AuthSheet({ visible, onClose, onSignedIn, title }: Props
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [noAccount, setNoAccount] = useState(false);
+  const [googleBusy, setGoogleBusy] = useState(false);
+  const googleEnabled = useGoogleEnabled(visible);
+
+  // Google opens in an in-app browser and returns to kupkop://auth/callback with a one-time code
+  const signInWithGoogle = async () => {
+    setGoogleBusy(true);
+    setError(null);
+    try {
+      const redirectTo = Linking.createURL('auth/callback');
+      const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo, skipBrowserRedirect: true },
+      });
+      if (oauthError || !data?.url) throw new Error(oauthError?.message || 'Could not start Google sign-in.');
+      const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+      if (result.type === 'success') {
+        const failure = await completeOAuth(result.url);
+        if (failure) throw new Error(failure);
+      }
+      // On Android the callback route may finish sign-in instead; either way check for a session
+      const { data: s } = await supabase.auth.getSession();
+      if (s.session) {
+        reset();
+        onSignedIn?.();
+        onClose();
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Google sign-in failed. Please try again.');
+    } finally {
+      setGoogleBusy(false);
+    }
+  };
 
   const reset = () => {
     setStep('email');
@@ -186,6 +244,21 @@ export default function AuthSheet({ visible, onClose, onSignedIn, title }: Props
                     ))}
                   </View>
 
+                  <Button
+                    kind="secondary"
+                    label={googleEnabled === false ? 'Google sign-in not set up yet' : 'Continue with Google'}
+                    onPress={signInWithGoogle}
+                    loading={googleBusy}
+                    disabled={googleEnabled === false || busy}
+                  />
+                  <View style={styles.divider}>
+                    <View style={[styles.rule, { backgroundColor: colors.border }]} />
+                    <AppText variant="caption" tone="fgMuted">
+                      or use email
+                    </AppText>
+                    <View style={[styles.rule, { backgroundColor: colors.border }]} />
+                  </View>
+
                   <View style={{ gap: 6 }}>
                     <AppText variant="caption" bold>
                       Email address
@@ -310,4 +383,6 @@ const styles = StyleSheet.create({
     fontSize: typeScale.title,
   },
   codeInput: { textAlign: 'center', letterSpacing: 6, fontSize: typeScale.display },
+  divider: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  rule: { flex: 1, height: 1 },
 });

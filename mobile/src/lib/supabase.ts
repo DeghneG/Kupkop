@@ -14,10 +14,28 @@ export const supabase = createClient(url || 'https://placeholder.supabase.co', k
     storage: localStorage,
     autoRefreshToken: true,
     persistSession: true,
-    // Phones have no URL to read a session from; sign-in uses the emailed code
+    // Phones have no URL to read a session from; Google returns a code we exchange ourselves
     detectSessionInUrl: false,
+    // Google sign-in returns ?code=..., exchanged with the verifier kept on this phone
+    flowType: 'pkce',
   },
 });
+
+/** Exchange Google's return code once; a second attempt (callback route and sheet racing) is harmless. */
+export async function completeOAuth(url: string): Promise<string | null> {
+  const query = url.includes('?') ? url.slice(url.indexOf('?') + 1).split('#')[0] : '';
+  const params = new URLSearchParams(query);
+  const code = params.get('code');
+  const oauthError = params.get('error_description') || params.get('error');
+  if (oauthError) return oauthError.replace(/\+/g, ' ');
+  if (!code) return null;
+  const { error } = await supabase.auth.exchangeCodeForSession(code);
+  if (error) {
+    const { data } = await supabase.auth.getSession();
+    return data.session ? null : error.message;
+  }
+  return null;
+}
 
 // Refresh tokens only while the app is open
 AppState.addEventListener('change', (state) => {
