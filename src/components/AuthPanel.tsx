@@ -111,6 +111,9 @@ export default function AuthPanel({ headingId, initialMode = 'login', redirectPa
         ) {
           setErrorMsg('No account uses this email yet. Check the spelling, or create an account.');
           setIsNonExistent(true);
+        } else if (error.status === 429 || error.code === 'over_email_send_rate_limit') {
+          // Supabase's built-in mailer allows only a few auth emails per hour for the whole project
+          setErrorMsg('Too many sign-in emails were sent in the last hour. Please try again later.');
         } else {
           setErrorMsg(error.message);
         }
