@@ -5,6 +5,7 @@ import { Check, X } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { calculateFacilityInactivity } from '@/lib/sos/escalation';
 import { distanceKm, formatDistance, type LatLng } from '@/lib/sos/geo';
+import { useFocusTrap } from '@/lib/useFocusTrap';
 
 type Clinic = { id: string; name: string; address: string; latitude: number; longitude: number; lastActiveAt: string };
 
@@ -24,6 +25,8 @@ export default function ClinicPicker({ open, caseLabel, near, busy, error, onPic
   const [loadError, setLoadError] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(panelRef, open);
 
   useEffect(() => {
     if (!open) return;
@@ -69,7 +72,7 @@ export default function ClinicPicker({ open, caseLabel, near, busy, error, onPic
   return (
     <div role="dialog" aria-modal="true" aria-labelledby="clinic-picker-title" className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
       <div className="fixed inset-0 bg-black/60" onClick={onClose} aria-hidden="true" />
-      <div className="relative z-10 w-full max-w-sm sm:max-w-md bg-surface border-t sm:border border-border rounded-t-[24px] sm:rounded-[24px] p-4 pb-[calc(1rem+env(safe-area-inset-bottom,16px))] sm:pb-4 max-h-[85vh] flex flex-col gap-3">
+      <div ref={panelRef} className="relative z-10 w-full max-w-sm sm:max-w-md bg-surface border-t sm:border border-border rounded-t-[24px] sm:rounded-[24px] p-4 pb-[calc(1rem+env(safe-area-inset-bottom,16px))] sm:pb-4 max-h-[85vh] flex flex-col gap-3">
         <div className="flex items-start gap-3">
           <div className="flex-1 min-w-0">
             <h2 id="clinic-picker-title" className="text-[22px] font-semibold text-fg leading-tight">
@@ -118,7 +121,7 @@ export default function ClinicPicker({ open, caseLabel, near, busy, error, onPic
                     </span>
                     {clock.status !== 'active' && (
                       <span
-                        className={`block text-[12px] font-semibold ${clock.status === 'alert' ? 'text-reported-fg' : 'text-claimed-fg'}`}
+                        className="block text-[12px] font-semibold text-claimed-fg"
                       >
                         {clock.badgeText}
                       </span>

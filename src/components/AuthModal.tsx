@@ -6,6 +6,7 @@ import { useGSAP } from '@gsap/react';
 import { X } from 'lucide-react';
 import AuthPanel from '@/components/AuthPanel';
 import { createClient } from '@/lib/supabase/client';
+import { useFocusTrap } from '@/lib/useFocusTrap';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -20,6 +21,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
   const sheetRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const onSuccessRef = useRef(onSuccess);
+  useFocusTrap(sheetRef, isOpen);
 
   useEffect(() => {
     onSuccessRef.current = onSuccess;

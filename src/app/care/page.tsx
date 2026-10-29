@@ -259,11 +259,7 @@ function Notice({ title, children }: { title: string; children: React.ReactNode 
 
 function ClockBadge({ clock }: { clock: FacilityClockStatus }) {
   const tone =
-    clock.status === 'alert'
-      ? 'bg-reported-bg text-reported-fg'
-      : clock.status === 'warning'
-        ? 'bg-claimed-bg text-claimed-fg'
-        : 'bg-healing-bg text-healing-fg';
+    clock.status === 'active' ? 'bg-healing-bg text-healing-fg' : 'bg-claimed-bg text-claimed-fg';
   const Icon = clock.status === 'alert' ? ShieldAlert : clock.status === 'warning' ? AlertCircle : HeartPulse;
   return (
     <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[12px] font-semibold ${tone}`}>

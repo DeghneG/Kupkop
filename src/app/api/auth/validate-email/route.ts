@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import dns from 'dns/promises';
+import { checkRateLimit, clientIp } from '@/lib/rateLimit';
 
 // Standard RFC email syntax validation
 const EMAIL_REGEX =
@@ -7,6 +8,13 @@ const EMAIL_REGEX =
 
 export async function POST(request: Request) {
   try {
+    if (!checkRateLimit(`validate-email:${clientIp(request)}`, 10, 60_000).allowed) {
+      return NextResponse.json(
+        { valid: false, reason: 'Too many attempts. Please wait a minute and try again.' },
+        { status: 429 }
+      );
+    }
+
     const body = await request.json();
     const email = body?.email;
 

@@ -19,7 +19,8 @@ export default function RoleApplication({ userId, role, onSignIn }: RoleApplicat
   const [note, setNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [requestedRole, setRequestedRole] = useState<RequestedRole>('volunteer');
+  const [pickedRole, setRequestedRole] = useState<RequestedRole>('volunteer');
+  const requestedRole: RequestedRole = role === 'volunteer' ? 'facility' : pickedRole;
   const [clinicId, setClinicId] = useState('');
   const [clinics, setClinics] = useState<{ id: string; name: string }[]>([]);
 
@@ -83,7 +84,7 @@ export default function RoleApplication({ userId, role, onSignIn }: RoleApplicat
     setNote('');
   };
 
-  const isResponder = role === 'volunteer' || role === 'admin' || role === 'facility';
+  const isResponder = role === 'admin' || role === 'facility';
 
   return (
     <section
@@ -97,6 +98,13 @@ export default function RoleApplication({ userId, role, onSignIn }: RoleApplicat
           Volunteer or clinic staff
         </h2>
       </div>
+
+      {role === 'volunteer' && (
+        <p className="text-[14px] text-fg flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4 text-healing-fg shrink-0" aria-hidden="true" />
+          <span>You are an approved volunteer.</span>
+        </p>
+      )}
 
       {isResponder ? (
         <p className="text-[14px] text-fg flex items-center gap-2">
@@ -122,10 +130,13 @@ export default function RoleApplication({ userId, role, onSignIn }: RoleApplicat
       ) : (
         <form onSubmit={submit} className="space-y-3">
           <p className="text-[14px] text-fg-muted">
-            Volunteers claim rescues from the feed. Clinic staff log recovery updates for animals in their care. An
-            admin reviews every application.
+            {role === 'volunteer'
+              ? 'Work at a Listed clinic? Apply as clinic staff to log recovery updates. Clinic staff accounts cannot claim rescues. '
+              : 'Volunteers claim rescues from the feed. Clinic staff log recovery updates for animals in their care. '}
+            An admin reviews every application.
             {status === 'rejected' && ' Your last application was not approved; you can apply again.'}
           </p>
+          {role !== 'volunteer' && (
           <div role="radiogroup" aria-label="Apply as" className="grid grid-cols-2 p-1 bg-surface-muted rounded-xl border border-border gap-1">
             {(
               [
@@ -147,6 +158,7 @@ export default function RoleApplication({ userId, role, onSignIn }: RoleApplicat
               </button>
             ))}
           </div>
+          )}
           {requestedRole === 'facility' && (
             <label className="block space-y-2">
               <span className="text-[12px] font-semibold text-fg">Which Listed clinic do you work at?</span>

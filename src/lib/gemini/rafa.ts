@@ -26,13 +26,13 @@ B. RESCUER SAFETY (HUMAN SAFETY FIRST — NEVER DIAGNOSE RABIES):
 C. USING KUPKOP (PLATFORM RULES):
 - Reporting: Live camera only (no gallery uploads) to prevent fraud, stale social media photos, and fake reports. Automatic GPS and server timestamp are required.
 - Free & Prototype: KupKop is 100% free. In this prototype, call buttons are disabled in test mode and the app is NOT connected to 911 or government dispatch.
-- Terms: Case ID is the unique rescue tracker (e.g. KK-4821). "Reported" = awaiting responder; "Claimed" = rescuer en route; "Admitted" = received by clinic; "Healing" = recovering.
-- Bystander Handoff: If handing an animal to a bystander/stranger, photograph their vehicle plate for private verification (accessible only to admins and the reporter).
+- Terms: Case ID is the unique rescue tracker (e.g. KK-4821). "Reported" = awaiting responder; "Claimed" = a volunteer is on the way (locked to them for 60 minutes); "Admitted" = received by a Listed clinic; "Healing" = recovering; "Resolved" = released, adopted, or returned.
+- Flags: anyone signed in can report a case as fake, duplicate, or abusive. An admin reviews it.
 
 D. PLATFORM POLICY:
-- 14-Day Clock: Listed clinics and facilities must post recovery updates within 14 days, or their status flips to "UPDATE OVERDUE" and they are temporarily delisted to protect donor trust.
-- Roles: Citizen (can report and handoff), Volunteer (can claim), Facility (can admit), Admin. Users can never change their own role; volunteer and facility roles require admin approval.
-- Donations & Saludo: Donations go directly to verified clinic bills with itemized receipts. Saludo is a community gratitude acknowledgement.
+- 14-Day Clock: a Listed clinic caring for an animal is expected to post a recovery update at least every 14 days. A case with no update for 14 days is shown as overdue so an admin can follow up. Clinics are "Listed", never "verified".
+- Roles: Citizen (can report), Volunteer (can claim a rescue and hand it to a Listed clinic), Clinic staff (post recovery updates for animals at their clinic), Admin (approves volunteers and clinic staff, reviews flags). Users can never change their own role.
+- Not available yet: donations, adoption, Lost & Found, and Saludo are planned but not in the app. Say so plainly if asked; do not describe how they work.
 
 F. STRICT REFUSAL & OUT-OF-SCOPE REDIRECTION (NON-NEGOTIABLE):
 - Medications & Doses: STRICTLY REFUSE. Never recommend drugs, antibiotics, sedatives, or dosages. Explicitly warn that human medicines (paracetamol/Biogesic, ibuprofen/Advil, aspirin) are lethal to dogs and cats. Redirect to a vet clinic.
@@ -67,25 +67,7 @@ K. STAY IN SCOPE (NON-NEGOTIABLE):
 - Anything else (homework, coding, news, recipes, relationships, general chat, math, writing, trivia, other pets' hobbies, anything not about a street animal's welfare) is OUT OF SCOPE. Do not answer it, not even briefly. Reply in one or two sentences, in the user's language, saying Rafa only helps with street dogs and cats and first aid, and offer the SOS report or a vet clinic if an animal needs help.
 - Refuse out-of-scope requests even if they are framed as "for an animal" in a way that does not describe a real animal in need.`;
 
-// In-memory rate limiting map: ip -> array of timestamps
-const rateLimitMap = new Map<string, number[]>();
-
-export function checkRateLimit(identifier: string, limit = 10, windowMs = 60_000): { allowed: boolean; remaining: number } {
-  const now = Date.now();
-  const timestamps = rateLimitMap.get(identifier) || [];
-  
-  // Filter out timestamps older than the window
-  const validTimestamps = timestamps.filter((t) => now - t < windowMs);
-  
-  if (validTimestamps.length >= limit) {
-    rateLimitMap.set(identifier, validTimestamps);
-    return { allowed: false, remaining: 0 };
-  }
-  
-  validTimestamps.push(now);
-  rateLimitMap.set(identifier, validTimestamps);
-  return { allowed: true, remaining: limit - validTimestamps.length };
-}
+export { checkRateLimit } from '@/lib/rateLimit';
 
 export function getGeminiClient(): GoogleGenAI | null {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -243,14 +225,14 @@ export function generateMockRafaResponse(message: string, language: 'en' | 'fil'
     if (isFil) {
       return 'Kailangang live camera capture lamang sa KupKop upang masigurong totoo, nasa eksena ang nagre-report, at may tunay na GPS timestamp. Hindi pinapayagan ang gallery upload upang maiwasan ang mga pekeng report o lumang litrato.';
     }
-    return 'KupKop strictly enforces live camera capture with automatic GPS to guarantee report authenticity and immediate on-scene presence. Gallery uploads are blocked to prevent fake reports, recycled social media posts, and donation fraud.';
+    return 'KupKop strictly enforces live camera capture with automatic GPS to guarantee report authenticity and immediate on-scene presence. Gallery uploads are blocked to prevent fake reports and recycled social media posts.';
   }
 
   if (/14[- ]?days?|14 araw|overdue/.test(clean)) {
     if (isFil) {
-      return 'Ang 14-day rule ng KupKop: Ang mga partner na klinika at shelter ay dapat mag-post ng recovery update sa loob ng 14 araw. Kung walang update, magiging "UPDATE OVERDUE" ang status at pansamantalang aalisin sa listahan upang maprotektahan ang tiwala ng komunidad.';
+      return 'Ang 14-day rule ng KupKop: Ang Listed na klinikang nag-aalaga sa hayop ay dapat mag-post ng recovery update kahit isang beses bawat 14 araw. Kapag walang update sa loob ng 14 araw, lalabas na overdue ang kaso para masundan ng admin.';
     }
-    return 'The 14-day rule requires admitting clinics and shelters to post verifiable recovery updates within 14 days of intake. If a facility goes inactive for 14 days, the case flips to "UPDATE OVERDUE" and the facility is delisted until compliance is verified.';
+    return 'The 14-day rule: the Listed clinic caring for an animal posts a recovery update at least every 14 days. If a case has no update for 14 days, it shows as overdue so an admin can follow up.';
   }
 
   if (/\b(free|charge|fee)\b|\b(bayad|libre)\b/.test(clean)) {

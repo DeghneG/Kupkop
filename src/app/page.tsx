@@ -6,13 +6,14 @@ import AccountButton from '@/components/AccountButton';
 import DetailSheet from '@/components/DetailSheet';
 import ActiveCaseBar from '@/components/ActiveCaseBar';
 import ClinicPicker from '@/components/ClinicPicker';
+import AuthErrorNotice from '@/components/AuthErrorNotice';
 import { useProfile } from '@/lib/supabase/useProfile';
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/client';
 import { useLocation } from '@/lib/useUserPosition';
 import { usePullToRefresh } from '@/lib/usePullToRefresh';
 import { distanceKm, formatDistance, getDirectionalBearing } from '@/lib/sos/utils';
 import { KupkopMark } from '@/components/icons/TriageGlyph';
-import { calculateEscalation } from '@/lib/sos/escalation';
+import { calculateEscalation, needsRescuer } from '@/lib/sos/escalation';
 import { animalLabel, emergencyLabel } from '@/lib/sos/labels';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -93,6 +94,8 @@ function matchesChannel(incident: IncidentData, channelId: string): boolean {
   return true;
 }
 
+const DISMISSED_CASE_KEY = 'kupkop-dismissed-case';
+
 const STAGE_RANK = { alert: 0, widened: 1, standard: 2 } as const;
 const TIER_RANK = { critical: 0, urgent: 1, moderate: 2 } as const;
 const createdMs = (incident: IncidentData) => (incident.createdAt ? new Date(incident.createdAt).getTime() : 0);
@@ -121,7 +124,23 @@ export default function HomePage() {
   const [selectedChannel, setSelectedChannel] = useState<string>('all');
   const [activeTriggerEl, setActiveTriggerEl] = useState<HTMLElement | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [dismissedCaseId, setDismissedCaseId] = useState<string | null>(null);
+  // Remembered on this device, so a dismissed expired case stays dismissed after a reload
+  const [dismissedCaseId, setDismissedCaseIdState] = useState<string | null>(() => {
+    try {
+      return typeof window === 'undefined' ? null : localStorage.getItem(DISMISSED_CASE_KEY);
+    } catch {
+      return null;
+    }
+  });
+  const setDismissedCaseId = (id: string | null) => {
+    setDismissedCaseIdState(id);
+    try {
+      if (id) localStorage.setItem(DISMISSED_CASE_KEY, id);
+      else localStorage.removeItem(DISMISSED_CASE_KEY);
+    } catch {
+      // Storage blocked: dismissal lasts until reload
+    }
+  };
   // Case waiting for the rescuer to choose which clinic admitted it
   const [admitTarget, setAdmitTarget] = useState<IncidentData | null>(null);
   const [admitting, setAdmitting] = useState(false);
@@ -362,10 +381,12 @@ export default function HomePage() {
     : null;
 
   const showCounts = feedStatus === 'live' || feedStatus === 'sample';
-  const openCases = emergencies.filter((incident) => incident.state === 'reported');
-  const inProgressCount = emergencies.filter((incident) =>
-    ['claimed', 'admitted', 'healing'].includes(incident.state)
-  ).length;
+  // An expired claim is open again: the database keeps it 'claimed' until someone claims it
+  const isOpen = (incident: IncidentData) => needsRescuer(incident.state, incident.claimedAt);
+  const isInProgress = (incident: IncidentData) =>
+    !isOpen(incident) && ['claimed', 'admitted', 'healing'].includes(incident.state);
+  const openCases = emergencies.filter(isOpen);
+  const inProgressCount = emergencies.filter(isInProgress).length;
 
   // Nearest case still waiting for a rescuer; only when the device position is already known
   const nearestOpenKm = userPosition
@@ -380,13 +401,13 @@ export default function HomePage() {
     {
       id: 'open',
       title: 'Needs a rescuer',
-      items: filteredEmergencies.filter((incident) => incident.state === 'reported').sort(byUrgency),
+      items: filteredEmergencies.filter(isOpen).sort(byUrgency),
     },
     {
       id: 'progress',
       title: 'In progress',
       items: filteredEmergencies
-        .filter((incident) => ['claimed', 'admitted', 'healing'].includes(incident.state))
+        .filter(isInProgress)
         .sort((a, b) => createdMs(b) - createdMs(a)),
     },
     {
@@ -471,6 +492,8 @@ export default function HomePage() {
           <AccountButton />
         </div>
       </header>
+
+      <AuthErrorNotice />
 
       {/* Summary: counts across all cases, independent of the filter */}
       {showCounts && (
@@ -613,7 +636,7 @@ export default function HomePage() {
                   setFeedStatus('loading');
                   setReloadKey((k) => k + 1);
                 }}
-                className="min-h-[40px] px-4 rounded-xl border border-border bg-surface hover:bg-surface-muted text-fg font-semibold text-[14px] cursor-pointer"
+                className="min-h-[44px] px-4 rounded-xl border border-border bg-surface hover:bg-surface-muted text-fg font-semibold text-[14px] cursor-pointer"
               >
                 Try again
               </button>
@@ -624,7 +647,7 @@ export default function HomePage() {
               <button
                 type="button"
                 onClick={() => setSelectedChannel('all')}
-                className="min-h-[40px] px-4 rounded-xl border border-border bg-surface hover:bg-surface-muted text-fg font-semibold text-[14px] cursor-pointer"
+                className="min-h-[44px] px-4 rounded-xl border border-border bg-surface hover:bg-surface-muted text-fg font-semibold text-[14px] cursor-pointer"
               >
                 Show all cases
               </button>

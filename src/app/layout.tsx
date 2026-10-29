@@ -11,6 +11,10 @@ const inter = Inter({
   variable: '--font-inter',
 });
 
+// Applies a saved Light or Dark choice before the first paint, so the page never flashes the other theme.
+// 'System' needs nothing here: globals.css follows the phone setting.
+const THEME_SCRIPT = `(function(){try{var t=localStorage.getItem('kupkop-theme');if(t==='dark'||t==='light'){var r=document.documentElement;r.setAttribute('data-theme',t);r.classList.toggle('dark',t==='dark');r.style.colorScheme=t}}catch(e){}})()`;
+
 const bricolage = Bricolage_Grotesque({
   subsets: ['latin'],
   display: 'swap',
@@ -45,6 +49,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`${inter.variable} ${bricolage.variable} h-full antialiased`} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+      </head>
       <body className="min-h-full bg-page text-fg font-sans flex flex-col items-center">
         <ThemeInit />
         {/* Mobile viewport container */}

@@ -20,7 +20,7 @@ import { createClient } from '@/lib/supabase/client';
 import { generateCaseId, formatCoordinates, compressVideoFrame, createSimulatedFrame } from '@/lib/sos/utils';
 
 type AnimalType = 'dog' | 'cat' | 'other';
-type EmergencyTier = 'hit_and_run' | 'fracture' | 'sick_mange';
+type EmergencyTier = 'hit_and_run' | 'bleeding' | 'fracture' | 'trapped_abused' | 'sick_mange';
 
 interface EmergencyOption {
   id: EmergencyTier;
@@ -33,24 +33,11 @@ interface EmergencyOption {
 const SHOW_DEV_LENS = process.env.NODE_ENV === 'development';
 
 const EMERGENCY_TIERS: EmergencyOption[] = [
-  {
-    id: 'hit_and_run',
-    label: 'Hit & Run / Bleeding',
-    urgency: 'critical',
-    urgencyLabel: 'Critical',
-  },
-  {
-    id: 'fracture',
-    label: 'Fracture / Trapped',
-    urgency: 'urgent',
-    urgencyLabel: 'Urgent',
-  },
-  {
-    id: 'sick_mange',
-    label: 'Sick / Severe Mange',
-    urgency: 'moderate',
-    urgencyLabel: 'Moderate',
-  },
+  { id: 'hit_and_run', label: 'Hit & Run', urgency: 'critical', urgencyLabel: 'Critical' },
+  { id: 'bleeding', label: 'Bleeding', urgency: 'critical', urgencyLabel: 'Critical' },
+  { id: 'fracture', label: 'Fracture', urgency: 'urgent', urgencyLabel: 'Urgent' },
+  { id: 'trapped_abused', label: 'Trapped / Abused', urgency: 'urgent', urgencyLabel: 'Urgent' },
+  { id: 'sick_mange', label: 'Sick / Mange', urgency: 'moderate', urgencyLabel: 'Moderate' },
 ];
 
 interface DispatchedReport {
@@ -105,6 +92,8 @@ export default function SOSCameraPage() {
   const [gpsError, setGpsError] = useState<string | null>(null);
   const hasFixRef = useRef(false);
   const lastGeocodedRef = useRef<{ lat: number; lng: number } | null>(null);
+  // Once the user edits the street line, later GPS lookups stop overwriting it
+  const locationEditedRef = useRef(false);
 
   // Staged capture for post-auth continuation
   const [stagedBlob, setStagedBlob] = useState<Blob | null>(null);
@@ -272,7 +261,7 @@ export default function SOSCameraPage() {
           const data = await res.json();
           if (data.formatted) {
             setResolvedAddress(data.formatted);
-            setLocationText((prev) => (prev ? prev : data.formatted));
+            if (!locationEditedRef.current) setLocationText(data.formatted);
           }
         }
       } catch {
@@ -380,12 +369,16 @@ export default function SOSCameraPage() {
 
         // Case IDs are 4 random characters, so a duplicate is rare but possible.
         // On a short_id clash, draw a new ID and send the same report again.
+        let serverTimestamp: string | null = null;
         const insertReport = async (payload: Record<string, unknown>) => {
-          let res = await supabase.from('sos_reports').insert({ ...payload, short_id: shortId });
+          const send = () =>
+            supabase.from('sos_reports').insert({ ...payload, short_id: shortId }).select('server_timestamp').single();
+          let res = await send();
           for (let retries = 0; retries < 3 && res.error?.code === '23505' && res.error.message?.includes('short_id'); retries++) {
             shortId = generateCaseId();
-            res = await supabase.from('sos_reports').insert({ ...payload, short_id: shortId });
+            res = await send();
           }
+          serverTimestamp = res.data?.server_timestamp ?? null;
           return res.error;
         };
 
@@ -440,9 +433,12 @@ export default function SOSCameraPage() {
           urgencyLabel: selectedTier.urgencyLabel,
           previewUrl,
           coords: { lat: finalLat, lng: finalLng },
-          timestamp: new Date().toLocaleTimeString('en-US', { hour12: true }),
+          timestamp: new Date(serverTimestamp ?? Date.now()).toLocaleTimeString('en-US', { hour12: true }),
         });
 
+        // Sent: the staged photo is no longer needed for a retry
+        setStagedBlob(null);
+        setStagedPreview(null);
         setDispatchStep('success');
       } catch (err: unknown) {
         const error = err as Error;
@@ -503,11 +499,8 @@ export default function SOSCameraPage() {
   // 7. Resume Dispatch after successful auth modal completion
   const handleAuthSuccess = () => {
     setIsAuthModalOpen(false);
-    if (stagedBlob && stagedPreview) {
-      executeDispatch(stagedBlob, stagedPreview);
-      setStagedBlob(null);
-      setStagedPreview(null);
-    }
+    // The photo stays staged until the send succeeds, so a failure keeps the review screen
+    if (stagedBlob && stagedPreview) executeDispatch(stagedBlob, stagedPreview);
   };
 
   // ---------------------------------------------------------------------------
@@ -592,7 +585,7 @@ export default function SOSCameraPage() {
             <button
               type="button"
               onClick={requestLocation}
-              className="text-[12px] font-semibold text-link underline shrink-0 cursor-pointer"
+              className="min-h-[44px] px-2 -mr-2 text-[12px] font-semibold text-link underline shrink-0 cursor-pointer"
             >
               Update GPS
             </button>
@@ -609,7 +602,7 @@ export default function SOSCameraPage() {
                     type="button"
                     disabled={dispatchStep === 'uploading'}
                     onClick={() => setAnimal(type)}
-                    className={`min-h-[40px] rounded-xl text-[12px] font-semibold capitalize transition-all border cursor-pointer ${
+                    className={`min-h-[44px] rounded-xl text-[12px] font-semibold capitalize transition-all border cursor-pointer ${
                       animal === type
                         ? 'bg-fg text-surface border-fg shadow-sm'
                         : 'bg-surface text-fg border-border hover:bg-surface-muted'
@@ -631,13 +624,13 @@ export default function SOSCameraPage() {
                     type="button"
                     disabled={dispatchStep === 'uploading'}
                     onClick={() => setEmergency(tier.id)}
-                    className={`min-h-[40px] px-1 rounded-xl text-[12px] font-semibold transition-all border cursor-pointer flex flex-col items-center justify-center text-center leading-tight ${
+                    className={`min-h-[44px] px-1 rounded-xl text-[12px] font-semibold transition-all border cursor-pointer flex flex-col items-center justify-center text-center leading-tight ${
                       emergency === tier.id
                         ? 'bg-fg text-surface border-fg shadow-sm'
                         : 'bg-surface text-fg border-border hover:bg-surface-muted'
                     }`}
                   >
-                    <span>{tier.label.split('/')[0].trim()}</span>
+                    <span>{tier.label}</span>
                     <span
                       className={`text-[12px] font-normal mt-0.5 ${
                         tier.urgency === 'critical' ? 'text-reported-fg font-semibold' : 'text-fg-muted'
@@ -660,9 +653,12 @@ export default function SOSCameraPage() {
                   id="review-location-input"
                   type="text"
                   value={locationText}
-                  onChange={(e) => setLocationText(e.target.value)}
+                  onChange={(e) => {
+                    locationEditedRef.current = true;
+                    setLocationText(e.target.value);
+                  }}
                   placeholder="e.g., Aurora Blvd near J. Ruiz, San Juan"
-                  className="w-full min-h-[42px] px-4 pl-9 text-[14px] bg-surface text-fg rounded-xl border border-border outline-none focus:ring-2 focus:ring-action"
+                  className="w-full min-h-[44px] px-4 pl-9 text-[14px] bg-surface text-fg rounded-xl border border-border outline-none focus:ring-2 focus:ring-action"
                 />
                 <MapPin className="w-4 h-4 text-fg-muted absolute left-3 top-3" aria-hidden="true" />
               </div>
@@ -703,14 +699,14 @@ export default function SOSCameraPage() {
           >
             {dispatchStep === 'uploading' ? (
               <>
-                <Loader2 className="w-4 h-4 animate-spin text-accent-fg" aria-hidden="true" />
+                <Loader2 className="w-4 h-4 motion-safe:animate-spin text-accent-fg" aria-hidden="true" />
                 <span>Posting Emergency Report...</span>
               </>
             ) : coords ? (
               <span>Dispatch Emergency Report</span>
             ) : gpsStatus === 'acquiring' ? (
               <>
-                <Loader2 className="w-4 h-4 animate-spin text-accent-fg" aria-hidden="true" />
+                <Loader2 className="w-4 h-4 motion-safe:animate-spin text-accent-fg" aria-hidden="true" />
                 <span>Waiting for GPS…</span>
               </>
             ) : (
@@ -796,7 +792,7 @@ export default function SOSCameraPage() {
               </div>
               <div className="flex items-center gap-1 text-fg-muted text-[12px]">
                 <Clock className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                <span>Atomic timestamp: {dispatchedData.timestamp}</span>
+                <span>Received by the server at {dispatchedData.timestamp}</span>
               </div>
             </div>
           </div>
@@ -843,6 +839,10 @@ export default function SOSCameraPage() {
                 type="button"
                 onClick={() => {
                   setDispatchedData(null);
+                  setDescription('');
+                  setLocationText(resolvedAddress);
+                  locationEditedRef.current = false;
+                  setDispatchError(null);
                   setDispatchStep('camera');
                   startCamera();
                 }}
@@ -880,7 +880,7 @@ export default function SOSCameraPage() {
         </Link>
         <div className="text-center">
           <h1 className="text-[16px] font-semibold text-fg">Live SOS Camera</h1>
-          <p className="text-[12px] text-fg-muted">Snap & Dispatch</p>
+          <p className="text-[12px] text-fg-muted">Snap, check, send</p>
         </div>
         <div className="w-11" aria-hidden="true" />
       </div>
@@ -927,11 +927,11 @@ export default function SOSCameraPage() {
           <button
             type="button"
             onClick={requestLocation}
-            className="flex items-center gap-2 px-3 py-2 rounded-full text-[12px] font-mono bg-black/60 text-white border border-white/20 backdrop-blur-md shadow-sm cursor-pointer"
+            className="min-h-[44px] flex items-center gap-2 px-3 py-2 rounded-full text-[12px] font-mono bg-black/60 text-white border border-white/20 backdrop-blur-md shadow-sm cursor-pointer"
           >
             {gpsStatus === 'acquiring' ? (
               <>
-                <Loader2 className="w-3.5 h-3.5 shrink-0 text-white/70 animate-spin" aria-hidden="true" />
+                <Loader2 className="w-3.5 h-3.5 shrink-0 text-white/70 motion-safe:animate-spin" aria-hidden="true" />
                 <span>Acquiring GPS...</span>
               </>
             ) : gpsStatus === 'locked' && coords ? (
@@ -1052,7 +1052,7 @@ export default function SOSCameraPage() {
               handleUseSimulatedCamera();
             }
           }}
-          className="text-fg hover:text-accent font-semibold cursor-pointer min-h-[36px] flex items-center gap-1 underline underline-offset-4"
+          className="text-fg hover:text-accent font-semibold cursor-pointer min-h-[44px] flex items-center gap-1 underline underline-offset-4"
         >
           {cameraStatus === 'simulated' ? 'Switch to Live Webcam' : 'Switch to Simulated Lens'}
         </button>
@@ -1126,13 +1126,13 @@ export default function SOSCameraPage() {
           aria-label="Capture live photo and dispatch emergency"
         >
           {dispatchStep === 'uploading' ? (
-            <Loader2 className="w-7 h-7 text-accent-fg animate-spin" aria-hidden="true" />
+            <Loader2 className="w-7 h-7 text-accent-fg motion-safe:animate-spin" aria-hidden="true" />
           ) : (
             <Camera className="w-7 h-7 text-accent-fg" aria-hidden="true" />
           )}
         </button>
         <p className="text-[12px] text-fg-muted font-normal text-center">
-          Tap shutter to snap & dispatch immediately
+          Tap the shutter, then check the details and send
         </p>
       </div>
 

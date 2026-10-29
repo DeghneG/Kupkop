@@ -290,3 +290,13 @@
 - **Not done (needs a brief):** "bystander handoff" and an AI flag from the Phase 4 backlog line are not defined anywhere yet.
 - **Mobile port later:** clinic-staff option in the application form, recovery timeline, flag button, care and admin screens. The database changes don't break the current app.
 - **Checks:** `tsc`, eslint, `next build`; escalation and care-clock thresholds checked against AGENTS.md (13/13). Migration `20261029000002_facility_care_and_flags.sql` not run yet; nothing tested with real accounts yet.
+
+### D-031: QA audit fixes (blockers, major, minor)
+- **Date:** 2026-10-29
+- **Database (`20261029000003_qa_fixes.sql`, run after `…000002`):** new reports always start open and unclaimed, urgency follows the emergency type, and the photo must be a `live-snaps` upload in the reporter's own folder; 5 reports per 10 minutes per user. `live-snaps` uploads limited to own folder, images, 2 MB. `bills` private to uploader and admins. `email` and `is_verified` are admin-only like `role` (SQL editor and service role exempt). One active claim per volunteer. Volunteers may apply as clinic staff.
+- **Expired claims:** a claim older than 60 minutes counts as open (`needsRescuer()` in `escalation.ts`); other volunteers see Claim. Admit and Release show only to the claimer or an admin.
+- **Honest copy:** no "broadcast widened" (nothing is sent); waiting time is shown instead. Rafa no longer claims delisting, donations, plate handoff, or that facilities admit. SOS shows the server's timestamp. Map says "Reported location".
+- **SOS:** all five emergency types; photo kept if sending fails after sign-in; "Report another" starts clean; street text follows GPS until edited.
+- **Clinics page:** 14-day status comes from each animal in care; a clinic with none shows no clock. Only Listed clinics; an error state replaces fake samples.
+- **Other:** failed sign-in links explained; rate limits on address and email routes; Rafa sends each message once, keeps the chat across tabs, page text in Filipino; theme set before first paint; focus stays inside dialogs; spinners respect reduced motion; tap targets ≥ 44px; overdue badges amber instead of coral.
+- **Checks:** `tsc`, eslint (0 errors), `next build`; escalation and expired-claim rules 17/17. Not tested on a phone or against the database yet.

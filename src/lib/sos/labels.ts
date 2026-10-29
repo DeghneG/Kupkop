@@ -16,7 +16,7 @@ export function emergencyLabel(emergencyType?: string | null): string {
     case 'fracture':
       return 'Fracture / Limping';
     case 'trapped_abused':
-      return 'Trapped in storm drain';
+      return 'Trapped / Abused';
     case 'sick_mange':
       return 'Sick / Severe Mange';
     default:

@@ -109,7 +109,7 @@ export default function WelcomePage() {
           data-reveal
           className="text-[22px] leading-tight font-semibold tracking-tight text-fg font-brand max-w-[18ch]"
         >
-          See a hurt street animal? Get it help in three taps.
+          See a hurt street animal? Get it help in a few taps.
         </h1>
         <p data-reveal className="mt-3 text-[14px] text-fg-muted leading-relaxed max-w-[38ch]">
           KupKop connects people who find injured aspins and puspins with rescue volunteers and partner clinics.

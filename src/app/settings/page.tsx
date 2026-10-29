@@ -54,7 +54,7 @@ export default function SettingsPage() {
             <button
               type="button"
               onClick={handleSignOut}
-              className="min-h-[40px] px-4 rounded-xl bg-surface-muted hover:bg-border/60 border border-border text-fg font-semibold text-[12px] flex items-center gap-2 transition-colors cursor-pointer shrink-0 focus:outline-none focus:ring-2 focus:ring-accent"
+              className="min-h-[44px] px-4 rounded-xl bg-surface-muted hover:bg-border/60 border border-border text-fg font-semibold text-[12px] flex items-center gap-2 transition-colors cursor-pointer shrink-0 focus:outline-none focus:ring-2 focus:ring-accent"
             >
               <LogOut className="w-3.5 h-3.5 text-fg-muted" aria-hidden="true" />
               <span>Sign out</span>
@@ -103,7 +103,7 @@ export default function SettingsPage() {
             role="radio"
             aria-checked={themeMode === 'system'}
             onClick={() => handleThemeChange('system')}
-            className={`min-h-[40px] rounded-lg text-[12px] font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+            className={`min-h-[44px] rounded-lg text-[12px] font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer ${
               themeMode === 'system'
                 ? 'bg-surface text-fg shadow-sm border border-border'
                 : 'text-fg-muted hover:text-fg'
@@ -118,7 +118,7 @@ export default function SettingsPage() {
             role="radio"
             aria-checked={themeMode === 'light'}
             onClick={() => handleThemeChange('light')}
-            className={`min-h-[40px] rounded-lg text-[12px] font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+            className={`min-h-[44px] rounded-lg text-[12px] font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer ${
               themeMode === 'light'
                 ? 'bg-surface text-fg shadow-sm border border-border'
                 : 'text-fg-muted hover:text-fg'
@@ -133,7 +133,7 @@ export default function SettingsPage() {
             role="radio"
             aria-checked={themeMode === 'dark'}
             onClick={() => handleThemeChange('dark')}
-            className={`min-h-[40px] rounded-lg text-[12px] font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+            className={`min-h-[44px] rounded-lg text-[12px] font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer ${
               themeMode === 'dark'
                 ? 'bg-surface text-fg shadow-sm border border-border'
                 : 'text-fg-muted hover:text-fg'

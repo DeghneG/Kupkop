@@ -49,11 +49,9 @@ export default function CaseRecovery({ reportId, state, canPost }: CaseRecoveryP
   const inCare = state !== 'resolved';
   const tone = !inCare
     ? 'bg-resolved-bg text-resolved-fg'
-    : clock.status === 'alert'
-      ? 'bg-reported-bg text-reported-fg'
-      : clock.status === 'warning'
-        ? 'bg-claimed-bg text-claimed-fg'
-        : 'bg-healing-bg text-healing-fg';
+    : clock.status === 'active'
+      ? 'bg-healing-bg text-healing-fg'
+      : 'bg-claimed-bg text-claimed-fg';
 
   return (
     <div className={`${tone} rounded-2xl p-4 space-y-3`}>

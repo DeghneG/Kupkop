@@ -85,29 +85,57 @@ function RafaText({ text }: { text: string }) {
 }
 
 const quickPromptChips = [
-  { label: 'Bleeding', queryEn: 'How do I stop the bleeding safely?', queryFil: 'Paano pigilan ang pagdugo ng sugat nang ligtas?' },
-  { label: 'Moving animal', queryEn: 'Can I move an injured animal, and how do I lift it safely?', queryFil: 'Nasugatan o nabangga ang hayop, paano ilipat nang ligtas?' },
-  { label: 'Scared dog', queryEn: 'A dog is growling and scared. How do I approach safely?', queryFil: 'Galit o natatakot ang aso, paano lalapitan nang ligtas?' },
-  { label: 'Keep warm', queryEn: 'The animal is in shock and shaking. How do I keep it warm?', queryFil: 'Nanginginig at giniginaw sa shock ang hayop, paano papainitin?' },
-  { label: 'Animal bit me', queryEn: 'An animal bit or scratched me, what should I do right now?', queryFil: 'Kinagat o kinalmot ako ng hayop, ano ang dapat kong gawin ngayon?' },
-  { label: 'While waiting', queryEn: 'What should I do while waiting for responders to arrive?', queryFil: 'Ano ang dapat kong gawin habang naghihintay ng responder?' },
+  { label: 'Bleeding', labelFil: 'Pagdurugo', queryEn: 'How do I stop the bleeding safely?', queryFil: 'Paano pigilan ang pagdugo ng sugat nang ligtas?' },
+  { label: 'Moving animal', labelFil: 'Paglipat ng hayop', queryEn: 'Can I move an injured animal, and how do I lift it safely?', queryFil: 'Nasugatan o nabangga ang hayop, paano ilipat nang ligtas?' },
+  { label: 'Scared dog', labelFil: 'Takot na aso', queryEn: 'A dog is growling and scared. How do I approach safely?', queryFil: 'Galit o natatakot ang aso, paano lalapitan nang ligtas?' },
+  { label: 'Keep warm', labelFil: 'Painitin', queryEn: 'The animal is in shock and shaking. How do I keep it warm?', queryFil: 'Nanginginig at giniginaw sa shock ang hayop, paano papainitin?' },
+  { label: 'Animal bit me', labelFil: 'Nakagat ako', queryEn: 'An animal bit or scratched me, what should I do right now?', queryFil: 'Kinagat o kinalmot ako ng hayop, ano ang dapat kong gawin ngayon?' },
+  { label: 'While waiting', labelFil: 'Habang naghihintay', queryEn: 'What should I do while waiting for responders to arrive?', queryFil: 'Ano ang dapat kong gawin habang naghihintay ng responder?' },
 ];
 
+const UI_TEXT = {
+  en: {
+    greeting:
+      "Hello, I'm Rafa. Keep a safe distance so the animal does not feel cornered. Are they bleeding, having trouble breathing, or trapped?",
+    subtitle: 'First-aid guidance',
+    thinking: 'Rafa is thinking…',
+    chipsHint: 'Tap for quick guidance:',
+  },
+  fil: {
+    greeting:
+      'Kumusta, ako si Rafa. Lumayo nang kaunti para hindi matakot ang hayop. Dumudugo ba siya, nahihirapang huminga, o naiipit?',
+    subtitle: 'Gabay sa first aid',
+    thinking: 'Nag-iisip si Rafa…',
+    chipsHint: 'Pindutin para sa mabilis na gabay:',
+  },
+} as const;
+
+// Kept for this visit, so switching tabs and coming back does not wipe the conversation.
+// Lives only in this browser tab's memory; nothing is stored on the device or server.
+let savedChat: { messages: Message[]; language: 'en' | 'fil' } | null = null;
+
 export default function RafaPage() {
-  const [language, setLanguage] = useState<'en' | 'fil'>('en');
+  const [language, setLanguage] = useState<'en' | 'fil'>(savedChat?.language ?? 'en');
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: 'm1',
-      sender: 'rafa',
-      text:
-        "Hello, I'm Rafa. Keep a safe distance so the animal does not feel cornered. Are they bleeding, having trouble breathing, or trapped?",
-      time: 'Just now',
-    },
-  ]);
+  const [messages, setMessages] = useState<Message[]>(
+    savedChat?.messages ?? [{ id: 'm1', sender: 'rafa', text: UI_TEXT.en.greeting, time: 'Just now' }]
+  );
+  const t = UI_TEXT[language];
+
+  useEffect(() => {
+    savedChat = { messages, language };
+  }, [messages, language]);
+
+  // Before the first question, the greeting follows the language toggle
+  const switchLanguage = (next: 'en' | 'fil') => {
+    setLanguage(next);
+    setMessages((prev) =>
+      prev.length === 1 && prev[0].id === 'm1' ? [{ ...prev[0], text: UI_TEXT[next].greeting }] : prev
+    );
+  };
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -142,7 +170,7 @@ export default function RafaPage() {
 
       try {
         // Build history payload for multi-turn context
-        const historyPayload = updatedMessages.slice(-6).map((m) => ({
+        const historyPayload = messages.slice(-6).map((m) => ({
           role: (m.sender === 'rafa' ? 'model' : 'user') as 'model' | 'user',
           text: m.text,
         }));
@@ -205,7 +233,7 @@ export default function RafaPage() {
           </div>
           <div>
             <h1 className="text-[22px] font-semibold tracking-tight text-fg font-brand leading-none">Rafa</h1>
-            <p className="text-[12px] text-fg-muted mt-1">First-aid guidance</p>
+            <p className="text-[12px] text-fg-muted mt-1">{t.subtitle}</p>
           </div>
         </div>
 
@@ -219,7 +247,7 @@ export default function RafaPage() {
             type="button"
             role="radio"
             aria-checked={language === 'en'}
-            onClick={() => setLanguage('en')}
+            onClick={() => switchLanguage('en')}
             className={`min-h-[44px] min-w-[44px] px-3 rounded-lg transition-colors cursor-pointer ${
               language === 'en'
                 ? 'bg-surface text-fg shadow-sm'
@@ -232,7 +260,7 @@ export default function RafaPage() {
             type="button"
             role="radio"
             aria-checked={language === 'fil'}
-            onClick={() => setLanguage('fil')}
+            onClick={() => switchLanguage('fil')}
             className={`min-h-[44px] min-w-[44px] px-3 rounded-lg transition-colors cursor-pointer ${
               language === 'fil'
                 ? 'bg-surface text-fg shadow-sm'
@@ -275,8 +303,8 @@ export default function RafaPage() {
         {loading && (
           <div className="flex flex-col items-start space-y-1">
             <div className="flex items-center gap-2 bg-surface text-fg-muted border border-border rounded-2xl px-4 py-3 shadow-sm text-[14px]">
-              <Loader2 className="w-4 h-4 animate-spin text-rafa" />
-              <span>Rafa is analyzing...</span>
+              <Loader2 className="w-4 h-4 motion-safe:animate-spin text-rafa" />
+              <span>{t.thinking}</span>
             </div>
           </div>
         )}
@@ -298,7 +326,7 @@ export default function RafaPage() {
       {/* 3. Quick Triage Chips (Strictly 12px font size, neutral outlined) */}
       <div className="pt-1">
         <p className="text-[12px] font-normal text-fg-muted mb-1.5">
-          Tap for immediate emergency guidance:
+          {t.chipsHint}
         </p>
         <div className="flex flex-wrap gap-2">
           {quickPromptChips.map((chip) => (
@@ -309,7 +337,7 @@ export default function RafaPage() {
               onClick={() => handleChipClick(chip.queryEn, chip.queryFil)}
               className="min-h-[44px] px-4 rounded-full text-[12px] font-semibold border border-border bg-surface hover:bg-surface-muted text-fg transition-colors cursor-pointer disabled:opacity-50 active:scale-[0.98]"
             >
-              {chip.label}
+              {language === 'fil' ? chip.labelFil : chip.label}
             </button>
           ))}
         </div>

@@ -93,6 +93,9 @@ export async function POST(request: Request) {
       }
     }
 
+    // Gemini expects the conversation to open with a user turn; drop the greeting and any leading replies
+    while (contents.length > 0 && contents[0].role === 'model') contents.shift();
+
     // Add current user prompt with explicit language hint
     const langContext = language === 'fil' ? 'Language: Filipino/Tagalog.' : 'Language: English.';
     contents.push({
@@ -120,15 +123,16 @@ export async function POST(request: Request) {
     } catch (apiErr: unknown) {
       console.warn('Primary Gemini call error, attempting fallback:', apiErr);
       
-      // Fallback to gemini-2.0-flash if 2.5 is unavailable in the region/tier
+      // Fallback to the lighter 2.5 model if Flash is busy or unavailable
       try {
         const fallbackResult = await ai.models.generateContent({
-          model: 'gemini-2.0-flash',
+          model: 'gemini-2.5-flash-lite',
           contents,
           config: {
             systemInstruction: RAFA_SYSTEM_INSTRUCTION,
             temperature: 0.3,
             maxOutputTokens: 700,
+            thinkingConfig: { thinkingBudget: 0 },
           },
         });
         replyText = fallbackResult.text || '';
@@ -159,9 +163,9 @@ export async function POST(request: Request) {
     );
   } catch (err: unknown) {
     console.error('API /api/chat error:', err);
-    const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred while communicating with Rafa.';
+    // Details stay in the server log; the chat shows a plain message
     return NextResponse.json(
-      { error: errorMessage },
+      { error: 'Rafa could not answer just now. Please try again.' },
       { status: 500 }
     );
   }

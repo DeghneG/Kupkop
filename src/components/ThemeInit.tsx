@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useLayoutEffect } from 'react';
 
 // Suppress any React 19 script-tag false-positive development warnings
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
@@ -13,8 +13,10 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   };
 }
 
+// The inline script in layout.tsx sets the theme before paint; this re-applies it after React's
+// development remount clears it, and before paint so there is no flash either way.
 export default function ThemeInit() {
-  useEffect(() => {
+  useLayoutEffect(() => {
     try {
       const stored = localStorage.getItem('kupkop-theme');
       const isDark =

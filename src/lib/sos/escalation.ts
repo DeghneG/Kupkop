@@ -108,7 +108,7 @@ export function calculateEscalation(
       elapsedMinutes,
       isWidened: true,
       isAlert: true,
-      badgeLabel: 'Needs Rescuer',
+      badgeLabel: 'No responder yet',
     };
   }
 
@@ -119,7 +119,7 @@ export function calculateEscalation(
       elapsedMinutes,
       isWidened: true,
       isAlert: false,
-      badgeLabel: 'Widened radius',
+      badgeLabel: 'Waiting for a rescuer',
     };
   }
 
@@ -232,4 +232,12 @@ export function calculateFacilityInactivity(
     status: 'active',
     badgeText: `Day ${elapsedDays + 1} of 14 · Active Care`,
   };
+}
+
+/**
+ * True when a case is waiting for a rescuer: never claimed, or the 60-minute claim lock ran out.
+ * The database keeps an expired claim as 'claimed' until someone claims it again, so screens use this.
+ */
+export function needsRescuer(state: string, claimedAt?: string | Date | number | null): boolean {
+  return state === 'reported' || (state === 'claimed' && calculateClaimTimer(claimedAt).isExpired);
 }

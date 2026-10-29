@@ -224,7 +224,7 @@ function Flags() {
         <div className="flex gap-3">
           {f.photoUrl && (
             /* eslint-disable-next-line @next/next/no-img-element */
-            <img src={f.photoUrl} alt="" className="w-16 h-16 rounded-xl object-cover blur-sm shrink-0" />
+            <img src={f.photoUrl} alt="" className="w-16 h-16 rounded-xl object-cover blur-md shrink-0" />
           )}
           <div className="min-w-0 space-y-1">
             <p className="text-[14px] font-semibold text-fg">

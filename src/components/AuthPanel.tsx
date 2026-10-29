@@ -273,7 +273,7 @@ export default function AuthPanel({ headingId, initialMode = 'login', redirectPa
             role="tab"
             aria-selected={mode === m}
             onClick={() => switchMode(m)}
-            className={`flex-1 min-h-[40px] text-[14px] font-semibold rounded-full transition-colors cursor-pointer border ${
+            className={`flex-1 min-h-[44px] text-[14px] font-semibold rounded-full transition-colors cursor-pointer border ${
               mode === m ? 'bg-surface text-fg border-border' : 'text-fg-muted hover:text-fg border-transparent'
             }`}
           >
@@ -294,7 +294,7 @@ export default function AuthPanel({ headingId, initialMode = 'login', redirectPa
               <button
                 type="button"
                 onClick={() => switchMode('signup')}
-                className="min-h-[32px] text-[12px] font-semibold underline text-link hover:opacity-80 cursor-pointer"
+                className="min-h-[44px] text-[12px] font-semibold underline text-link hover:opacity-80 cursor-pointer"
               >
                 Create an account with this email
               </button>
@@ -312,7 +312,7 @@ export default function AuthPanel({ headingId, initialMode = 'login', redirectPa
           className="w-full min-h-[48px] bg-surface hover:bg-surface-muted text-fg border border-border font-semibold text-[14px] rounded-xl flex items-center justify-center gap-3 transition-colors disabled:opacity-50 cursor-pointer"
         >
           {loading === 'google' ? (
-            <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+            <Loader2 className="w-4 h-4 motion-safe:animate-spin" aria-hidden="true" />
           ) : (
             // Brand mark keeps Google's own colors
             <svg className="w-4 h-4" viewBox="0 0 24 24" aria-hidden="true">
@@ -332,7 +332,7 @@ export default function AuthPanel({ headingId, initialMode = 'login', redirectPa
           className="w-full min-h-[48px] bg-surface hover:bg-surface-muted text-fg border border-border font-semibold text-[14px] rounded-xl flex items-center justify-center gap-3 transition-colors disabled:opacity-50 cursor-pointer"
         >
           {loading === 'facebook' ? (
-            <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+            <Loader2 className="w-4 h-4 motion-safe:animate-spin" aria-hidden="true" />
           ) : (
             // Brand mark keeps Facebook's own blue
             <svg className="w-4 h-4" viewBox="0 0 24 24" aria-hidden="true">
@@ -380,7 +380,7 @@ export default function AuthPanel({ headingId, initialMode = 'login', redirectPa
           className="w-full min-h-[48px] bg-action hover:opacity-95 text-action-fg font-semibold text-[14px] rounded-xl flex items-center justify-center gap-2 transition-opacity disabled:opacity-50 cursor-pointer"
         >
           {loading === 'email' ? (
-            <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+            <Loader2 className="w-4 h-4 motion-safe:animate-spin" aria-hidden="true" />
           ) : (
             <Mail className="w-4 h-4" aria-hidden="true" />
           )}

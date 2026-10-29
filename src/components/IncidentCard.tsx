@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { ArrowUp, Camera } from 'lucide-react';
-import { calculateEscalation, calculateClaimTimer, ESCALATION_CONFIG } from '@/lib/sos/escalation';
+import { calculateEscalation, calculateClaimTimer, needsRescuer as isWaiting } from '@/lib/sos/escalation';
 import TriageGlyph from '@/components/icons/TriageGlyph';
 
 export interface IncidentData {
@@ -42,7 +42,8 @@ function getStatus(incident: IncidentData): { label: string; tone: string } {
   switch (incident.state) {
     case 'claimed': {
       const timer = calculateClaimTimer(incident.claimedAt);
-      if (!timer.isClaimed || timer.isExpired) return { label: 'Claimed', tone: 'text-claimed-fg' };
+      if (timer.isExpired) return { label: 'Claim expired · needs a rescuer', tone: 'text-reported-fg' };
+      if (!timer.isClaimed) return { label: 'Claimed', tone: 'text-claimed-fg' };
       const left = timer.remainingMinutes > 0 ? `${timer.remainingMinutes}m` : `${timer.remainingSeconds}s`;
       return { label: `Claimed · ${left} lock`, tone: 'text-claimed-fg' };
     }
@@ -54,20 +55,17 @@ function getStatus(incident: IncidentData): { label: string; tone: string } {
       return { label: 'Resolved', tone: 'text-resolved-fg' };
     case 'reported':
     default: {
-      // Say what happens next on the escalation clock, so urgency reads without opening the case
+      // How long it has waited. Nothing is broadcast yet, so the label only says what is true;
+      // the escalation stage still decides the feed order.
       const escalation = calculateEscalation(incident.createdAt, incident.type);
-      const tier = ESCALATION_CONFIG[escalation.tier];
-      if (escalation.stage === 'alert') return { label: 'No responder yet', tone: 'text-reported-fg' };
-      if (escalation.stage === 'widened') {
-        return {
-          label: `Search widened · alert in ${tier.alertMinutes - escalation.elapsedMinutes}m`,
-          tone: 'text-reported-fg',
-        };
+      if (!incident.createdAt) return { label: 'Reported', tone: 'text-reported-fg' };
+      if (escalation.stage === 'alert') {
+        return { label: `No responder yet · ${escalation.elapsedMinutes}m`, tone: 'text-reported-fg' };
       }
-      return {
-        label: `Reported · widens in ${tier.widenMinutes - escalation.elapsedMinutes}m`,
-        tone: 'text-reported-fg',
-      };
+      if (escalation.stage === 'widened') {
+        return { label: `Waiting ${escalation.elapsedMinutes}m for a rescuer`, tone: 'text-reported-fg' };
+      }
+      return { label: 'Reported', tone: 'text-reported-fg' };
     }
   }
 }
@@ -80,7 +78,7 @@ const formatTriageTag = (type: string) => type.replace(/\s*[·•]\s*Critical/i,
 
 export function IncidentCard({ incident, onClick, onClaim, claiming }: IncidentCardProps) {
   const status = getStatus(incident);
-  const needsRescuer = incident.state === 'reported';
+  const needsRescuer = isWaiting(incident.state, incident.claimedAt);
 
   const showClaim = !!onClaim && needsRescuer;
 

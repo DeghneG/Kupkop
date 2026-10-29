@@ -21,9 +21,10 @@ import {
 } from 'lucide-react';
 import { IncidentData } from './ListRow';
 import { formatCoordinates } from '@/lib/sos/utils';
-import { calculateClaimTimer, calculateFacilityInactivity, calculateEscalation } from '@/lib/sos/escalation';
+import { calculateClaimTimer, calculateFacilityInactivity, calculateEscalation, needsRescuer } from '@/lib/sos/escalation';
 import TriageGlyph from '@/components/icons/TriageGlyph';
 import CaseRecovery from '@/components/CaseRecovery';
+import { useFocusTrap } from '@/lib/useFocusTrap';
 import FlagReport from '@/components/FlagReport';
 
 interface DetailSheetProps {
@@ -56,6 +57,7 @@ export default function DetailSheet({
   const backdropRef = useRef<HTMLDivElement>(null);
   const sheetRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  useFocusTrap(sheetRef, !!incident);
 
   const [isPhotoRevealed, setIsPhotoRevealed] = useState(false);
   const [callNotice, setCallNotice] = useState<string | null>(null);
@@ -163,6 +165,10 @@ export default function DetailSheet({
   const formattedGps = formatCoordinates(mapLat, mapLng);
   // Sample cases ("case-*") have no database row to read updates from or flag
   const isLive = !!incident.id && !incident.id.startsWith('case-');
+  // An expired claim is open again for other volunteers
+  const open = needsRescuer(incident.state, incident.claimedAt);
+  const isMine = !!userId && incident.claimedBy === userId;
+  const escalation = calculateEscalation(incident.createdAt, incident.type);
 
   const handleCallClick = () => {
     setCallNotice('Test mode: calls disabled.');
@@ -232,7 +238,7 @@ export default function DetailSheet({
             ref={closeButtonRef}
             type="button"
             onClick={handleClose}
-            className="w-10 h-10 min-w-[40px] min-h-[40px] rounded-full bg-surface-muted hover:bg-border/60 text-fg-muted hover:text-fg flex items-center justify-center transition-colors cursor-pointer shrink-0"
+            className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full bg-surface-muted hover:bg-border/60 text-fg-muted hover:text-fg flex items-center justify-center transition-colors cursor-pointer shrink-0"
             aria-label="Close details"
           >
             <X className="w-4 h-4" />
@@ -303,21 +309,17 @@ export default function DetailSheet({
             </div>
           </div>
 
-          {/* Progressive escalation status notice */}
-          {incident.state === 'reported' && calculateEscalation(incident.createdAt, incident.type).isWidened && (
+          {/* Waiting notice: the escalation stage moves the case up the feed; nothing is broadcast yet */}
+          {open && escalation.isWidened && (
             <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-surface-muted border border-border text-[12px] text-fg-muted font-normal">
               <span
-                className={`w-2 h-2 rounded-full shrink-0 ${
-                  calculateEscalation(incident.createdAt, incident.type).isAlert
-                    ? 'bg-reported-fg'
-                    : 'bg-fg-muted'
-                }`}
+                className={`w-2 h-2 rounded-full shrink-0 ${escalation.isAlert ? 'bg-reported-fg' : 'bg-fg-muted'}`}
                 aria-hidden="true"
               />
               <span>
-                {calculateEscalation(incident.createdAt, incident.type).isAlert
-                  ? 'Urgent: No volunteer responder on scene yet. Sector broadcast widened.'
-                  : 'Sector dispatch radius widened to neighboring barangays.'}
+                {escalation.isAlert
+                  ? `No volunteer has claimed this in ${escalation.elapsedMinutes} minutes. It is shown at the top of the feed.`
+                  : `Waiting ${escalation.elapsedMinutes} minutes for a rescuer. It has moved up the feed.`}
               </span>
             </div>
           )}
@@ -391,7 +393,7 @@ export default function DetailSheet({
                 </div>
                 <p className="text-[12px] text-claimed-fg/90 font-normal leading-tight">
                   {calculateClaimTimer(incident.claimedAt).isExpired
-                    ? 'The 60-minute claim lock has expired. Incident is eligible for re-dispatch.'
+                    ? 'The 60-minute claim lock has run out. Any volunteer can claim this case now.'
                     : 'Rescue is locked for 60 minutes to prevent duplicate volunteer dispatches.'}
                 </p>
               </div>
@@ -430,40 +432,42 @@ export default function DetailSheet({
                   {actionError}
                 </p>
               )}
-              {incident.state === 'reported' ? (
+              {open && !(incident.state === 'claimed' && isMine) ? (
                 role !== 'volunteer' && role !== 'admin' ? (
                   <div className="text-center py-2 space-y-1">
                     <p className="text-[12px] text-fg-muted font-normal">
                       Field rescues can only be claimed by approved volunteers.
                     </p>
-                    <Link
-                      href="/settings#volunteer"
-                      className="text-[14px] font-semibold text-link underline cursor-pointer"
-                    >
-                      Apply to become a volunteer
-                    </Link>
+                    {role === 'citizen' && (
+                      <Link
+                        href="/settings#volunteer"
+                        className="min-h-[44px] inline-flex items-center text-[14px] font-semibold text-link underline cursor-pointer"
+                      >
+                        Apply to become a volunteer
+                      </Link>
+                    )}
                   </div>
                 ) : (
                   <div className="space-y-2">
                     <button
                       type="button"
-                      onClick={() => onClaim ? onClaim(incident) : alert(`Claimed rescue ${incident.shortId}`)}
+                      onClick={() => onClaim?.(incident)}
                       className="w-full min-h-[48px] bg-accent hover:opacity-90 active:scale-[0.98] text-accent-fg font-semibold text-[16px] rounded-xl flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer border-none"
                     >
                       <HeartHandshake className="w-5 h-5" aria-hidden="true" />
-                      <span>Claim Rescue (60m Lock)</span>
+                      <span>{incident.state === 'claimed' ? 'Claim this rescue (lock expired)' : 'Claim Rescue (60m Lock)'}</span>
                     </button>
                     <p className="text-[12px] text-fg-muted text-center font-normal">
-                      Locks incident for 60 minutes to prevent duplicate volunteer dispatch.
+                      Locks the case to you for 60 minutes so two volunteers don&apos;t go to the same animal.
                     </p>
                   </div>
                 )
               ) : incident.state === 'claimed' ? (
-                role === 'volunteer' || role === 'admin' ? (
+                isMine || role === 'admin' ? (
                   <div className="space-y-2">
                     <button
                       type="button"
-                      onClick={() => onAdmit ? onAdmit(incident) : alert(`Admitted ${incident.shortId}`)}
+                      onClick={() => onAdmit?.(incident)}
                       className="w-full min-h-[48px] bg-action hover:opacity-90 active:scale-[0.98] text-action-fg font-semibold text-[16px] rounded-xl flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer border-none"
                     >
                       <HeartPulse className="w-5 h-5" aria-hidden="true" />
@@ -471,11 +475,11 @@ export default function DetailSheet({
                     </button>
                     <button
                       type="button"
-                      onClick={() => onReleaseClaim ? onReleaseClaim(incident) : alert(`Released claim on ${incident.shortId}`)}
+                      onClick={() => onReleaseClaim?.(incident)}
                       className="w-full min-h-[44px] rounded-xl border border-border bg-surface hover:bg-surface-muted text-fg font-semibold text-[14px] flex items-center justify-center gap-2 transition-colors cursor-pointer"
                     >
                       <RotateCcw className="w-4 h-4 text-fg-muted" aria-hidden="true" />
-                      <span>Release Claim (Cannot Attend)</span>
+                      <span>{isMine ? 'Release Claim (Cannot Attend)' : 'Release this claim (admin)'}</span>
                     </button>
                   </div>
                 ) : (
@@ -491,16 +495,18 @@ export default function DetailSheet({
                 </div>
               )}
 
-              {/* Secondary Call button (Disabled in test mode) */}
-              <button
-                type="button"
-                onClick={handleCallClick}
-                aria-label="Call clinic (disabled in test mode)"
-                className="w-full min-h-[44px] rounded-xl border border-border bg-surface hover:bg-surface-muted text-fg font-semibold text-[14px] flex items-center justify-center gap-2 transition-colors cursor-pointer"
-              >
-                <Phone className="w-4 h-4 text-fg-muted" aria-hidden="true" />
-                <span>Call Partner Facility</span>
-              </button>
+              {/* Calling a clinic only makes sense once one has the animal (disabled in test mode) */}
+              {incident.facilityId && (
+                <button
+                  type="button"
+                  onClick={handleCallClick}
+                  aria-label="Call clinic (disabled in test mode)"
+                  className="w-full min-h-[44px] rounded-xl border border-border bg-surface hover:bg-surface-muted text-fg font-semibold text-[14px] flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                >
+                  <Phone className="w-4 h-4 text-fg-muted" aria-hidden="true" />
+                  <span>Call the clinic</span>
+                </button>
+              )}
 
               {isLive && <FlagReport key={incident.id} reportId={incident.id!} userId={userId} onSignIn={onSignIn} />}
             </div>
@@ -511,7 +517,7 @@ export default function DetailSheet({
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-[14px] font-semibold text-fg">
                 <MapPin className="w-4 h-4 text-fg-muted" aria-hidden="true" />
-                <span>Live Scene Location</span>
+                <span>Reported location</span>
               </div>
               <span className="font-mono text-[12px] text-fg-muted tabular-nums">
                 {formattedGps}
@@ -521,18 +527,11 @@ export default function DetailSheet({
             {/* Embedded Interactive Map Card */}
             <div className="relative w-full h-48 rounded-2xl overflow-hidden border border-border bg-surface-muted shadow-sm">
               <iframe
-                title={`Live location map for ${incident.animal}`}
+                title={`Map of where ${incident.animal} was reported`}
                 src={`https://www.openstreetmap.org/export/embed.html?bbox=${(mapLng - 0.005).toFixed(4)}%2C${(mapLat - 0.0035).toFixed(4)}%2C${(mapLng + 0.005).toFixed(4)}%2C${(mapLat + 0.0035).toFixed(4)}&layer=mapnik&marker=${mapLat}%2C${mapLng}`}
                 className="w-full h-full border-0 select-none"
                 loading="lazy"
               />
-              {/* GPS status badge without decorative pulse */}
-              <div className="absolute top-2.5 left-2.5 pointer-events-none">
-                <span className="inline-flex items-center gap-2 px-2 py-0.5 rounded-full text-[12px] font-normal bg-surface/90 text-fg border border-border shadow-xs backdrop-blur-sm">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" aria-hidden="true" />
-                  <span>GPS Active</span>
-                </span>
-              </div>
             </div>
 
             {/* Directions Action */}

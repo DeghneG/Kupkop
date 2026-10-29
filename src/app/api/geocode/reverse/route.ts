@@ -1,7 +1,13 @@
 import { NextResponse } from 'next/server';
+import { checkRateLimit, clientIp } from '@/lib/rateLimit';
 
 export async function GET(request: Request) {
   try {
+    // OpenStreetMap's lookup allows about one request a second, so each caller gets a small budget
+    if (!checkRateLimit(`geocode:${clientIp(request)}`, 20, 60_000).allowed) {
+      return NextResponse.json({ error: 'Too many location lookups. Try again in a minute.' }, { status: 429 });
+    }
+
     const { searchParams } = new URL(request.url);
     const lat = searchParams.get('lat');
     const lng = searchParams.get('lng');
@@ -22,7 +28,8 @@ export async function GET(request: Request) {
       `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`,
       {
         headers: {
-          'User-Agent': 'KupKop-StreetAnimalNetwork/1.0 (emergency@kupkop.org)',
+          // Nominatim's usage policy asks for an identifying app name and a way to reach the app
+          'User-Agent': `KupKop-StreetAnimalNetwork/1.0 (+${new URL(request.url).origin})`,
           'Accept-Language': 'en',
         },
         next: { revalidate: 3600 },
