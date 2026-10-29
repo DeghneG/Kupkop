@@ -12,12 +12,19 @@
 ### Doing (Max 2 cards)
 - [ ] Phase 1: Live SOS camera capture, GPS dispatch flow & Rafa AI assistant.
   - *Done when:* Real report from a phone lands in the database with server timestamp, compressed live camera photo, valid GPS, and Rafa emergency assistant handles bilingual first-aid queries with safety guardrails.
+  - *Status (2026-10-29):* Code complete. Rafa live on Gemini with scope rule and bilingual fallback (D-027); SOS refuses to send without a real GPS fix (D-026). Remaining: deploy with env vars, then the real-phone outdoor test.
+
+### Built ahead of schedule (Phase 2, needs real-account testing)
+- [x] Feed with realtime list, escalation tiers, grouping, filters, pull-to-refresh (D-026).
+- [x] Claim lock with Active Case Bar and responder quick-claim (D-026).
+- [x] Landing page `/welcome` with shared sign-in (email link; Google/Facebook buttons ready) (D-026).
+- [ ] Verify claim lock with two real accounts (one volunteer approved via `review_role_application`).
 
 ### To Do (Phase 0 - Setup)
 *(All Phase 0 setup tasks completed)*
 
 ### Done
-- [x] Configure Supabase project (Auth with email + Google, storage buckets: `live-snaps`, `bills`, private `plate-photos`).
+- [x] Configure Supabase project (Auth with email; Google and Facebook not enabled yet, see D-026; storage buckets: `live-snaps`, `bills`, private `plate-photos`).
   - *Result:* Live Postgres migration applied successfully. Tables (`profiles`, `facilities`, `sos_reports`, `recovery_updates`), RLS policies, trigger `on_auth_user_created`, and storage buckets (`live-snaps` public, `bills` & `plate-photos` private) verified via automated client tests.
 - [x] Configure Gemini API integration scaffold (`/api/chat` with rate limit and spend cap guardrails).
   - *Result:* Created `src/lib/gemini/rafa.ts` and `/api/chat` route with 10 req/min rate limiter, 500-char message cap, 350 max tokens, bilingual system prompt, graceful local mock fallback, and connected `src/app/rafa/page.tsx`. Verified via test POST.

@@ -239,3 +239,19 @@
   - Google and Facebook are **not enabled in Supabase** (observed via `/auth/v1/settings`: only email). Enable both in Authentication → Providers and add the `/auth/callback` redirect URLs.
   - Rafa runs on the rule-based fallback (`GEMINI_API_KEY` is the placeholder); the fallback misses Filipino word forms ("kinagat", "nagdurugo"). QA blockers 2 and 3.
   - Design source conflict: D-025 removed Impeccable in favour of Claude Design, but Impeccable was restored and used for the feed. Decide which one governs.
+
+### D-027: Rafa live on Gemini, scope rule, QA fixes
+- **Date:** 2026-10-29
+- **Decision:**
+  1. **Rafa on Gemini 2.5 Flash** (real `GEMINI_API_KEY` in `.env.local`). Hidden thinking is turned off and the reply cap raised from 350 to 700 tokens; before that, replies stopped mid-sentence (Filipino replies run longer).
+  2. **Scope rule (system prompt section K):** Rafa only answers about injured or endangered street dogs and cats, first aid, rescuer safety and KupKop; anything else gets a one-line refusal that points to SOS or a vet. Prompt-level only, so not guaranteed against a determined user.
+  3. **Fallback replies rewritten to word-boundary patterns** (QA blocker 2). Filipino affixed forms now match ("nagdurugo", "kinagat", "nasagasaan"); "scared" no longer hits the hit-by-car reply; "my dog was bitten" gets wound care instead of the human-bite reply; "baka" ("maybe") no longer reads as cow. A Filipino message gets a Filipino reply even with the toggle on EN.
+  4. **Offline label** (QA blocker 3): the route returns `isMock: true` whenever the built-in replies answered, including after a Gemini failure, and the chat marks those replies "Offline answer, basic guidance only".
+  5. **Minor QA:** Rafa language toggle and chips are 44px; SOS retries a duplicate Case ID up to 3 times; "Update GPS" replaces its location watcher instead of stacking a new one (and the watcher stops when leaving SOS).
+  6. **Missing Supabase settings are now visible:** a build without `NEXT_PUBLIC_SUPABASE_*` shows "KupKop is not connected to its database" on the feed and logs one console error, instead of retrying a fake host.
+  7. **Feed recovers from a stale sign-in token:** on PGRST301/303 it refreshes the session once, else signs out locally, then retries.
+- **Open:**
+  - Hosted deploy needs `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` and `GEMINI_API_KEY`, then a rebuild; the hosted address must be added to Supabase redirect URLs.
+  - Google and Facebook still not enabled in Supabase.
+  - The Gemini key was shared in a chat session: rotate it and set a spend cap in Google Cloud.
+  - Phase 1 real-phone test not run yet.
