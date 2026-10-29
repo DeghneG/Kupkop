@@ -9,6 +9,8 @@ interface Message {
   sender: 'rafa' | 'user';
   text: string;
   time: string;
+  /** Answered by the built-in replies because Gemini was unavailable */
+  offline?: boolean;
 }
 
 const quickPromptChips = [
@@ -98,6 +100,7 @@ export default function RafaPage() {
           sender: 'rafa',
           text: data.response,
           time: replyTime,
+          offline: data.isMock === true,
         };
 
         setMessages((prev) => [...prev, rafaReply]);
@@ -146,7 +149,7 @@ export default function RafaPage() {
             role="radio"
             aria-checked={language === 'en'}
             onClick={() => setLanguage('en')}
-            className={`px-3 py-1 rounded-lg transition-colors cursor-pointer ${
+            className={`min-h-[44px] min-w-[44px] px-3 rounded-lg transition-colors cursor-pointer ${
               language === 'en'
                 ? 'bg-surface text-fg shadow-sm'
                 : 'text-fg-muted hover:text-fg'
@@ -159,7 +162,7 @@ export default function RafaPage() {
             role="radio"
             aria-checked={language === 'fil'}
             onClick={() => setLanguage('fil')}
-            className={`px-3 py-1 rounded-lg transition-colors cursor-pointer ${
+            className={`min-h-[44px] min-w-[44px] px-3 rounded-lg transition-colors cursor-pointer ${
               language === 'fil'
                 ? 'bg-surface text-fg shadow-sm'
                 : 'text-fg-muted hover:text-fg'
@@ -188,7 +191,11 @@ export default function RafaPage() {
               >
                 {m.text}
               </div>
-              <span className="text-[12px] text-fg-muted mt-1 px-1">{m.time}</span>
+              <span className="text-[12px] text-fg-muted mt-1 px-1">
+                {m.offline
+                  ? `${m.time} · ${language === 'fil' ? 'Offline na sagot, basic na gabay lang' : 'Offline answer, basic guidance only'}`
+                  : m.time}
+              </span>
             </div>
           );
         })}
@@ -229,7 +236,7 @@ export default function RafaPage() {
               type="button"
               disabled={loading}
               onClick={() => handleChipClick(chip.queryEn, chip.queryFil)}
-              className="px-3 py-2 rounded-full text-[12px] font-semibold border border-border bg-surface hover:bg-surface-muted text-fg transition-colors cursor-pointer disabled:opacity-50 active:scale-[0.98]"
+              className="min-h-[44px] px-4 rounded-full text-[12px] font-semibold border border-border bg-surface hover:bg-surface-muted text-fg transition-colors cursor-pointer disabled:opacity-50 active:scale-[0.98]"
             >
               {chip.label}
             </button>

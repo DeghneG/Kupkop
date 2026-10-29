@@ -102,6 +102,7 @@ export async function POST(request: Request) {
 
     // 5. Call Gemini 2.5 Flash
     let replyText = '';
+    let usedFallback = false;
     try {
       const result = await ai.models.generateContent({
         model: 'gemini-2.5-flash',
@@ -135,17 +136,20 @@ export async function POST(request: Request) {
         console.error('All Gemini attempts failed:', fallbackErr);
         // Fall back gracefully to built-in triage helper so user is never stranded
         replyText = generateMockRafaResponse(message, language);
+        usedFallback = true;
       }
     }
 
     if (!replyText) {
       replyText = generateMockRafaResponse(message, language);
+      usedFallback = true;
     }
 
     return NextResponse.json(
       {
         response: replyText,
-        isMock: false,
+        // True whenever the built-in replies answered, so the chat can label them as offline answers
+        isMock: usedFallback,
       },
       {
         headers: {

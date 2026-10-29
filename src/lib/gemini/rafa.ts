@@ -98,22 +98,25 @@ export function getGeminiClient(): GoogleGenAI | null {
 // -----------------------------------------------------------------------------
 // Offline / Mock Intelligent Rule-Based Engine (Adheres Strictly to Spec A-J)
 // -----------------------------------------------------------------------------
+// Common Filipino function words. A Filipino message gets a Filipino reply even if the toggle says EN.
+const FILIPINO_MARKERS = /\b(ang|mga|ng|ako|ko|po|nang|paano|ano|ba|siya|sila|aso|pusa|hayop)\b/;
+
+const PANIC_ONLY = new Set(['help', 'help me', 'emergency', 'tulong', 'tulong po', 'tulungan mo ako', 'saklolo', 'what do i do', 'ano gagawin ko', 'ano ang gagawin ko']);
+const GREETING_ONLY = new Set(['hi', 'hello', 'hey', 'kumusta', 'kamusta', 'musta', 'hi rafa', 'hello rafa']);
+
 export function generateMockRafaResponse(message: string, language: 'en' | 'fil'): string {
   const clean = message.toLowerCase().trim();
-  const isFil = language === 'fil';
+  // Punctuation stripped, for whole-message checks ("Help!!" → "help")
+  const bare = clean.replace(/[^\p{L}\p{N}\s]/gu, '').replace(/\s+/g, ' ').trim();
+  const isFil = language === 'fil' || FILIPINO_MARKERS.test(clean);
+
+  // Patterns use word boundaries so "scared" does not match "car" and "a bit" does not match "bit".
+  // Filipino stems are matched inside words because affixes wrap them: du-rugo, k-in-agat, na-sagasa-an.
 
   // 1. ADVERSARIAL & HARMFUL INTENT (Section I)
   if (
-    clean.includes('ignore your rules') ||
-    clean.includes('system prompt') ||
-    clean.includes('developer mode') ||
-    clean.includes('pretend you are a vet') ||
-    clean.includes('repeat the instructions') ||
-    clean.includes('poison') && (clean.includes('how to') || clean.includes('get rid of') || clean.includes('kill')) ||
-    clean.includes('catch and sell') ||
-    clean.includes('fake a report') ||
-    clean.includes('bypass') ||
-    clean.includes('get around')
+    /ignore (your|the|all|previous) (rules|instructions)|system prompt|developer mode|pretend (you are|you're|to be) a vet|repeat (the|your) instructions|catch and sell|fake (a )?report|bypass|get around/.test(clean) ||
+    (/\bpoison|\blason/.test(clean) && /how to|get rid of|\bkill|paano|patayin/.test(clean))
   ) {
     if (isFil) {
       return 'Pasensya na, ngunit hindi maaaring lumihis si Rafa sa mga panuntunan para sa kaligtasan ng mga hayop. Nandito lamang ako upang magbigay ng first-aid guidance para sa mga aso at pusang nangangailangan ng saklolo.';
@@ -122,9 +125,13 @@ export function generateMockRafaResponse(message: string, language: 'en' | 'fil'
   }
 
   // 2. HUMAN BITE OR SCRATCH ON RESCUER (Section B & F)
+  // Only when a person was bitten. "My dog was bitten" is an animal wound and falls through to bleeding.
   if (
-    (clean.includes('bit') || clean.includes('bite') || clean.includes('scratched') || clean.includes('kagat') || clean.includes('kalmot')) &&
-    (clean.includes('me') || clean.includes('my') || clean.includes('ako') || clean.includes('child') || clean.includes('anak') || clean.includes('bata'))
+    /\b(bit|bite|bites|scratched)\s+(me|my (hand|arm|leg|finger|foot|face|son|daughter|child|kid|baby))\b/.test(clean) ||
+    /\bi(\s+was|\s+got|\s+have been|'ve been|'m)?\s+(bitten|scratched|bit)\b/.test(clean) ||
+    /\bmy (child|son|daughter|kid|baby)\s+(was|got)\s+(bitten|scratched)\b/.test(clean) ||
+    /\b(na|ki)?(nakagat|kinagat|nakalmot|kinalmot|kagat|kalmot)\w*\s+(ako|ang anak|anak|ang bata|bata)\b/.test(clean) ||
+    /\b(ako|anak ko|ang bata)\s+(ay\s+)?(nakagat|kinagat|nakalmot|kinalmot)\b/.test(clean)
   ) {
     if (isFil) {
       return 'MAHALAGA (Kaligtasan ng Tao): Hugasan agad ang sugat sa ilalim ng umaagos na tubig at sabon nang hindi bababa sa 15 minuto. Huwag pisilin o lagyan ng harsh chemicals. Pumunta AGAD sa pinakamalapit na Animal Bite Treatment Center (ABTC) o ospital para sa anti-rabies at tetanus shots. Huwag hulaan kung may rabies ang hayop.';
@@ -133,18 +140,7 @@ export function generateMockRafaResponse(message: string, language: 'en' | 'fil'
   }
 
   // 3. MEDICATION & DOSAGE REFUSAL (Section F)
-  if (
-    clean.includes('paracetamol') ||
-    clean.includes('biogesic') ||
-    clean.includes('ibuprofen') ||
-    clean.includes('advil') ||
-    clean.includes('aspirin') ||
-    clean.includes('tylenol') ||
-    clean.includes('antibiotic') ||
-    clean.includes('sedative') ||
-    clean.includes('dose') ||
-    clean.includes('dosage')
-  ) {
+  if (/paracetamol|biogesic|ibuprofen|advil|aspirin|tylenol|antibiotic|amoxicillin|sedative|\b(dose|doses|dosage|mg)\b|\bgamot\b/.test(clean)) {
     if (isFil) {
       return 'MAHIGPIT NA BABALA: HUWAG kailanman magbigay ng paracetamol, biogesic, ibuprofen, o aspirin sa aso o pusa. Ang mga gamot na ito ay nagdudulot ng nakamamatay na liver at kidney failure. Hindi nagbibigay si Rafa ng anumang reseta o dosage. Dalhin agad ang hayop sa isang beterinaryo.';
     }
@@ -152,14 +148,8 @@ export function generateMockRafaResponse(message: string, language: 'en' | 'fil'
   }
 
   // 4. NON-TARGET SPECIES (WILDLIFE / BIRDS / SNAKES - Section F)
-  if (
-    clean.includes('bird') || clean.includes('ibon') ||
-    clean.includes('bat') || clean.includes('paniki') ||
-    clean.includes('snake') || clean.includes('ahas') ||
-    clean.includes('monkey') || clean.includes('unggoy') ||
-    clean.includes('pig') || clean.includes('baboy') ||
-    clean.includes('cow') || clean.includes('baka')
-  ) {
+  // "baka" is left out: in Filipino it also means "maybe" ("baka mamatay").
+  if (/\b(birds?|ibon|bats?|paniki|snakes?|ahas|monkeys?|unggoy|pigs?|baboy|cows?)\b/.test(clean)) {
     if (isFil) {
       return 'Si Rafa ay nakalaan lamang para sa mga aso at pusa. Para sa mga ibon, ahas, paniki, o mailap na hayop (wildlife), mangyaring makipag-ugnayan sa DENR (Department of Environment and Natural Resources) o sa lokal na City Veterinary / Animal Control Office.';
     }
@@ -167,7 +157,7 @@ export function generateMockRafaResponse(message: string, language: 'en' | 'fil'
   }
 
   // 5. VAGUE PANIC / SHORT HELP CALL (Section I)
-  if (clean === 'help' || clean === 'emergency' || clean === 'tulong' || clean === 'saklolo' || clean === 'what do i do' || clean === 'ano gagawin ko') {
+  if (PANIC_ONLY.has(bare)) {
     if (isFil) {
       return 'Huminga nang malalim. Narito ang 3 agarang hakbang:\n1. Manatili sa ligtas na distansya (maaaring mangagat ang takot na hayop).\n2. Pindutin ang pulang SOS button para maitala ang live GPS at snapshot.\n3. Panatilihing nakahiga at takpan ng malinis na tela.\n\nSabihin sa akin: nagdurugo ba sila, nabangga ng sasakyan, o nahihirapan huminga?';
     }
@@ -175,10 +165,7 @@ export function generateMockRafaResponse(message: string, language: 'en' | 'fil'
   }
 
   // 6. GREETINGS & ABOUT RAFA (Section G)
-  if (
-    clean === 'hi' || clean === 'hello' || clean === 'kumusta' || clean === 'kamusta' ||
-    clean.includes('who are you') || clean.includes('sino ka') || clean.includes('are you a vet') || clean.includes('are you human')
-  ) {
+  if (GREETING_ONLY.has(bare) || /who are you|sino ka|are you a vet|are you human|vet ka ba/.test(clean)) {
     if (isFil) {
       return 'Kumusta! Ako si Rafa, ang AI emergency first-aid companion ng KupKop para sa mga hayop sa kalsada. Hindi ako beterinaryo at hindi ako nakakatawag nang kusa, ngunit makatutulong ako sa agarang roadside stabilization habang naghihintay ng responder. Paano kita matutulungan ngayon?';
     }
@@ -186,14 +173,15 @@ export function generateMockRafaResponse(message: string, language: 'en' | 'fil'
   }
 
   // 7. BLEEDING & WOUNDS (Section A)
-  if (clean.includes('bleed') || clean.includes('blood') || clean.includes('dugo') || clean.includes('wound') || clean.includes('sugat')) {
-    if (clean.includes('stuck') || clean.includes('nakatusok') || clean.includes('object')) {
+  // Includes an animal that was bitten (dog fight): that is a wound, not a rescuer bite
+  if (/\b(bleed\w*|blood\w*|wounds?|wounded|bitten|bite wound|bit by)\b|dugo|durugo|sugat|kagat|kinagat/.test(clean)) {
+    if (/\b(stuck|impaled|object)\b|tusok/.test(clean)) {
       if (isFil) {
         return 'HUWAG bubunutin ang nakatusok na bagay — ito ay nagsisilbing tapon sa pagdugo. Maglagay ng makapal na gasa o malinis na tela sa paligid nito upang hindi gumalaw, at dalhin agad sa vet clinic.';
       }
       return 'DO NOT pull out any impaled or stuck object — it is acting as a plug preventing catastrophic hemorrhage. Pack clean cloth or gauze around the object to stabilize it without pressing it deeper, and rush to a clinic.';
     }
-    if (clean.includes('tourniquet')) {
+    if (/tourniquet/.test(clean)) {
       if (isFil) {
         return 'HUWAG gumamit ng tourniquet. Maaari itong maging sanhi ng permanenteng pagkamatay ng binti (necrosis). Gumamit lamang ng banayad at tuluy-tuloy na direct pressure gamit ang malinis na tela.';
       }
@@ -207,9 +195,8 @@ export function generateMockRafaResponse(message: string, language: 'en' | 'fil'
 
   // 8. HIT BY VEHICLE / MOVING SAFELY / FRACTURES (Section A & B)
   if (
-    clean.includes('hit') || clean.includes('car') || clean.includes('vehicle') || clean.includes('bangga') ||
-    clean.includes('sagasa') || clean.includes('move') || clean.includes('lift') || clean.includes('ilipat') ||
-    clean.includes('fracture') || clean.includes('broken') || clean.includes('bali') || clean.includes('pilay')
+    /\b(hit|run over|cars?|vehicles?|truck|motorcycle|jeep(ney)?|move|moving|lift|carry|fractur\w*|broken|limp\w*)\b/.test(clean) ||
+    /bangga|sagasa|\b(ilipat|buhatin|bali|nabali|baling|pilay|napilay|paralisado)\b/.test(clean)
   ) {
     if (isFil) {
       return 'Huwag munang galawin ang hayop maliban kung nasa gitna ng rumaragasang kalsada. Kung kailangang ilipat:\n1. Magpadulas ng patag na karton, kahoy, o makapal na jacket sa ilalim tulad ng stretcher.\n2. Panatilihing tuwid ang gulugod at leeg.\n3. Huwag magbigay ng pagkain o tubig dahil baka kailanganin ang agarang operasyon.\n4. Mag-file ng SOS report sa KupKop.';
@@ -218,12 +205,12 @@ export function generateMockRafaResponse(message: string, language: 'en' | 'fil'
   }
 
   // 9. SHOCK, COLD, SHAKING, HEATSTROKE (Section A)
+  const heatPattern = /\b(heat\w*|pant\w*|overheat\w*)\b|\b(init|mainit|naiinitan|hingal|hinihingal)\b/;
   if (
-    clean.includes('shock') || clean.includes('shake') || clean.includes('shaking') || clean.includes('nanginginig') ||
-    clean.includes('warm') || clean.includes('cold') || clean.includes('pale') || clean.includes('ginaw') ||
-    clean.includes('heat') || clean.includes('pant') || clean.includes('init') || clean.includes('hingal')
+    heatPattern.test(clean) ||
+    /\b(shock|shak\w*|shiver\w*|trembl\w*|warm|cold|pale)\b|nginig|ginaw|\bmaputla\b/.test(clean)
   ) {
-    if (clean.includes('heat') || clean.includes('init') || clean.includes('pant') || clean.includes('hingal')) {
+    if (heatPattern.test(clean)) {
       if (isFil) {
         return 'Hingal sa init / Heatstroke:\n1. Ilipat agad sa malilim at mahanging lugar.\n2. Basain ng katamtamang lamig na tubig sa gripo ang mga paa, tainga, at singit.\n3. HUWAG magbuhos ng yelo o nagyeyelong tubig dahil magdudulot ito ng internal shock.\n4. Alukin ng kaunting inuming tubig.';
       }
@@ -236,7 +223,7 @@ export function generateMockRafaResponse(message: string, language: 'en' | 'fil'
   }
 
   // 10. TRAPPED OR TANGLED (Section A)
-  if (clean.includes('trapped') || clean.includes('stuck') || clean.includes('drain') || clean.includes('canal') || clean.includes('kanal') || clean.includes('naipit') || clean.includes('wire') || clean.includes('net')) {
+  if (/\b(trapped|stuck|drains?|canal|wires?|nets?|netting|tangled|engine)\b|kanal|imburnal|ipit|nakulong|alambre|lambat/.test(clean)) {
     if (isFil) {
       return 'Hayop na Naipit / Nasa Kanal:\n1. Huwag iabot ang kamay nang hindi nakikita ang loob — maaaring mangagat ang takot na hayop.\n2. Gumamit ng flashlight at tingnan kung may nasugatan.\n3. Kung nakapulupot na alambre o lambat, gupitin nang marahan palayo sa balat.\n4. Mag-file ng SOS report upang matulungan ng mga volunteer na may gamit.';
     }
@@ -244,7 +231,7 @@ export function generateMockRafaResponse(message: string, language: 'en' | 'fil'
   }
 
   // 11. SCARED / GROWLING / RESTRAINING (Section B)
-  if (clean.includes('growl') || clean.includes('scared') || clean.includes('galit') || clean.includes('natatakot') || clean.includes('muzzle') || clean.includes('towel') || clean.includes('approach')) {
+  if (/\b(growl\w*|scared|afraid|aggressive|muzzle|towel|approach\w*)\b|\b(galit|natatakot|umuungol|nangangagat)\b/.test(clean)) {
     if (isFil) {
       return 'Paano Lapitan ang Takot o Umuungol na Aso:\n1. Huwag tumitig sa mata at huwag lumapit nang paharap; humarap nang bahagyang patagilid.\n2. Magsalita nang mahinahon at mababa ang boses.\n3. Maglagay ng makapal na kumot o tuwalya sa ibabaw ng ulo bago buhatin upang maiwasan ang kagat.\n4. Huwag subukang lagyan ng busal kung nahihirapan silang huminga.';
     }
@@ -252,21 +239,21 @@ export function generateMockRafaResponse(message: string, language: 'en' | 'fil'
   }
 
   // 12. PLATFORM RULES & APP QUESTIONS (Section C & D)
-  if (clean.includes('gallery') || clean.includes('upload') || clean.includes('larawan') || clean.includes('picture')) {
+  if (/\b(gallery|upload\w*|pictures?|photos?)\b|larawan|litrato/.test(clean)) {
     if (isFil) {
       return 'Kailangang live camera capture lamang sa KupKop upang masigurong totoo, nasa eksena ang nagre-report, at may tunay na GPS timestamp. Hindi pinapayagan ang gallery upload upang maiwasan ang mga pekeng report o lumang litrato.';
     }
     return 'KupKop strictly enforces live camera capture with automatic GPS to guarantee report authenticity and immediate on-scene presence. Gallery uploads are blocked to prevent fake reports, recycled social media posts, and donation fraud.';
   }
 
-  if (clean.includes('14-day') || clean.includes('14 day') || clean.includes('overdue')) {
+  if (/14[- ]?days?|14 araw|overdue/.test(clean)) {
     if (isFil) {
       return 'Ang 14-day rule ng KupKop: Ang mga partner na klinika at shelter ay dapat mag-post ng recovery update sa loob ng 14 araw. Kung walang update, magiging "UPDATE OVERDUE" ang status at pansamantalang aalisin sa listahan upang maprotektahan ang tiwala ng komunidad.';
     }
     return 'The 14-day rule requires admitting clinics and shelters to post verifiable recovery updates within 14 days of intake. If a facility goes inactive for 14 days, the case flips to "UPDATE OVERDUE" and the facility is delisted until compliance is verified.';
   }
 
-  if (clean.includes('free') || clean.includes('charge') || clean.includes('bayad') || clean.includes('libre')) {
+  if (/\b(free|charge|fee)\b|\b(bayad|libre)\b/.test(clean)) {
     if (isFil) {
       return 'Oo, libre ang pag-report sa KupKop para sa sinumang bystander o citizen. Ang KupKop ay isang community network. Sa prototype mode, hindi ito konektado sa 911 o pampamahalaang ahensya.';
     }
@@ -274,7 +261,7 @@ export function generateMockRafaResponse(message: string, language: 'en' | 'fil'
   }
 
   // 13. EMOTIONAL SUPPORT (Section H)
-  if (clean.includes('scared') || clean.includes('crying') || clean.includes('guilt') || clean.includes('will it die') || clean.includes('takot') || clean.includes('umiiyak')) {
+  if (/\b(crying|cry|guilt\w*|dying)\b|will (it|he|she|they) die|takot|umiiyak|\b(mamatay|mamamatay)\b/.test(clean)) {
     if (isFil) {
       return 'Naiintindihan ko, nakakatakot at nakakapagod ang ganitong sitwasyon. Huminga nang malalim. Malaking bagay na nandoon ka para magmalasakit. Huwag sisisihin ang sarili — mag-focus tayo sa kaya nating gawin: panatilihing ligtas at dalhin sa klinika.';
     }
@@ -283,9 +270,8 @@ export function generateMockRafaResponse(message: string, language: 'en' | 'fil'
 
   // 14. DEFAULT IN-SCOPE TRIAGE ASSISTANCE
   if (
-    clean.includes('dog') || clean.includes('cat') || clean.includes('puppy') || clean.includes('kitten') ||
-    clean.includes('aso') || clean.includes('pusa') || clean.includes('hayop') || clean.includes('animal') ||
-    clean.includes('sos') || clean.includes('vet') || clean.includes('clinic') || clean.includes('mange') || clean.includes('galis')
+    /\b(dogs?|cats?|pupp(y|ies)|kittens?|animals?|sos|vets?|veterinar\w*|clinics?|mange|aspin|puspin|stray)\b/.test(clean) ||
+    /\b(aso|pusa|tuta|kuting|hayop|galis|beterinaryo)\b/.test(clean)
   ) {
     if (isFil) {
       return 'Nandito ako para sa first-aid guidance. Manatili sa ligtas na distansya upang hindi matakot ang hayop. Sabihin sa akin: nagdurugo ba sila, may bali, hindi makahinga, o may lason? Pindutin din ang pulang SOS button para sa live dispatch.';
