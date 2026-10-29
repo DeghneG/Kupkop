@@ -18,13 +18,22 @@
 - [x] Feed with realtime list, escalation tiers, grouping, filters, pull-to-refresh (D-026).
 - [x] Claim lock with Active Case Bar and responder quick-claim (D-026).
 - [x] Landing page `/welcome` with shared sign-in (email link; Google/Facebook buttons ready) (D-026).
-- [ ] Verify claim lock with two real accounts (one volunteer approved via `review_role_application`).
+- [ ] Verify claim lock with two real accounts (approve the volunteer in /admin).
+- [x] Escalation timings checked against AGENTS.md (critical 0/3/10, urgent 5/15, moderate 15/60).
+
+### Built ahead of schedule (Phases 3-4, web only, D-030)
+- [x] Clinic care dashboard `/care`: cases in care, 14-day clock per case, recovery updates (admitted → healing → resolved).
+- [x] Clinic staff apply in Settings and are linked to one Listed clinic.
+- [x] Admin `/admin`: approve applications, review flagged reports, add Listed clinics.
+- [x] Flag a case (fake, duplicate, abusive); admin hides or dismisses.
+- [ ] Run migration `20261029000002_facility_care_and_flags.sql`, then test with real accounts: clinic staff posts an update, a flag gets hidden.
+- [ ] Needs a brief: bystander handoff, AI flag.
 
 ### Mobile app (React Native / Expo, D-028)
 - [x] Port all Phase 1-2 screens to mobile/ (Feed, SOS, Rafa, Clinics, Settings, Welcome).
 - [ ] Run on a real Android phone in Expo Go: SOS end to end, claim with two accounts.
 - [ ] First APK via EAS (preview profile) shared with a tester.
-- [ ] Later: push notifications for new SOS reports, Google sign-in, admin tools.
+- [ ] Paused until the web app is complete (D-030). Then port: clinic-staff application, recovery timeline, flag button, care and admin screens; EAS setup.
 
 ### To Do (Phase 0 - Setup)
 *(All Phase 0 setup tasks completed)*

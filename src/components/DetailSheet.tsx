@@ -23,11 +23,16 @@ import { IncidentData } from './ListRow';
 import { formatCoordinates } from '@/lib/sos/utils';
 import { calculateClaimTimer, calculateFacilityInactivity, calculateEscalation } from '@/lib/sos/escalation';
 import TriageGlyph from '@/components/icons/TriageGlyph';
+import CaseRecovery from '@/components/CaseRecovery';
+import FlagReport from '@/components/FlagReport';
 
 interface DetailSheetProps {
   incident: IncidentData | null;
   onClose: () => void;
   role: 'citizen' | 'volunteer' | 'facility' | 'admin';
+  /** Signed-in user, for flagging a report */
+  userId?: string | null;
+  onSignIn?: () => void;
   actionError?: string | null;
   triggerElement?: HTMLElement | null;
   onClaim?: (incident: IncidentData) => Promise<void> | void;
@@ -39,6 +44,8 @@ export default function DetailSheet({
   incident,
   onClose,
   role,
+  userId = null,
+  onSignIn,
   actionError,
   triggerElement,
   onClaim,
@@ -154,6 +161,8 @@ export default function DetailSheet({
   const mapLat = incident.latitude ?? 14.6198;
   const mapLng = incident.longitude ?? 121.0526;
   const formattedGps = formatCoordinates(mapLat, mapLng);
+  // Sample cases ("case-*") have no database row to read updates from or flag
+  const isLive = !!incident.id && !incident.id.startsWith('case-');
 
   const handleCallClick = () => {
     setCallNotice('Test mode: calls disabled.');
@@ -389,7 +398,15 @@ export default function DetailSheet({
             )}
 
             {/* 2. If Admitted/Healing: Render 14-Day Inactivity Clock Card */}
-            {(incident.state === 'admitted' || incident.state === 'healing') && (
+            {/* 2. In clinic care or released: recovery timeline; its 14-day clock runs from the newest update */}
+            {isLive && (incident.state === 'admitted' || incident.state === 'healing' || incident.state === 'resolved') && (
+              <CaseRecovery
+                reportId={incident.id!}
+                state={incident.state}
+                canPost={role === 'facility' || role === 'admin'}
+              />
+            )}
+            {!isLive && (incident.state === 'admitted' || incident.state === 'healing') && (
               <div className="bg-healing-bg text-healing-fg border border-healing-fg/20 rounded-2xl p-4 space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 font-semibold text-[14px]">
@@ -397,7 +414,7 @@ export default function DetailSheet({
                     <span>14-Day Facility Inactivity Clock</span>
                   </div>
                   <span className="font-mono text-[12px] font-semibold tabular-nums">
-                    {calculateFacilityInactivity(incident.claimedAt).badgeText}
+                    {calculateFacilityInactivity(incident.claimedAt).badgeText /* sample case: no updates */}
                   </span>
                 </div>
                 <p className="text-[12px] text-healing-fg/90 font-normal leading-tight">
@@ -484,6 +501,8 @@ export default function DetailSheet({
                 <Phone className="w-4 h-4 text-fg-muted" aria-hidden="true" />
                 <span>Call Partner Facility</span>
               </button>
+
+              {isLive && <FlagReport key={incident.id} reportId={incident.id!} userId={userId} onSignIn={onSignIn} />}
             </div>
           </div>
 

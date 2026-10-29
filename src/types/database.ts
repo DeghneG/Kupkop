@@ -19,6 +19,8 @@ export interface Profile {
   phone: string | null;
   role: UserRole;
   is_verified: boolean;
+  // Clinic a facility-role user works at; set only by an admin
+  facility_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -50,6 +52,8 @@ export interface SOSReport {
   claimed_by: string | null;
   claimed_at: string | null;
   facility_id: string | null;
+  // Set when an admin hides a fake report; hidden reports leave the public feed
+  hidden_at: string | null;
   server_timestamp: string; // server-side default now()
   created_at: string;
   updated_at: string;
@@ -64,4 +68,18 @@ export interface RecoveryUpdate {
   photo_url?: string;
   state: CaseState;
   created_at: string;
+}
+
+export type FlagReason = 'fake' | 'duplicate' | 'abuse' | 'other';
+
+export interface ReportFlag {
+  id: string;
+  report_id: string;
+  flagged_by: string;
+  reason: FlagReason;
+  note: string | null;
+  status: 'open' | 'dismissed' | 'hidden';
+  created_at: string;
+  reviewed_at: string | null;
+  reviewed_by: string | null;
 }

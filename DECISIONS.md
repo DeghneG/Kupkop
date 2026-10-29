@@ -277,3 +277,16 @@
   3. **Push alerts:** `push_tokens` table (RLS: own rows only). App registers after sign-in and removes its token on sign-out. Supabase Database Webhook → `POST /api/push/new-report` (shared secret, service role key server-side only) → Expo push to volunteers and admins except the reporter; dead tokens removed. Tap opens the case. Alerts go to all responders for now (no radius: volunteer locations are not stored).
 - **Needs the builder:** run the two migrations; enable Google in Supabase and add `kupkop://**` and `exp://**` to Redirect URLs; for push: `eas init`, Firebase FCM key, Vercel `SUPABASE_SERVICE_ROLE_KEY` + `PUSH_WEBHOOK_SECRET`, the webhook, and a development build (Expo Go on Android has no push).
 - **Checks:** web `tsc` and eslint; app `tsc`, `expo lint`, Android export bundle, `expo-doctor` 20/20; push route answers 503 until configured. Nothing tested on a phone yet.
+
+### D-030: Web first; clinic care dashboard (Phase 3), admin review and report flags (Phase 4)
+- **Date:** 2026-10-29
+- **Decision:**
+  1. **Web first:** new features are built and tested on the web app (GitHub + Vercel). The Expo app catches up once the web app is complete; EAS setup waits until then.
+  2. **Clinic staff belong to a clinic:** `profiles.facility_id`, set only by an admin (the role-tampering trigger now guards it too). Clinic staff apply in Settings and pick their Listed clinic; approving sets role and clinic together.
+  3. **Clinic care (`/care`):** staff see animals admitted to their clinic (admins see all), most overdue first, and post recovery updates through `post_recovery_update()`: admitted → healing → resolved, never healing → admitted, note 5–500 characters. Each update restarts that case's 14-day clock and the clinic's `last_active_at`. Direct inserts into `recovery_updates` are closed; the old policy let any facility user post on any clinic's case.
+  4. **Case sheet:** shows the recovery timeline and the clock from the newest update (it was wrongly counting from the claim time).
+  5. **Admin (`/admin`):** approve or reject applications, review flagged reports, add Listed clinics. Every action is a database function or RLS-checked insert that requires `is_admin()`.
+  6. **Report flags:** signed-in users flag a case as fake, duplicate, abusive or other (one flag per person per case). Nothing is hidden automatically; an admin hides it (`sos_reports.hidden_at`, kept for the record) or dismisses the flags. Hidden reports are visible only to their reporter and admins.
+- **Not done (needs a brief):** "bystander handoff" and an AI flag from the Phase 4 backlog line are not defined anywhere yet.
+- **Mobile port later:** clinic-staff option in the application form, recovery timeline, flag button, care and admin screens. The database changes don't break the current app.
+- **Checks:** `tsc`, eslint, `next build`; escalation and care-clock thresholds checked against AGENTS.md (13/13). Migration `20261029000002_facility_care_and_flags.sql` not run yet; nothing tested with real accounts yet.

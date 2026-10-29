@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { User, Sun, Moon, Laptop, LogOut, LogIn, Eye } from 'lucide-react';
+import Link from 'next/link';
+import { User, Sun, Moon, Laptop, LogOut, LogIn, Eye, ChevronRight, HeartPulse, ShieldCheck } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import AuthModal from '@/components/AuthModal';
 import RoleApplication from '@/components/RoleApplication';
@@ -10,7 +11,7 @@ import { useProfile } from '@/lib/supabase/useProfile';
 
 export default function SettingsPage() {
   const [themeMode, handleThemeChange] = useThemeMode();
-  const { user, role, realRole } = useProfile();
+  const { user, role, realRole, facilityId } = useProfile();
   const [, setViewAs] = useViewAs();
   const [isAuthOpen, setIsAuthOpen] = useState(false);
 
@@ -46,7 +47,7 @@ export default function SettingsPage() {
                 <p className="text-[14px] font-semibold text-fg truncate">
                   {user.email}
                 </p>
-                <p className="text-[12px] text-fg-muted">Signed in via Supabase</p>
+                <p className="text-[12px] text-fg-muted capitalize">Signed in · {realRole}</p>
               </div>
             </div>
 
@@ -75,6 +76,16 @@ export default function SettingsPage() {
           </div>
         )}
       </section>
+
+      {/* Role tools: clinic staff log recovery updates, admins review the queue */}
+      {user && (realRole === 'admin' || (realRole === 'facility' && facilityId)) && (
+        <nav aria-label="Role tools" className="bg-surface rounded-2xl border border-border shadow-sm divide-y divide-border">
+          <ToolLink href="/care" icon={HeartPulse} label="Clinic care" hint="Animals in care and the 14-day clock" />
+          {realRole === 'admin' && (
+            <ToolLink href="/admin" icon={ShieldCheck} label="Admin" hint="Applications, flagged reports, clinics" />
+          )}
+        </nav>
+      )}
 
       {/* 3. Appearance (3-Option iOS Segmented Control) */}
       <section aria-labelledby="settings-appearance-heading" className="bg-surface rounded-2xl p-4 border border-border shadow-sm space-y-3">
@@ -183,5 +194,18 @@ export default function SettingsPage() {
         onSuccess={() => setIsAuthOpen(false)}
       />
     </div>
+  );
+}
+
+function ToolLink({ href, icon: Icon, label, hint }: { href: string; icon: typeof User; label: string; hint: string }) {
+  return (
+    <Link href={href} className="min-h-[56px] px-4 py-3 flex items-center gap-3 hover:bg-surface-muted first:rounded-t-2xl last:rounded-b-2xl">
+      <Icon className="w-5 h-5 text-fg-muted shrink-0" aria-hidden="true" />
+      <span className="flex-1 min-w-0">
+        <span className="block text-[14px] font-semibold text-fg">{label}</span>
+        <span className="block text-[12px] text-fg-muted">{hint}</span>
+      </span>
+      <ChevronRight className="w-4 h-4 text-fg-muted shrink-0" aria-hidden="true" />
+    </Link>
   );
 }

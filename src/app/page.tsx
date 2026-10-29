@@ -13,6 +13,7 @@ import { usePullToRefresh } from '@/lib/usePullToRefresh';
 import { distanceKm, formatDistance, getDirectionalBearing } from '@/lib/sos/utils';
 import { KupkopMark } from '@/components/icons/TriageGlyph';
 import { calculateEscalation } from '@/lib/sos/escalation';
+import { animalLabel, emergencyLabel } from '@/lib/sos/labels';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { RotateCw } from 'lucide-react';
@@ -180,21 +181,8 @@ export default function HomePage() {
         }
 
         {
-          const liveIncidents: IncidentData[] = data.map((r) => {
-            const animalLabel =
-              r.animal_type === 'dog'
-                ? 'Injured Dog'
-                : r.animal_type === 'cat'
-                ? 'Injured Cat'
-                : 'Injured Animal';
-
-            let typeLabel = 'Emergency';
-            if (r.emergency_type === 'hit_and_run') typeLabel = 'Hit-and-run · Critical';
-            else if (r.emergency_type === 'bleeding') typeLabel = 'Bleeding · Critical';
-            else if (r.emergency_type === 'fracture') typeLabel = 'Fracture / Limping';
-            else if (r.emergency_type === 'trapped_abused') typeLabel = 'Trapped in storm drain';
-            else if (r.emergency_type === 'sick_mange') typeLabel = 'Sick / Severe Mange';
-
+          // RLS already hides removed reports from everyone but the reporter and admins
+          const liveIncidents: IncidentData[] = data.filter((r) => !r.hidden_at).map((r) => {
             let locationStr = r.location_name || 'Pinned location';
             let descriptionStr = r.description || '';
 
@@ -212,8 +200,8 @@ export default function HomePage() {
             return {
               id: r.id,
               shortId: r.short_id,
-              animal: animalLabel,
-              type: typeLabel,
+              animal: animalLabel(r.animal_type),
+              type: emergencyLabel(r.emergency_type),
               state: (r.state as IncidentData['state']) || 'reported',
               location: locationStr,
               description: descriptionStr || undefined,
@@ -712,6 +700,8 @@ export default function HomePage() {
         incident={selectedIncident ? withDistance(selectedIncident) : null}
         onClose={() => setSelectedIncident(null)}
         role={profile.role}
+        userId={profile.user?.id ?? null}
+        onSignIn={() => router.push('/settings')}
         actionError={actionError}
         triggerElement={activeTriggerEl}
         onClaim={handleClaimIncident}

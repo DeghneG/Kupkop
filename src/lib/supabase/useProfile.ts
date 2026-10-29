@@ -13,15 +13,17 @@ export interface ProfileState {
   role: UserRole;
   /** Role stored in profiles.role. */
   realRole: UserRole;
+  /** Clinic a facility-role user works at (set by an admin). */
+  facilityId: string | null;
   loading: boolean;
 }
 
-type LoadedProfile = Pick<ProfileState, 'user' | 'realRole' | 'loading'>;
+type LoadedProfile = Pick<ProfileState, 'user' | 'realRole' | 'facilityId' | 'loading'>;
 
 // Display-only. Real permissions are enforced by RLS and the claim/admit functions.
 export function useProfile(): ProfileState {
   const [viewAs] = useViewAs();
-  const [state, setState] = useState<LoadedProfile>({ user: null, realRole: 'citizen', loading: true });
+  const [state, setState] = useState<LoadedProfile>({ user: null, realRole: 'citizen', facilityId: null, loading: true });
 
   useEffect(() => {
     const supabase = createClient();
@@ -29,11 +31,23 @@ export function useProfile(): ProfileState {
 
     const load = async (user: User | null) => {
       if (!user) {
-        if (active) setState({ user: null, realRole: 'citizen', loading: false });
+        if (active) setState({ user: null, realRole: 'citizen', facilityId: null, loading: false });
         return;
       }
-      const { data } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
-      if (active) setState({ user, realRole: (data?.role as UserRole) ?? 'citizen', loading: false });
+      type Row = { role?: string; facility_id?: string | null } | null;
+      const full = await supabase.from('profiles').select('role,facility_id').eq('id', user.id).maybeSingle();
+      // Before the clinic-care migration runs there is no facility_id column; keep the role working
+      const row: Row = full.error
+        ? (await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()).data
+        : full.data;
+      if (active) {
+        setState({
+          user,
+          realRole: (row?.role as UserRole) ?? 'citizen',
+          facilityId: row?.facility_id ?? null,
+          loading: false,
+        });
+      }
     };
 
     supabase.auth.getSession().then(({ data: { session } }) => load(session?.user ?? null));

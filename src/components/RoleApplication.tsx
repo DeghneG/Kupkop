@@ -12,12 +12,31 @@ interface RoleApplicationProps {
 }
 
 type ApplicationStatus = 'pending' | 'approved' | 'rejected';
+type RequestedRole = 'volunteer' | 'facility';
 
 export default function RoleApplication({ userId, role, onSignIn }: RoleApplicationProps) {
   const [status, setStatus] = useState<ApplicationStatus | null>(null);
   const [note, setNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [requestedRole, setRequestedRole] = useState<RequestedRole>('volunteer');
+  const [clinicId, setClinicId] = useState('');
+  const [clinics, setClinics] = useState<{ id: string; name: string }[]>([]);
+
+  // Clinic staff say which Listed clinic they work at
+  useEffect(() => {
+    if (requestedRole !== 'facility' || clinics.length > 0) return;
+    let active = true;
+    createClient()
+      .from('facilities')
+      .select('id,name')
+      .eq('status', 'Listed')
+      .order('name')
+      .then(({ data }) => active && setClinics(data ?? []));
+    return () => {
+      active = false;
+    };
+  }, [requestedRole, clinics.length]);
 
   // Latest application for this user (RLS limits reads to their own rows)
   useEffect(() => {
@@ -45,7 +64,12 @@ export default function RoleApplication({ userId, role, onSignIn }: RoleApplicat
     setError(null);
     const { error: insertError } = await createClient()
       .from('role_applications')
-      .insert({ user_id: userId, requested_role: 'volunteer', note: note.trim() });
+      .insert({
+        user_id: userId,
+        requested_role: requestedRole,
+        note: note.trim(),
+        ...(requestedRole === 'facility' ? { facility_id: clinicId } : {}),
+      });
     setSubmitting(false);
     if (insertError) {
       setError(
@@ -70,7 +94,7 @@ export default function RoleApplication({ userId, role, onSignIn }: RoleApplicat
       <div className="flex items-center gap-2">
         <HeartHandshake className="w-4 h-4 text-fg-muted shrink-0" aria-hidden="true" />
         <h2 id="settings-volunteer-heading" className="text-[12px] font-semibold text-fg-muted">
-          Volunteer
+          Volunteer or clinic staff
         </h2>
       </div>
 
@@ -81,7 +105,7 @@ export default function RoleApplication({ userId, role, onSignIn }: RoleApplicat
         </p>
       ) : !userId ? (
         <div className="space-y-3">
-          <p className="text-[14px] text-fg-muted">Sign in to apply as a rescue volunteer.</p>
+          <p className="text-[14px] text-fg-muted">Sign in to apply as a rescue volunteer or clinic staff.</p>
           <button
             type="button"
             onClick={onSignIn}
@@ -98,11 +122,55 @@ export default function RoleApplication({ userId, role, onSignIn }: RoleApplicat
       ) : (
         <form onSubmit={submit} className="space-y-3">
           <p className="text-[14px] text-fg-muted">
-            Only approved volunteers can claim a rescue. An admin reviews every application.
+            Volunteers claim rescues from the feed. Clinic staff log recovery updates for animals in their care. An
+            admin reviews every application.
             {status === 'rejected' && ' Your last application was not approved; you can apply again.'}
           </p>
+          <div role="radiogroup" aria-label="Apply as" className="grid grid-cols-2 p-1 bg-surface-muted rounded-xl border border-border gap-1">
+            {(
+              [
+                ['volunteer', 'Volunteer'],
+                ['facility', 'Clinic staff'],
+              ] as const
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                role="radio"
+                aria-checked={requestedRole === value}
+                onClick={() => setRequestedRole(value)}
+                className={`min-h-[44px] rounded-lg text-[14px] font-semibold cursor-pointer ${
+                  requestedRole === value ? 'bg-surface text-fg shadow-sm border border-border' : 'text-fg-muted hover:text-fg'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {requestedRole === 'facility' && (
+            <label className="block space-y-2">
+              <span className="text-[12px] font-semibold text-fg">Which Listed clinic do you work at?</span>
+              <select
+                value={clinicId}
+                onChange={(e) => setClinicId(e.target.value)}
+                required
+                className="w-full min-h-[44px] rounded-xl border border-border bg-surface-muted text-fg text-[14px] px-3 focus:outline-none focus:ring-2 focus:ring-action"
+              >
+                <option value="">Choose a clinic</option>
+                {clinics.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           <label className="block space-y-2">
-            <span className="text-[12px] font-semibold text-fg">Why do you want to help? (10–500 characters)</span>
+            <span className="text-[12px] font-semibold text-fg">
+              {requestedRole === 'facility'
+                ? 'Your role at the clinic, and how we can confirm it (10–500 characters)'
+                : 'Why do you want to help? (10–500 characters)'}
+            </span>
             <textarea
               value={note}
               onChange={(e) => setNote(e.target.value)}
@@ -120,10 +188,10 @@ export default function RoleApplication({ userId, role, onSignIn }: RoleApplicat
           )}
           <button
             type="submit"
-            disabled={submitting || note.trim().length < 10}
+            disabled={submitting || note.trim().length < 10 || (requestedRole === 'facility' && !clinicId)}
             className="w-full min-h-[48px] bg-action text-action-fg font-semibold text-[14px] rounded-xl shadow-sm cursor-pointer border-none disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {submitting ? 'Sending…' : 'Apply to be a volunteer'}
+            {submitting ? 'Sending…' : requestedRole === 'facility' ? 'Apply as clinic staff' : 'Apply to be a volunteer'}
           </button>
         </form>
       )}
