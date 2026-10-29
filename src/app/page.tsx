@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { IncidentCard, ListRowSkeleton, IncidentData } from '@/components/ListRow';
 import AccountButton from '@/components/AccountButton';
 import DetailSheet from '@/components/DetailSheet';
 import ActiveCaseBar from '@/components/ActiveCaseBar';
+import ClinicPicker from '@/components/ClinicPicker';
 import { useProfile } from '@/lib/supabase/useProfile';
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/client';
 import { useLocation } from '@/lib/useUserPosition';
@@ -120,6 +121,9 @@ export default function HomePage() {
   const [activeTriggerEl, setActiveTriggerEl] = useState<HTMLElement | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [dismissedCaseId, setDismissedCaseId] = useState<string | null>(null);
+  // Case waiting for the rescuer to choose which clinic admitted it
+  const [admitTarget, setAdmitTarget] = useState<IncidentData | null>(null);
+  const [admitting, setAdmitting] = useState(false);
   // Clock for relative labels; set from timers and fetches, never read during render
   const [now, setNow] = useState(0);
   const profile = useProfile();
@@ -322,27 +326,28 @@ export default function HomePage() {
     applyUpdate({ ...incident, state: 'reported', claimedAt: null, claimedBy: null });
   };
 
+  const closeClinicPicker = useCallback(() => setAdmitTarget(null), []);
+
+  // Real cases ask which Listed clinic took the animal; sample cases update locally
   const handleAdmitIncident = async (incident: IncidentData, facilityId?: string) => {
-    let targetFacility = facilityId;
-    if (isLiveReport(incident)) {
-      if (!targetFacility) {
-        // TODO: replace with a facility picker; for now hand off to the first Listed facility
-        const { data } = await createClient()
-          .from('facilities')
-          .select('id')
-          .eq('status', 'Listed')
-          .order('created_at')
-          .limit(1)
-          .maybeSingle();
-        targetFacility = data?.id;
-      }
-      if (!targetFacility) {
-        setActionError('No listed facility is available for handoff yet.');
-        return;
-      }
-      if (!(await callCaseFunction('admit_to_facility', { p_report_id: incident.id!, p_facility_id: targetFacility }))) return;
+    if (!isLiveReport(incident)) {
+      applyUpdate({ ...incident, state: 'admitted', facilityId: facilityId || 'fac-1' });
+      return;
     }
-    applyUpdate({ ...incident, state: 'admitted', facilityId: targetFacility || 'fac-1' });
+    if (!facilityId) {
+      setActionError(null);
+      setSelectedIncident(null);
+      setAdmitTarget(incident);
+      return;
+    }
+    setAdmitting(true);
+    try {
+      if (!(await callCaseFunction('admit_to_facility', { p_report_id: incident.id!, p_facility_id: facilityId }))) return;
+      applyUpdate({ ...incident, state: 'admitted', facilityId });
+      setAdmitTarget(null);
+    } finally {
+      setAdmitting(false);
+    }
   };
 
   const filteredEmergencies = emergencies.filter((incident) => matchesChannel(incident, selectedChannel));
@@ -712,6 +717,16 @@ export default function HomePage() {
         onClaim={handleClaimIncident}
         onReleaseClaim={handleReleaseClaim}
         onAdmit={handleAdmitIncident}
+      />
+
+      <ClinicPicker
+        open={!!admitTarget}
+        caseLabel={admitTarget ? `${admitTarget.animal} · Case #${admitTarget.shortId}` : undefined}
+        near={userPosition}
+        busy={admitting}
+        error={admitTarget ? actionError : null}
+        onPick={(facilityId) => admitTarget && handleAdmitIncident(admitTarget, facilityId)}
+        onClose={closeClinicPicker}
       />
     </div>
   );

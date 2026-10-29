@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import { RotateCw } from 'lucide-react-native';
 import { distanceKm, formatDistance, getDirectionalBearing } from '@shared/geo';
 import AccountButton from '@/components/AccountButton';
+import ClinicPicker from '@/components/ClinicPicker';
 import ActiveCaseBar from '@/components/ActiveCaseBar';
 import DetailSheet from '@/components/DetailSheet';
 import { DOCK_SPACE } from '@/components/Dock';
@@ -69,6 +70,7 @@ export default function FeedScreen() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [dismissedId, setDismissedId] = useState<string | null>(null);
+  const [admitTarget, setAdmitTarget] = useState<Incident | null>(null);
 
   // First launch while signed out: show the welcome screen once
   useEffect(() => {
@@ -175,27 +177,21 @@ export default function FeedScreen() {
     apply({ ...i, state: 'reported', claimedAt: null, claimedBy: null });
   };
 
-  const admit = async (i: Incident) => {
-    setBusyId(i.id);
+  // Real cases ask which Listed clinic took the animal; sample cases update locally
+  const admit = (i: Incident) => {
+    setActionError(null);
+    if (isLive(i)) setAdmitTarget(i);
+    else apply({ ...i, state: 'admitted', facilityId: 'fac-1' });
+  };
+
+  const confirmAdmit = async (facilityId: string) => {
+    if (!admitTarget) return;
+    const target = admitTarget;
+    setBusyId(target.id);
     try {
-      let facilityId: string | undefined;
-      if (isLive(i)) {
-        // Same as web for now: hand off to the first Listed facility
-        const { data } = await supabase
-          .from('facilities')
-          .select('id')
-          .eq('status', 'Listed')
-          .order('created_at')
-          .limit(1)
-          .maybeSingle();
-        facilityId = data?.id;
-        if (!facilityId) {
-          setActionError('No listed facility is available for handoff yet.');
-          return;
-        }
-        if (!(await callFn('admit_to_facility', { p_report_id: i.id, p_facility_id: facilityId }))) return;
-      }
-      apply({ ...i, state: 'admitted', facilityId: facilityId ?? 'fac-1' });
+      if (!(await callFn('admit_to_facility', { p_report_id: target.id, p_facility_id: facilityId }))) return;
+      apply({ ...target, state: 'admitted', facilityId });
+      setAdmitTarget(null);
     } finally {
       setBusyId(null);
     }
@@ -446,7 +442,21 @@ export default function FeedScreen() {
         onClose={() => setSelected(null)}
         onClaim={claim}
         onRelease={release}
-        onAdmit={admit}
+        onAdmit={(i) => {
+          // One sheet at a time: close the case details before the clinic list opens
+          setSelected(null);
+          admit(i);
+        }}
+      />
+
+      <ClinicPicker
+        visible={!!admitTarget}
+        caseLabel={admitTarget ? `${admitTarget.animal} · Case #${admitTarget.shortId}` : undefined}
+        near={location.coords}
+        busy={!!admitTarget && busyId === admitTarget.id}
+        error={admitTarget ? actionError : null}
+        onPick={confirmAdmit}
+        onClose={() => setAdmitTarget(null)}
       />
     </View>
   );
