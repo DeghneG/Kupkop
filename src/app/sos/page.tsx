@@ -71,6 +71,8 @@ export default function SOSCameraPage() {
   // Camera states
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  // One live GPS watcher at a time; "Update GPS" replaces it instead of stacking another
+  const watchIdRef = useRef<number | null>(null);
   const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
   const [availableCameras, setAvailableCameras] = useState<MediaDeviceInfo[]>([]);
   const [selectedCameraId, setSelectedCameraId] = useState<string>('');
@@ -261,12 +263,12 @@ export default function SOSCameraPage() {
 
     // Watch position for live movements and refined accuracy
     try {
-      const watchId = navigator.geolocation.watchPosition(
+      if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current);
+      watchIdRef.current = navigator.geolocation.watchPosition(
         handleSuccess,
         () => {},
         { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
       );
-      return () => navigator.geolocation.clearWatch(watchId);
     } catch {
       // ignore watch registration failure
     }
@@ -285,6 +287,10 @@ export default function SOSCameraPage() {
     return () => {
       isCancelled = true;
       clearTimeout(timer);
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+        watchIdRef.current = null;
+      }
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((track) => track.stop());
       }
@@ -323,7 +329,7 @@ export default function SOSCameraPage() {
       }
 
       try {
-        const shortId = generateCaseId();
+        let shortId = generateCaseId();
         const selectedTier = EMERGENCY_TIERS.find((t) => t.id === emergency) || EMERGENCY_TIERS[0];
 
         // 1. Upload compressed photo to Supabase storage bucket `live-snaps`
@@ -347,9 +353,19 @@ export default function SOSCameraPage() {
         const finalLocationName =
           locationText.trim() || resolvedAddress || `Near ${finalLat.toFixed(5)}, ${finalLng.toFixed(5)}`;
 
+        // Case IDs are 4 random characters, so a duplicate is rare but possible.
+        // On a short_id clash, draw a new ID and send the same report again.
+        const insertReport = async (payload: Record<string, unknown>) => {
+          let res = await supabase.from('sos_reports').insert({ ...payload, short_id: shortId });
+          for (let retries = 0; retries < 3 && res.error?.code === '23505' && res.error.message?.includes('short_id'); retries++) {
+            shortId = generateCaseId();
+            res = await supabase.from('sos_reports').insert({ ...payload, short_id: shortId });
+          }
+          return res.error;
+        };
+
         // 2. Insert SOS report into PostgreSQL with atomic server timestamp
         let insertPayload: Record<string, unknown> = {
-          short_id: shortId,
           reporter_id: user.id,
           animal_type: animal,
           emergency_type: emergency,
@@ -364,12 +380,11 @@ export default function SOSCameraPage() {
           insertPayload.description = description.trim();
         }
 
-        let { error: insertError } = await supabase.from('sos_reports').insert(insertPayload);
+        let insertError = await insertReport(insertPayload);
 
         // Fallback if description column has not been added to schema yet: combine into location_name
         if (insertError && (insertError.code === '42703' || insertError.message?.includes('description'))) {
           insertPayload = {
-            short_id: shortId,
             reporter_id: user.id,
             animal_type: animal,
             emergency_type: emergency,
@@ -381,8 +396,7 @@ export default function SOSCameraPage() {
               ? `${finalLocationName} — ${description.trim()}`
               : finalLocationName,
           };
-          const retryRes = await supabase.from('sos_reports').insert(insertPayload);
-          insertError = retryRes.error;
+          insertError = await insertReport(insertPayload);
         }
 
         if (insertError) {
