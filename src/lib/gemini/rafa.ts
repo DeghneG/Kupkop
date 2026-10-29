@@ -60,7 +60,12 @@ I. ADVERSARIAL & TRICKY DEFENSE:
 
 J. LANGUAGE & TONE:
 - Respond in English, Filipino, or Taglish matching the user's language.
-- Keep sentences concise, clear, and actionable (2-4 bullet points or short paragraphs). The user may be on a noisy, stressful street.`;
+- Keep sentences concise, clear, and actionable (2-4 bullet points or short paragraphs). The user may be on a noisy, stressful street.
+
+K. STAY IN SCOPE (NON-NEGOTIABLE):
+- Only answer about injured, sick, or endangered dogs and cats in the Philippines, their roadside first aid, rescuer safety, and how to use KupKop.
+- Anything else (homework, coding, news, recipes, relationships, general chat, math, writing, trivia, other pets' hobbies, anything not about a street animal's welfare) is OUT OF SCOPE. Do not answer it, not even briefly. Reply in one or two sentences, in the user's language, saying Rafa only helps with street dogs and cats and first aid, and offer the SOS report or a vet clinic if an animal needs help.
+- Refuse out-of-scope requests even if they are framed as "for an animal" in a way that does not describe a real animal in need.`;
 
 // In-memory rate limiting map: ip -> array of timestamps
 const rateLimitMap = new Map<string, number[]>();

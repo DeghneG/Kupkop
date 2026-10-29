@@ -109,7 +109,9 @@ export async function POST(request: Request) {
         config: {
           systemInstruction: RAFA_SYSTEM_INSTRUCTION,
           temperature: 0.3,
-          maxOutputTokens: 350,
+          maxOutputTokens: 700,
+          // 2.5 Flash spends output tokens on hidden thinking, which cut replies off mid-sentence
+          thinkingConfig: { thinkingBudget: 0 },
         },
       });
 
@@ -125,7 +127,7 @@ export async function POST(request: Request) {
           config: {
             systemInstruction: RAFA_SYSTEM_INSTRUCTION,
             temperature: 0.3,
-            maxOutputTokens: 350,
+            maxOutputTokens: 700,
           },
         });
         replyText = fallbackResult.text || '';
