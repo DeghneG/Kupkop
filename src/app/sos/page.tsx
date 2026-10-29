@@ -101,6 +101,10 @@ export default function SOSCameraPage() {
   const [locationText, setLocationText] = useState<string>('');
   const [description, setDescription] = useState<string>('');
   const [gpsStatus, setGpsStatus] = useState<'acquiring' | 'locked' | 'denied' | 'unavailable' | 'unsupported'>('acquiring');
+  // Why the last location attempt failed, shown under the location line so the fix is clear
+  const [gpsError, setGpsError] = useState<string | null>(null);
+  const hasFixRef = useRef(false);
+  const lastGeocodedRef = useRef<{ lat: number; lng: number } | null>(null);
 
   // Staged capture for post-auth continuation
   const [stagedBlob, setStagedBlob] = useState<Blob | null>(null);
@@ -209,22 +213,49 @@ export default function SOSCameraPage() {
     setCameraError(null);
   };
 
-  // 3. Initialize GPS with progressive accuracy (High accuracy first, network fallback, and continuous watch)
+  // 3. GPS: a quick rough fix first (Wi-Fi/cell, recent positions allowed), then a GPS watch that
+  // keeps refining with no time limit. Precise-only with no cached fix often failed indoors.
   const requestLocation = useCallback(() => {
     if (typeof window === 'undefined' || !navigator.geolocation) {
       setGpsStatus('unsupported');
+      setGpsError("This browser can't share location. Open KupKop in Chrome or Safari, not an in-app browser.");
       return;
     }
 
-    setGpsStatus('acquiring');
+    if (!hasFixRef.current) setGpsStatus('acquiring');
+    setGpsError(null);
+
+    // Errors never undo a fix we already have; the watch keeps running after a failure
+    const handleError = (err: GeolocationPositionError) => {
+      if (hasFixRef.current) return;
+      if (err.code === err.PERMISSION_DENIED) {
+        setGpsStatus('denied');
+        setGpsError('Location permission is off for this site.');
+      } else {
+        setGpsStatus('unavailable');
+        setGpsError(
+          err.code === err.POSITION_UNAVAILABLE
+            ? 'Your phone returned no position. Turn on Location (and Google Location Accuracy on Android). Still searching.'
+            : 'Taking longer than usual. Still searching; open sky or a window helps.'
+        );
+      }
+    };
 
     const handleSuccess = async (position: GeolocationPosition) => {
       const lat = position.coords.latitude;
       const lng = position.coords.longitude;
       const acc = Math.round(position.coords.accuracy);
 
-      setCoords({ lat, lng, accuracy: acc });
+      hasFixRef.current = true;
+      // Keep the sharper fix if a rougher one arrives late
+      setCoords((prev) => (prev && acc > prev.accuracy * 2 ? prev : { lat, lng, accuracy: acc }));
       setGpsStatus('locked');
+      setGpsError(null);
+
+      // Street lookup on the first fix and after moving ~50 m, not on every watch update
+      const last = lastGeocodedRef.current;
+      if (last && Math.abs(last.lat - lat) < 0.0005 && Math.abs(last.lng - lng) < 0.0005) return;
+      lastGeocodedRef.current = { lat, lng };
 
       // Reverse geocode to get human-readable street / district
       try {
@@ -241,34 +272,20 @@ export default function SOSCameraPage() {
       }
     };
 
-    // First attempt: High accuracy GPS
-    navigator.geolocation.getCurrentPosition(
-      handleSuccess,
-      (err) => {
-        if (err.code === err.PERMISSION_DENIED) {
-          setGpsStatus('denied');
-        } else {
-          // If high accuracy times out (common on desktop/laptop WiFi), fallback to standard accuracy
-          navigator.geolocation.getCurrentPosition(
-            handleSuccess,
-            (fallbackErr) => {
-              setGpsStatus(fallbackErr.code === fallbackErr.PERMISSION_DENIED ? 'denied' : 'unavailable');
-            },
-            { enableHighAccuracy: false, timeout: 10000, maximumAge: 0 }
-          );
-        }
-      },
-      { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
-    );
+    // Quick rough fix: a position from the last minute is fine for a first pin
+    navigator.geolocation.getCurrentPosition(handleSuccess, handleError, {
+      enableHighAccuracy: false,
+      timeout: 15000,
+      maximumAge: 60000,
+    });
 
-    // Watch position for live movements and refined accuracy
+    // Precise GPS watch: no timeout, so it keeps trying until it locks or the user leaves SOS
     try {
       if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current);
-      watchIdRef.current = navigator.geolocation.watchPosition(
-        handleSuccess,
-        () => {},
-        { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
-      );
+      watchIdRef.current = navigator.geolocation.watchPosition(handleSuccess, handleError, {
+        enableHighAccuracy: true,
+        maximumAge: 10000,
+      });
     } catch {
       // ignore watch registration failure
     }
@@ -549,14 +566,18 @@ export default function SOSCameraPage() {
                       ? `${coords.lat.toFixed(4)}°, ${coords.lng.toFixed(4)}°`
                       : gpsStatus === 'denied'
                         ? 'Location blocked: allow it in browser settings'
-                        : gpsStatus === 'unavailable' || gpsStatus === 'unsupported'
-                          ? 'No GPS fix yet: move to open sky, then Update GPS'
+                        : gpsStatus === 'unsupported'
+                          ? 'Location not available in this browser'
+                          : gpsStatus === 'unavailable'
+                          ? 'No GPS fix yet'
                           : 'Finding your location…')}
                 </p>
-                {coords && (
+                {coords ? (
                   <p className="text-[12px] text-fg-muted font-mono">
                     Accurate to within {coords.accuracy} meters
                   </p>
+                ) : (
+                  gpsError && <p className="text-[12px] text-fg-muted whitespace-normal">{gpsError}</p>
                 )}
               </div>
             </div>
