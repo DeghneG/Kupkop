@@ -268,3 +268,12 @@
   7. Ported screens: Feed (realtime, groups, filters, distances, pull to refresh, claim, detail sheet, Active Case Bar), SOS (expo-camera live only, expo-location quick fix + GPS watch, compression, upload, Case ID retry, sign-in before send), Rafa, Clinics, Settings (theme, volunteer application), Welcome.
 - **Not ported yet:** admin "View as", Google/Facebook sign-in, recovery updates, facility picker on admit (still first Listed facility, same as web), push notifications.
 - **Checks run:** `tsc`, `expo lint`, `expo export --platform android` (bundle builds), `expo-doctor` 20/20. Not yet run on a phone.
+
+### D-029: Clinic picker, Google sign-in in the app, push alerts for new SOS
+- **Date:** 2026-10-29
+- **Decision:**
+  1. **Clinic picker (web and app):** Admit asks which Listed clinic took the animal (nearest first when location is on, inactivity warnings shown) instead of using the first Listed clinic. The database had no clinics, so `20261029000000_seed_test_facilities.sql` adds four test clinics (fake names and phones, "Listed").
+  2. **Google sign-in in the app:** in-app browser to Google, back to `kupkop://auth/callback` with a PKCE code (`flowType: 'pkce'`). A callback route finishes sign-in because Android also routes the return link. Button says "not set up yet" while Google is off in Supabase.
+  3. **Push alerts:** `push_tokens` table (RLS: own rows only). App registers after sign-in and removes its token on sign-out. Supabase Database Webhook → `POST /api/push/new-report` (shared secret, service role key server-side only) → Expo push to volunteers and admins except the reporter; dead tokens removed. Tap opens the case. Alerts go to all responders for now (no radius: volunteer locations are not stored).
+- **Needs the builder:** run the two migrations; enable Google in Supabase and add `kupkop://**` and `exp://**` to Redirect URLs; for push: `eas init`, Firebase FCM key, Vercel `SUPABASE_SERVICE_ROLE_KEY` + `PUSH_WEBHOOK_SECRET`, the webhook, and a development build (Expo Go on Android has no push).
+- **Checks:** web `tsc` and eslint; app `tsc`, `expo lint`, Android export bundle, `expo-doctor` 20/20; push route answers 503 until configured. Nothing tested on a phone yet.

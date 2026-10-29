@@ -51,7 +51,14 @@
           "locationWhenInUsePermission": "KupKop uses your location so responders can find the animal."
         }
       ],
-      "expo-font"
+      "expo-font",
+      [
+        "expo-notifications",
+        {
+          "defaultChannel": "sos",
+          "color": "#F04438"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import type { User } from '@supabase/supabase-js';
 import type { UserRole } from '@shared-types/database';
+import { registerForPush } from '@/lib/push';
 import { supabase } from '@/lib/supabase';
 
 type AuthState = {
@@ -46,6 +47,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       data.subscription.unsubscribe();
     };
   }, []);
+
+  // Each signed-in phone registers for new-SOS alerts; the server only alerts responders
+  const userId = user?.id;
+  useEffect(() => {
+    if (userId) registerForPush(userId);
+  }, [userId]);
 
   return (
     <AuthContext.Provider value={{ user, role, loading, refreshRole: () => loadRole(user) }}>

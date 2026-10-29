@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { RotateCw } from 'lucide-react-native';
 import { distanceKm, formatDistance, getDirectionalBearing } from '@shared/geo';
 import AccountButton from '@/components/AccountButton';
@@ -71,6 +71,19 @@ export default function FeedScreen() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [dismissedId, setDismissedId] = useState<string | null>(null);
   const [admitTarget, setAdmitTarget] = useState<Incident | null>(null);
+
+  // A tapped alert arrives as ?case=<report id>; open it once the list has it
+  const { case: caseParam } = useLocalSearchParams<{ case?: string }>();
+  useEffect(() => {
+    if (!caseParam) return;
+    const match = items.find((i) => i.id === caseParam);
+    if (!match) return;
+    const t = setTimeout(() => {
+      setSelected(match);
+      router.setParams({ case: undefined });
+    }, 0);
+    return () => clearTimeout(t);
+  }, [caseParam, items]);
 
   // First launch while signed out: show the welcome screen once
   useEffect(() => {

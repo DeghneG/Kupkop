@@ -6,6 +6,7 @@ import { DOCK_SPACE } from '@/components/Dock';
 import { AppText, Button } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
 import type { ThemeMode } from '@/lib/prefs';
+import { unregisterPush } from '@/lib/push';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/theme/ThemeProvider';
 import { radius, size, type as typeScale } from '@/theme/tokens';
@@ -46,7 +47,10 @@ export default function SettingsScreen() {
               kind="secondary"
               label="Sign out"
               icon={<LogOut size={14} color={colors.fgMuted} />}
-              onPress={() => supabase.auth.signOut()}
+              onPress={async () => {
+                await unregisterPush();
+                await supabase.auth.signOut();
+              }}
             />
           </View>
         ) : (

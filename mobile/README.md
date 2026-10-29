@@ -41,3 +41,23 @@ npx tsc --noEmit
 npx expo lint
 npx expo-doctor
 ```
+
+## Push notifications (new SOS → volunteers)
+
+How it works: the app saves its Expo push token in `push_tokens` after sign-in. A Supabase Database
+Webhook calls `https://kupkop.vercel.app/api/push/new-report` on every new `sos_reports` row, and that
+route alerts every volunteer and admin (except the reporter). Tapping the alert opens the case.
+
+Push does **not** work in Expo Go on Android. Use a development build:
+
+1. `npx eas-cli@latest init` (links this folder to an Expo project and writes the projectId to app.json).
+2. Firebase (free): create a project, add an Android app with package `com.kupkop.app`, download
+   `google-services.json` into `mobile/`, add `"googleServicesFile": "./google-services.json"` under
+   `expo.android` in app.json. In Firebase → Project settings → Service accounts, generate a private key
+   and upload it with `npx eas-cli@latest credentials` → Android → FCM V1.
+3. `npx eas-cli@latest build --platform android --profile development`, install it, then `npx expo start`.
+
+Server side (once): run `supabase/migrations/20261029000001_push_tokens.sql`; on Vercel add
+`SUPABASE_SERVICE_ROLE_KEY` and `PUSH_WEBHOOK_SECRET` (any long random string) and redeploy; in Supabase
+→ Database → Webhooks create one on `sos_reports` INSERT, HTTP POST to the URL above, with header
+`x-webhook-secret: <the same secret>`.

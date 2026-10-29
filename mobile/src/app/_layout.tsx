@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { View } from 'react-native';
-import { Stack } from 'expo-router';
+import { router, Stack } from 'expo-router';
+import * as Notifications from 'expo-notifications';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import { useFonts, BricolageGrotesque_600SemiBold } from '@expo-google-fonts/bricolage-grotesque';
@@ -14,6 +15,13 @@ SplashScreen.preventAutoHideAsync();
 function RootStack() {
   const { colors, isDark } = useTheme();
   const reduceMotion = useReducedMotion();
+  const lastResponse = Notifications.useLastNotificationResponse();
+
+  // Tapping a new-SOS alert opens that case in the feed (also when the tap launched the app)
+  useEffect(() => {
+    const reportId = lastResponse?.notification.request.content.data?.reportId;
+    if (typeof reportId === 'string') router.navigate({ pathname: '/', params: { case: reportId } });
+  }, [lastResponse]);
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.page }}>
