@@ -5,7 +5,7 @@ import { IncidentCard, ListRowSkeleton, IncidentData } from '@/components/ListRo
 import DetailSheet from '@/components/DetailSheet';
 import ActiveCaseBar from '@/components/ActiveCaseBar';
 import { useProfile } from '@/lib/supabase/useProfile';
-import { createClient } from '@/lib/supabase/client';
+import { createClient, isSupabaseConfigured } from '@/lib/supabase/client';
 import { useLocation } from '@/lib/useUserPosition';
 import { usePullToRefresh } from '@/lib/usePullToRefresh';
 import { distanceKm, formatDistance, getDirectionalBearing } from '@/lib/sos/utils';
@@ -234,6 +234,9 @@ export default function HomePage() {
         setRefreshing(false);
       }
     };
+
+    // Without Supabase settings every request goes to a fake host; the feed shows a setup notice instead
+    if (!isSupabaseConfigured) return;
 
     fetchLiveReports();
 
@@ -594,7 +597,14 @@ export default function HomePage() {
         )}
 
         <div className="flex flex-col">
-          {feedStatus === 'loading' ? (
+          {!isSupabaseConfigured ? (
+            <div role="alert" className="mx-4 my-4 rounded-2xl p-6 border border-border text-center space-y-2">
+              <p className="text-[14px] font-semibold text-fg">KupKop is not connected to its database</p>
+              <p className="text-[12px] text-fg-muted">
+                This build has no Supabase settings. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY, then rebuild.
+              </p>
+            </div>
+          ) : feedStatus === 'loading' ? (
             <ListRowSkeleton />
           ) : feedStatus === 'error' ? (
             <div role="alert" className="mx-4 my-4 rounded-2xl p-6 border border-border text-center space-y-3">
