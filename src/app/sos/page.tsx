@@ -155,15 +155,19 @@ export default function SOSCameraPage() {
         // Enumerate fallback
       }
 
-      // Filter out Windows Hello IR/Infrared cameras that fail RGB streaming
-      const nonIrCameras = videoInputs.filter((d) => !/ir|infrared/i.test(d.label));
-      const targetCam = explicitDeviceId
-        ? videoInputs.find((d) => d.deviceId === explicitDeviceId)
-        : nonIrCameras[0] || videoInputs[0];
-
       const isMobile =
         typeof window !== 'undefined' &&
         /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+
+      // Filter out Windows Hello IR/Infrared cameras that fail RGB streaming
+      const nonIrCameras = videoInputs.filter((d) => !/\b(ir|infrared)\b/i.test(d.label));
+      // Phones list the front camera first, so they ask for the back camera by facing
+      // unless the user picked one; desktops pick the first usable device.
+      const targetCam = explicitDeviceId
+        ? videoInputs.find((d) => d.deviceId === explicitDeviceId)
+        : isMobile
+          ? undefined
+          : nonIrCameras[0] || videoInputs[0];
 
       let videoConstraint: MediaTrackConstraints | boolean = true;
       if (targetCam && targetCam.deviceId) {
@@ -179,6 +183,10 @@ export default function SOSCameraPage() {
       });
 
       streamRef.current = stream;
+      if (!targetCam) {
+        const openedId = stream.getVideoTracks()[0]?.getSettings().deviceId;
+        if (openedId) setSelectedCameraId(openedId);
+      }
       setMediaStream(stream);
       setCameraStatus('active');
       setCameraError(null);
