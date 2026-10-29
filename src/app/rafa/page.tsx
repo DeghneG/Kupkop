@@ -13,6 +13,77 @@ interface Message {
   offline?: boolean;
 }
 
+// Bold spans only (**text**); single-asterisk emphasis is dropped to plain text
+function renderInline(text: string) {
+  return text.split(/(\*\*[^*]+\*\*)/g).map((part, i) =>
+    part.startsWith('**') && part.endsWith('**') && part.length > 4 ? (
+      <strong key={i} className="font-semibold">{part.slice(2, -2)}</strong>
+    ) : (
+      part.replace(/(^|\s)\*(\S[^*]*?)\*(?=\s|[.,!?]|$)/g, '$1$2')
+    )
+  );
+}
+
+type Block =
+  | { kind: 'p'; lines: string[] }
+  | { kind: 'ul' | 'ol'; items: { text: string; children: string[] }[] };
+
+// Gemini replies use light Markdown: paragraphs, "*"/"-" bullets, "1." steps and **bold**
+function RafaText({ text }: { text: string }) {
+  const blocks: Block[] = [];
+  for (const raw of text.split('\n')) {
+    const line = raw.trimEnd();
+    if (!line.trim()) {
+      blocks.push({ kind: 'p', lines: [] });
+      continue;
+    }
+    const nested = /^\s{2,}/.test(line);
+    const bullet = line.match(/^\s*[*-]\s+(.*)$/);
+    const step = line.match(/^\s*\d+[.)]\s+(.*)$/);
+    const kind = bullet ? 'ul' : step ? 'ol' : 'p';
+    const last = blocks[blocks.length - 1];
+
+    if (kind === 'p') {
+      if (last?.kind === 'p' && last.lines.length) last.lines.push(line.trim());
+      else blocks.push({ kind: 'p', lines: [line.trim()] });
+    } else {
+      const itemText = (bullet ?? step)![1];
+      const parent = last && last.kind !== 'p' ? last.items[last.items.length - 1] : undefined;
+      // Indented bullets belong to the step above them, so step numbers stay 1, 2, 3
+      if (nested && parent) parent.children.push(itemText);
+      else if (last && last.kind === kind) last.items.push({ text: itemText, children: [] });
+      else blocks.push({ kind, items: [{ text: itemText, children: [] }] });
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      {blocks.map((b, i) => {
+        if (b.kind === 'p') {
+          return b.lines.length ? <p key={i}>{renderInline(b.lines.join(' '))}</p> : null;
+        }
+        const List = b.kind === 'ol' ? 'ol' : 'ul';
+        return (
+          <List key={i} className={`${b.kind === 'ol' ? 'list-decimal' : 'list-disc'} pl-5 space-y-1`}>
+            {b.items.map((item, j) => (
+              <li key={j}>
+                {renderInline(item.text)}
+                {item.children.length > 0 && (
+                  <ul className="mt-1 list-[circle] pl-5 space-y-1">
+                    {item.children.map((child, k) => (
+                      <li key={k}>{renderInline(child)}</li>
+                    ))}
+                  </ul>
+                )}
+              </li>
+            ))}
+          </List>
+        );
+      })}
+    </div>
+  );
+}
+
 const quickPromptChips = [
   { label: 'Bleeding', queryEn: 'How do I stop the bleeding safely?', queryFil: 'Paano pigilan ang pagdugo ng sugat nang ligtas?' },
   { label: 'Moving animal', queryEn: 'Can I move an injured animal, and how do I lift it safely?', queryFil: 'Nasugatan o nabangga ang hayop, paano ilipat nang ligtas?' },
@@ -189,7 +260,7 @@ export default function RafaPage() {
                     : 'bg-action text-action-fg font-normal border-action'
                 }`}
               >
-                {m.text}
+                {isRafa ? <RafaText text={m.text} /> : m.text}
               </div>
               <span className="text-[12px] text-fg-muted mt-1 px-1">
                 {m.offline
