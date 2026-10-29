@@ -55,6 +55,9 @@ export default function AuthPanel({ headingId, initialMode = 'login', redirectPa
   const [sent, setSent] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isNonExistent, setIsNonExistent] = useState(false);
+  const [code, setCode] = useState('');
+  const [codeError, setCodeError] = useState<string | null>(null);
+  const [verifying, setVerifying] = useState(false);
   const enabledProviders = useEnabledProviders();
   const isOff = (provider: OAuthProvider) => enabledProviders !== null && !enabledProviders[provider];
 
@@ -151,6 +154,31 @@ export default function AuthPanel({ headingId, initialMode = 'login', redirectPa
     }
   };
 
+  // Typing the code signs in this tab. On phones the email link often opens in the mail app's own
+  // browser, which signs in there and leaves this tab (and a staged SOS report) signed out.
+  const handleVerifyCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const token = code.replace(/\D/g, '');
+    if (token.length < 6) {
+      setCodeError('Enter the code from the email.');
+      return;
+    }
+    setVerifying(true);
+    setCodeError(null);
+    const { error } = await createClient().auth.verifyOtp({ email: email.trim(), token, type: 'email' });
+    setVerifying(false);
+    if (error) {
+      setCodeError(
+        error.message?.toLowerCase().includes('expired')
+          ? 'That code has expired. Go back and send a new one.'
+          : 'That code did not match. Check the latest email and try again.'
+      );
+      return;
+    }
+    if (redirectPath) window.location.assign(redirectPath);
+    else onDone?.();
+  };
+
   if (sent) {
     return (
       <div className="text-center py-4 space-y-3">
@@ -161,23 +189,56 @@ export default function AuthPanel({ headingId, initialMode = 'login', redirectPa
           Check your email
         </h2>
         <p className="text-[14px] text-fg-muted leading-relaxed px-2">
-          We sent a sign-in link to <strong className="text-fg break-all">{email}</strong>. Open it on this
-          device to continue.
+          We sent a code and a link to <strong className="text-fg break-all">{email}</strong>. Type the code
+          here to stay on this screen.
         </p>
+
+        <form onSubmit={handleVerifyCode} className="space-y-2 text-left">
+          <label htmlFor="auth-code" className="block text-[12px] font-semibold text-fg">
+            Code from the email
+          </label>
+          <input
+            id="auth-code"
+            type="text"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            maxLength={10}
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+            disabled={verifying}
+            className="w-full min-h-[48px] px-4 text-[16px] tracking-[0.3em] text-center bg-surface-muted text-fg rounded-xl border border-border outline-none focus:ring-2 focus:ring-action disabled:opacity-60"
+          />
+          {codeError && (
+            <p role="alert" className="text-[12px] text-reported-fg">
+              {codeError}
+            </p>
+          )}
+          <button
+            type="submit"
+            disabled={verifying}
+            className="w-full min-h-[48px] bg-action hover:opacity-95 text-action-fg font-semibold text-[14px] rounded-xl transition-opacity cursor-pointer disabled:opacity-60"
+          >
+            {verifying ? 'Checking…' : 'Sign in with code'}
+          </button>
+        </form>
 
         <div className="pt-2 space-y-2">
           {onDone && (
             <button
               type="button"
               onClick={onDone}
-              className="w-full min-h-[48px] bg-action hover:opacity-95 text-action-fg font-semibold text-[14px] rounded-xl transition-opacity cursor-pointer"
+              className="w-full min-h-[44px] border border-border bg-surface hover:bg-surface-muted text-fg font-semibold text-[14px] rounded-xl transition-colors cursor-pointer"
             >
-              Done
+              I&apos;ll use the link instead
             </button>
           )}
           <button
             type="button"
-            onClick={() => setSent(false)}
+            onClick={() => {
+              setSent(false);
+              setCode('');
+              setCodeError(null);
+            }}
             className="w-full min-h-[44px] text-[14px] text-link hover:underline flex items-center justify-center gap-2 cursor-pointer"
           >
             <ArrowLeft className="w-3.5 h-3.5" aria-hidden="true" />
