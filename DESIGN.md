@@ -27,18 +27,6 @@ colors:
   resolved-ink: "#2B3796"
   banner-tint: "#FFF3C4"
   banner-ink: "#4A3600"
-  dark-page: "#0D1226"
-  dark-surface: "#151B38"
-  dark-surface-muted: "#1D2547"
-  dark-hairline: "#2B3461"
-  dark-ink: "#EEF0FA"
-  dark-ink-muted: "#A5AED3"
-  dark-action: "#AEB9FF"
-  dark-shell: "#2A367F"
-  dark-weave-indigo: "#6B7BE0"
-  dark-ochre: "#E3B23C"
-  dark-leaf: "#3DA874"
-  dark-straw: "#53597F"
 typography:
   title:
     fontFamily: "Atkinson Hyperlegible, system-ui, -apple-system, Segoe UI, sans-serif"
@@ -136,14 +124,14 @@ It rejects the category default: pill badges in a rounded-card feed on a green-t
 - One signature: the five-cell stage weave on every case, the 14-cell recovery clock, the selvedge stripe under every screen header.
 - Emergency red only for SOS and the Reported status.
 - Flat surfaces; floating elements (dock, SOS) carry one soft shadow, nothing glows.
-- Light, dark (class or `data-theme`), and system-follow themes share one token set.
+- Light only (builder's call, 2026-11-10). There is no dark or system theme and no theme switcher; the app ignores the phone's dark setting.
 
 ## Colors
 
-A cool indigo-and-paper palette with three woven strand colours (indigo, ochre, leaf), straw as the highlight thread, and one warm red used sparingly. Frontmatter values are light; the `dark-` tokens are the indigo-night equivalents applied by the dark theme (the red is identical in both).
+A cool indigo-and-paper palette with three woven strand colours (indigo, ochre, leaf), straw as the highlight thread, and one warm red used sparingly. All values are light; there is no dark theme.
 
 ### Primary
-- **Indigo Shell** (`indigo-shell`): header bands, primary buttons, the first weave strand. The dark theme lifts the shell to `dark-shell` and primary actions and links to `dark-action`.
+- **Indigo Shell** (`indigo-shell`): header bands, primary buttons, the first weave strand.
 - **Link Indigo** (`link-indigo`): inline text actions and the Resolved ink.
 
 ### Secondary

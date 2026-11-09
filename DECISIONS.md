@@ -355,3 +355,9 @@
 - **Decision (builder shared a dark-mode Feed screenshot and asked for the same professional pass as the photo card):** urgency tier is visible on open rows (Critical / Urgent tag); the waiting age is the strongest element on open rows and quiet otherwise; the dark-mode row wash is a soft plum (`--open-bg`) instead of a heavy maroon band; filter tabs omit zero counts (the font's slashed zero read as a broken "Ø"); "Report an emergency" leads the end-of-list actions as an outlined red button.
 - **Checks:** `tsc`, eslint (0 errors), 36 unit tests, production build; dark and light Feed captured at 390px; Claim buttons still render for a volunteer preview.
 - **Not changed:** the summary strip still shows the slashed zero for "In progress 0"; the row's "Pinned location" fallback is unchanged (the street name comes from the report).
+
+### D-039: Light only
+- **Date:** 2026-11-10
+- **Decision (builder's call):** the app is light only. The dark and system themes, the Appearance switcher in Settings, the theme script in the layout, `ThemeInit` and the `useThemeMode` hook are removed; the app ignores the phone's dark setting. The stale `kupkop-theme` value in a browser's storage is harmless.
+- **Why it matters for design:** every colour choice now needs only one theme, so bolder colour is possible without a dark twin.
+- **Checks:** `tsc`, eslint (0 errors). The mobile app is parked and unaffected.

@@ -2,19 +2,17 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { User, Sun, Moon, Laptop, LogOut, LogIn, Eye, ChevronRight, HeartPulse, ShieldCheck } from 'lucide-react';
+import { User, LogOut, LogIn, Eye, ChevronRight, HeartPulse, ShieldCheck } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import AuthModal from '@/components/AuthModal';
 import RoleApplication from '@/components/RoleApplication';
 import AlertSettings from '@/components/AlertSettings';
 import InlineError from '@/components/InlineError';
 import RoleSwitcher from '@/components/RoleSwitcher';
-import { useThemeMode } from '@/lib/storage';
 import { useProfile } from '@/lib/supabase/useProfile';
 import ScreenHeader from '@/components/ScreenHeader';
 
 export default function SettingsPage() {
-  const [themeMode, handleThemeChange] = useThemeMode();
   const { user, role, realRole, facilityId, isPreview } = useProfile();
   const [isAuthOpen, setIsAuthOpen] = useState(false);
 
@@ -36,7 +34,7 @@ export default function SettingsPage() {
   return (
     <div className="flex flex-col flex-1 px-4 pt-3 pb-8 space-y-6">
       {/* 1. Page Header */}
-      <ScreenHeader title="Settings" subtitle="Account, appearance, and prototype test controls." className="-mx-4 -mt-3" />
+      <ScreenHeader title="Settings" subtitle="Account, role preview, and prototype test controls." className="-mx-4 -mt-3" />
 
       {/* 2. Account Section */}
       <section aria-labelledby="settings-account-heading" className="bg-surface -mx-4 px-4 py-4 border-y border-border space-y-3">
@@ -99,64 +97,6 @@ export default function SettingsPage() {
           )}
         </nav>
       )}
-
-      {/* 3. Appearance (3-Option iOS Segmented Control) */}
-      <section aria-labelledby="settings-appearance-heading" className="bg-surface -mx-4 px-4 py-4 border-y border-border space-y-3">
-        <h2 id="settings-appearance-heading" className="text-[12px] font-semibold text-fg-muted">
-          Appearance
-        </h2>
-
-        <div
-          role="radiogroup"
-          aria-label="Theme switcher"
-          className="grid grid-cols-3 p-1 bg-surface-muted rounded-xl border border-border gap-1"
-        >
-          <button
-            type="button"
-            role="radio"
-            aria-checked={themeMode === 'system'}
-            onClick={() => handleThemeChange('system')}
-            className={`min-h-[44px] rounded-lg text-[12px] font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer ${
-              themeMode === 'system'
-                ? 'bg-surface text-fg shadow-sm border border-border'
-                : 'text-fg-muted hover:text-fg'
-            }`}
-          >
-            <Laptop className="w-4 h-4 shrink-0" aria-hidden="true" />
-            <span>System</span>
-          </button>
-
-          <button
-            type="button"
-            role="radio"
-            aria-checked={themeMode === 'light'}
-            onClick={() => handleThemeChange('light')}
-            className={`min-h-[44px] rounded-lg text-[12px] font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer ${
-              themeMode === 'light'
-                ? 'bg-surface text-fg shadow-sm border border-border'
-                : 'text-fg-muted hover:text-fg'
-            }`}
-          >
-            <Sun className="w-4 h-4 text-fg-muted shrink-0" aria-hidden="true" />
-            <span>Light</span>
-          </button>
-
-          <button
-            type="button"
-            role="radio"
-            aria-checked={themeMode === 'dark'}
-            onClick={() => handleThemeChange('dark')}
-            className={`min-h-[44px] rounded-lg text-[12px] font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer ${
-              themeMode === 'dark'
-                ? 'bg-surface text-fg shadow-sm border border-border'
-                : 'text-fg-muted hover:text-fg'
-            }`}
-          >
-            <Moon className="w-4 h-4 text-fg-muted shrink-0" aria-hidden="true" />
-            <span>Dark</span>
-          </button>
-        </div>
-      </section>
 
       {/* 4a. Preview a role: shows the screens each role sees. Display only; nothing here grants access. */}
       <section aria-labelledby="settings-preview-heading" className="bg-surface -mx-4 px-4 py-4 border-y border-border space-y-3">

@@ -1,8 +1,6 @@
 @import "tailwindcss";
 
-@custom-variant dark (&:where(.dark, .dark *, [data-theme="dark"], [data-theme="dark"] *));
-
-/* Banig: tokens are the single source; components use these, never hex values. */
+/* Banig (light only): tokens are the single source; components use these, never hex values. */
 :root {
   color-scheme: light;
   --page: #ECEFF6;          /* Cool pale ground, the mat the rows lie on */
@@ -30,66 +28,6 @@
   --healing-bg:  #E4F2EA;  --healing-fg:  #1F6B43;
   --resolved-bg: #E3E7F6;  --resolved-fg: #2B3796;
   --banner-bg: #FFF3C4;    --banner-fg: #4A3600;
-}
-
-[data-theme="dark"], .dark {
-  color-scheme: dark;
-  --page: #0D1226;          /* Indigo night */
-  --surface: #151B38;
-  --surface-muted: #1D2547;
-  --border: #2B3461;
-  --fg: #EEF0FA;
-  --fg-muted: #A5AED3;
-  --accent: #D92D20;
-  --accent-fg: #FFFFFF;
-  --action: #AEB9FF;
-  --action-fg: #0D1226;
-  --link: #9FB0FF;
-  --rafa: #6FD1A0;
-  --shell: #2A367F;
-  --shell-fg: #FFFFFF;
-  --shell-muted: #C3CBF0;
-  --weave-a: #6B7BE0;
-  --weave-b: #E3B23C;
-  --weave-c: #3DA874;
-  --straw: #53597F;
-  --open-bg: #2B1B36;
-  --reported-bg: #3A1613;  --reported-fg: #FF9C92;
-  --claimed-bg:  #3A2A06;  --claimed-fg:  #F5C75B;
-  --healing-bg:  #0F2D20;  --healing-fg:  #7DDDAA;
-  --resolved-bg: #1B2250;  --resolved-fg: #A9B6FF;
-  --banner-bg: #3A2A06;    --banner-fg: #F5C75B;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    color-scheme: dark;
-    --page: #0D1226;          /* Indigo night */
-    --surface: #151B38;
-    --surface-muted: #1D2547;
-    --border: #2B3461;
-    --fg: #EEF0FA;
-    --fg-muted: #A5AED3;
-    --accent: #D92D20;
-    --accent-fg: #FFFFFF;
-    --action: #AEB9FF;
-    --action-fg: #0D1226;
-    --link: #9FB0FF;
-    --rafa: #6FD1A0;
-    --shell: #2A367F;
-    --shell-fg: #FFFFFF;
-    --shell-muted: #C3CBF0;
-    --weave-a: #6B7BE0;
-    --weave-b: #E3B23C;
-    --weave-c: #3DA874;
-    --straw: #53597F;
-  --open-bg: #2B1B36;
-    --reported-bg: #3A1613;  --reported-fg: #FF9C92;
-    --claimed-bg:  #3A2A06;  --claimed-fg:  #F5C75B;
-    --healing-bg:  #0F2D20;  --healing-fg:  #7DDDAA;
-    --resolved-bg: #1B2250;  --resolved-fg: #A9B6FF;
-    --banner-bg: #3A2A06;    --banner-fg: #F5C75B;
-  }
 }
 
 @theme {

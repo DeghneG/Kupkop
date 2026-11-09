@@ -4,33 +4,173 @@
   "title": "Design System: KupKop",
   "extensions": {
     "colorMeta": {
-      "indigo-shell": { "role": "primary", "displayName": "Indigo Shell", "canonical": "#232D69", "tonalRamp": ["#0F1436", "#1A2250", "#232D69", "#3A4793", "#5B69B8", "#8A95D2", "#BCC3E8", "#E3E7F6"] },
-      "emergency-red": { "role": "secondary", "displayName": "Emergency Red", "canonical": "#D92D20", "tonalRamp": ["#3A0F0B", "#6B1810", "#B42318", "#D92D20", "#EC6A5E", "#F59C93", "#FACBC6", "#FDECEA"] },
-      "leaf": { "role": "secondary", "displayName": "Leaf", "canonical": "#2F7D4F", "tonalRamp": ["#0F2D20", "#17462F", "#1F6B43", "#2F7D4F", "#3DA874", "#7DDDAA", "#B9EBD0", "#E4F2EA"] },
-      "ochre": { "role": "tertiary", "displayName": "Ochre", "canonical": "#D9A21B", "tonalRamp": ["#3A2A06", "#5C4208", "#7A5200", "#B8860F", "#D9A21B", "#E3B23C", "#F5C75B", "#FFF4D6"] },
-      "straw": { "role": "tertiary", "displayName": "Straw", "canonical": "#EADFB9", "tonalRamp": ["#53597F", "#8A8A78", "#B5A97A", "#D2C592", "#EADFB9", "#F0E8CB", "#F6F0DD", "#FBF8EE"] },
-      "page": { "role": "neutral", "displayName": "Mat Ground", "canonical": "#ECEFF6", "tonalRamp": ["#0D1226", "#151B38", "#1D2547", "#2B3461", "#D3D8E8", "#E1E5F2", "#ECEFF6", "#FFFFFF"] },
-      "ink": { "role": "neutral", "displayName": "Indigo Ink", "canonical": "#151A33", "tonalRamp": ["#0D1226", "#151A33", "#2B3461", "#4A5273", "#6F779A", "#A5AED3", "#D3D8E8", "#EEF0FA"] }
+      "indigo-shell": {
+        "role": "primary",
+        "displayName": "Indigo Shell",
+        "canonical": "#232D69",
+        "tonalRamp": [
+          "#0F1436",
+          "#1A2250",
+          "#232D69",
+          "#3A4793",
+          "#5B69B8",
+          "#8A95D2",
+          "#BCC3E8",
+          "#E3E7F6"
+        ]
+      },
+      "emergency-red": {
+        "role": "secondary",
+        "displayName": "Emergency Red",
+        "canonical": "#D92D20",
+        "tonalRamp": [
+          "#3A0F0B",
+          "#6B1810",
+          "#B42318",
+          "#D92D20",
+          "#EC6A5E",
+          "#F59C93",
+          "#FACBC6",
+          "#FDECEA"
+        ]
+      },
+      "leaf": {
+        "role": "secondary",
+        "displayName": "Leaf",
+        "canonical": "#2F7D4F",
+        "tonalRamp": [
+          "#0F2D20",
+          "#17462F",
+          "#1F6B43",
+          "#2F7D4F",
+          "#3DA874",
+          "#7DDDAA",
+          "#B9EBD0",
+          "#E4F2EA"
+        ]
+      },
+      "ochre": {
+        "role": "tertiary",
+        "displayName": "Ochre",
+        "canonical": "#D9A21B",
+        "tonalRamp": [
+          "#3A2A06",
+          "#5C4208",
+          "#7A5200",
+          "#B8860F",
+          "#D9A21B",
+          "#E3B23C",
+          "#F5C75B",
+          "#FFF4D6"
+        ]
+      },
+      "straw": {
+        "role": "tertiary",
+        "displayName": "Straw",
+        "canonical": "#EADFB9",
+        "tonalRamp": [
+          "#53597F",
+          "#8A8A78",
+          "#B5A97A",
+          "#D2C592",
+          "#EADFB9",
+          "#F0E8CB",
+          "#F6F0DD",
+          "#FBF8EE"
+        ]
+      },
+      "page": {
+        "role": "neutral",
+        "displayName": "Mat Ground",
+        "canonical": "#ECEFF6",
+        "tonalRamp": [
+          "#0D1226",
+          "#151B38",
+          "#1D2547",
+          "#2B3461",
+          "#D3D8E8",
+          "#E1E5F2",
+          "#ECEFF6",
+          "#FFFFFF"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Indigo Ink",
+        "canonical": "#151A33",
+        "tonalRamp": [
+          "#0D1226",
+          "#151A33",
+          "#2B3461",
+          "#4A5273",
+          "#6F779A",
+          "#A5AED3",
+          "#D3D8E8",
+          "#EEF0FA"
+        ]
+      }
     },
     "typographyMeta": {
-      "title": { "displayName": "Title", "purpose": "Screen header titles and case sheet titles." },
-      "headline": { "displayName": "Headline", "purpose": "Feed row animal name, section headings, summary counts." },
-      "body": { "displayName": "Body", "purpose": "Locations, form text, buttons (semibold)." },
-      "label": { "displayName": "Label", "purpose": "Timestamps, status line, tab labels, banners, weave stage names. 12px floor." }
+      "title": {
+        "displayName": "Title",
+        "purpose": "Screen header titles and case sheet titles."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Feed row animal name, section headings, summary counts."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Locations, form text, buttons (semibold)."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Timestamps, status line, tab labels, banners, weave stage names. 12px floor."
+      }
     },
     "shadows": [
-      { "name": "dock", "value": "0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1)", "purpose": "Floating tab bar." },
-      { "name": "sos-beacon", "value": "0 4px 6px -1px rgba(0,0,0,0.2), 0 2px 4px -2px rgba(0,0,0,0.2)", "purpose": "Raised SOS button, with a 2px surface ring." },
-      { "name": "sheet", "value": "0 25px 50px -12px rgba(0,0,0,0.25)", "purpose": "Case detail bottom sheet over a 60% black blurred scrim (flagged as drift from the no-glow floor)." }
+      {
+        "name": "dock",
+        "value": "0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1)",
+        "purpose": "Floating tab bar."
+      },
+      {
+        "name": "sos-beacon",
+        "value": "0 4px 6px -1px rgba(0,0,0,0.2), 0 2px 4px -2px rgba(0,0,0,0.2)",
+        "purpose": "Raised SOS button, with a 2px surface ring."
+      },
+      {
+        "name": "sheet",
+        "value": "0 25px 50px -12px rgba(0,0,0,0.25)",
+        "purpose": "Case detail bottom sheet over a 60% black blurred scrim (flagged as drift from the no-glow floor)."
+      }
     ],
     "motion": [
-      { "name": "tab-underline", "value": "transform 200ms ease-out", "purpose": "Feed filter tab underline; disabled under reduced motion." },
-      { "name": "press", "value": "transform 150ms, scale 0.95", "purpose": "SOS press feedback." },
-      { "name": "reduced-motion", "value": "0.01ms durations, single iteration", "purpose": "Global collapse under prefers-reduced-motion." }
+      {
+        "name": "tab-underline",
+        "value": "transform 200ms ease-out",
+        "purpose": "Feed filter tab underline; disabled under reduced motion."
+      },
+      {
+        "name": "press",
+        "value": "transform 150ms, scale 0.95",
+        "purpose": "SOS press feedback."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "0.01ms durations, single iteration",
+        "purpose": "Global collapse under prefers-reduced-motion."
+      }
     ],
     "breakpoints": [
-      { "name": "column-max", "value": "448px" },
-      { "name": "design-viewport", "value": "390px x 844px" }
+      {
+        "name": "column-max",
+        "value": "448px"
+      },
+      {
+        "name": "design-viewport",
+        "value": "390px x 844px"
+      }
     ]
   },
   "components": [
@@ -99,15 +239,39 @@
       "One signature: the five-cell stage weave on every case, the 14-cell recovery clock, the selvedge stripe under every screen header.",
       "Emergency red only for SOS and the Reported status.",
       "Flat surfaces; floating elements (dock, SOS) carry one soft shadow, nothing glows.",
-      "Light, dark (class or data-theme), and system-follow themes share one token set."
+      "Light only. There is no dark or system theme and no theme switcher."
     ],
     "rules": [
-      { "name": "The One Red Thread Rule", "body": "Red marks SOS and Reported only. It never means overdue, error, or delete. The recovery clock goes ochre, then dark ochre, never red.", "section": "colors" },
-      { "name": "The Two Fills Rule", "body": "At most two saturated filled elements per screen (for example the indigo header plus the raised SOS). Everything else is tinted, outlined, or text.", "section": "colors" },
-      { "name": "The Tokens-Only Rule", "body": "Components read the CSS variables (through Tailwind bg-surface, text-fg, and the like); no hex in components.", "section": "colors" },
-      { "name": "The Twelve Floor Rule", "body": "No text under 12px. Numerals that change (times, distances, counts) use tabular figures.", "section": "typography" },
-      { "name": "The Two Weights Rule", "body": "Only 400 and 700 are loaded. Components ask for font-semibold, which the browser resolves to the loaded 700, so treat semibold and bold as one emphasis weight.", "section": "typography" },
-      { "name": "The Flat Mat Rule", "body": "Rows, headers and cards never get shadows. No glows, and no gradients except the woven twill and selvedge, whose stops are hard.", "section": "elevation" }
+      {
+        "name": "The One Red Thread Rule",
+        "body": "Red marks SOS and Reported only. It never means overdue, error, or delete. The recovery clock goes ochre, then dark ochre, never red.",
+        "section": "colors"
+      },
+      {
+        "name": "The Two Fills Rule",
+        "body": "At most two saturated filled elements per screen (for example the indigo header plus the raised SOS). Everything else is tinted, outlined, or text.",
+        "section": "colors"
+      },
+      {
+        "name": "The Tokens-Only Rule",
+        "body": "Components read the CSS variables (through Tailwind bg-surface, text-fg, and the like); no hex in components.",
+        "section": "colors"
+      },
+      {
+        "name": "The Twelve Floor Rule",
+        "body": "No text under 12px. Numerals that change (times, distances, counts) use tabular figures.",
+        "section": "typography"
+      },
+      {
+        "name": "The Two Weights Rule",
+        "body": "Only 400 and 700 are loaded. Components ask for font-semibold, which the browser resolves to the loaded 700, so treat semibold and bold as one emphasis weight.",
+        "section": "typography"
+      },
+      {
+        "name": "The Flat Mat Rule",
+        "body": "Rows, headers and cards never get shadows. No glows, and no gradients except the woven twill and selvedge, whose stops are hard.",
+        "section": "elevation"
+      }
     ],
     "dos": [
       "Do show status in words and weave together on every case.",

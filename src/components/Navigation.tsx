@@ -61,7 +61,7 @@ export default function Navigation() {
             <Link
               href="/sos"
               id="nav-sos-button"
-              className="w-14 h-14 min-w-[56px] min-h-[56px] rounded-full bg-accent hover:opacity-95 text-accent-fg flex flex-col items-center justify-center shadow-md shadow-black/20 border-2 border-surface dark:border-surface active:scale-95 transition-transform focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
+              className="w-14 h-14 min-w-[56px] min-h-[56px] rounded-full bg-accent hover:opacity-95 text-accent-fg flex flex-col items-center justify-center shadow-md shadow-black/20 border-2 border-surface active:scale-95 transition-transform focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
               aria-label="Report Street Animal Emergency via Live Camera"
             >
               <Camera className="w-6 h-6 text-accent-fg" aria-hidden="true" />
