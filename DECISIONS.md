@@ -300,3 +300,18 @@
 - **Clinics page:** 14-day status comes from each animal in care; a clinic with none shows no clock. Only Listed clinics; an error state replaces fake samples.
 - **Other:** failed sign-in links explained; rate limits on address and email routes; Rafa sends each message once, keeps the chat across tabs, page text in Filipino; theme set before first paint; focus stays inside dialogs; spinners respect reduced motion; tap targets ≥ 44px; overdue badges amber instead of coral.
 - **Checks:** `tsc`, eslint (0 errors), `next build`; escalation and expired-claim rules 17/17. Not tested on a phone or against the database yet.
+
+### D-032: Finishing the web app (M1-M6)
+- **Date:** 2026-11-09
+- **Decision (builder said "finish it" on the plan's recommendations):**
+  1. **Alerts are web push** (`web-push`, `public/sw.js`, VAPID keys). Android Chrome works directly; iPhone needs the site added to the Home Screen. The Expo push route stays for the phone app.
+  2. **Escalation runs on a scheduler:** Supabase pg_cron + pg_net call `/api/cron/tick` every minute with `CRON_SECRET`. Stages: responders whose saved area (place + 1-10 km) covers the report at once; every other volunteer and admin at the widen time; admins at "no responder". `sos_alert_log` makes each stage happen once; a late tick sends only the newest stage.
+  3. **Intake:** after admit, the clinic confirms "Animal arrived" or "Can't accept" (case returns to the rescuer with a fresh 60-minute lock; the rescuer gets an alert). A recovery update also confirms intake.
+  4. **14-day rule enforced:** the scheduler marks a case overdue, sets the clinic to `Paused` (hidden from the picker and Clinics page), and alerts clinic staff and admins. Admins list it again in Admin → Clinics.
+  5. **AI flag:** the scheduler sends new report photos to Gemini; no animal or a photo of a screen opens an admin flag (source `ai`); graphic photos are labeled before reveal. A failed check never blocks a report.
+  6. **Bystander handoff:** reporter or rescuer records who took the animal, with a live plate photo in the private `plate-photos` bucket, readable by the reporter, the photographer and admins.
+  7. **Admin tools:** Users (change roles, never your own; removing a volunteer releases their claim), Clinics (pause / list), Handoffs.
+  8. **Profile and polish:** display name shown as first name on claimed cases; errors in neutral text with an amber icon; Facebook sign-in removed; report photos must come from this project's own storage host.
+  9. **Tests:** `npm test` (vitest, 30 tests on escalation, alerts, claim lock, care clock, geo); `supabase/tests/permissions.sql` checks 15 database rules and always rolls back.
+- **Not done:** Filipino for the whole app (only Rafa is bilingual); vet bill upload (with donations, Later); Lost & Found, donations, adoption, Saludo, phone sign-in (Later); phone app port.
+- **Needs the builder:** `docs/go-live-setup.md` (migrations, Vercel variables, scheduler, test).

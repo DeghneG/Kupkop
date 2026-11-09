@@ -29,6 +29,17 @@
 - [ ] Run migration `20261029000002_facility_care_and_flags.sql`, then test with real accounts: clinic staff posts an update, a flag gets hidden.
 - [ ] Needs a brief: bystander handoff, AI flag.
 
+### Finish the web app (D-032)
+- [x] M1 "I'll take it myself" on the SOS success screen.
+- [x] M2 Web push alerts, rescue areas, escalation scheduler (`/api/cron/tick`).
+- [x] M3 Intake confirmation, can't accept, 14-day overdue pausing.
+- [x] M4 AI photo check, bystander handoff with plate photo, admin Users / Clinics / Handoffs.
+- [x] M5 Display names, neutral error style, Facebook removed.
+- [x] M6 Unit tests (`npm test`), database permission tests, classmate script (`docs/`).
+- [ ] Go-live setup: `docs/go-live-setup.md` (migrations, Vercel variables, scheduler).
+- [ ] Outdoor field test with classmates (`docs/classmate-test-script.md`); log and fix every bug.
+- [ ] Decide: Filipino for the whole app.
+
 ### Mobile app (React Native / Expo, D-028)
 - [x] Port all Phase 1-2 screens to mobile/ (Feed, SOS, Rafa, Clinics, Settings, Welcome).
 - [ ] Run on a real Android phone in Expo Go: SOS end to end, claim with two accounts.
