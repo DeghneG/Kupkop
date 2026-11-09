@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Inter, Bricolage_Grotesque } from 'next/font/google';
 import './globals.css';
 import TestModeBanner from '@/components/TestModeBanner';
+import RolePreviewBanner from '@/components/RolePreviewBanner';
 import Navigation from '@/components/Navigation';
 import ThemeInit from '@/components/ThemeInit';
 
@@ -58,6 +59,7 @@ export default function RootLayout({
         {/* Mobile viewport container */}
         <div className="w-full max-w-md min-h-screen bg-page border-x border-border shadow-sm flex flex-col relative pb-28 transition-colors duration-150">
           <TestModeBanner />
+          <RolePreviewBanner />
           <main className="flex-1 flex flex-col">{children}</main>
           <Navigation />
         </div>

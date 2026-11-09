@@ -315,3 +315,10 @@
   9. **Tests:** `npm test` (vitest, 30 tests on escalation, alerts, claim lock, care clock, geo); `supabase/tests/permissions.sql` checks 15 database rules and always rolls back.
 - **Not done:** Filipino for the whole app (only Rafa is bilingual); vet bill upload (with donations, Later); Lost & Found, donations, adoption, Saludo, phone sign-in (Later); phone app port.
 - **Needs the builder:** `docs/go-live-setup.md` (migrations, Vercel variables, scheduler, test).
+
+### D-033: Role preview for everyone
+- **Date:** 2026-11-09
+- **Decision (builder's request):** Settings has a "Preview a role" card (Citizen, Volunteer, Clinic staff, Admin) open to every visitor, replacing the admin-only "View as". While a preview is on, a banner on every page repeats the switcher and has Exit preview. The choice is kept in this browser (`kupkop-view-as`).
+- **Display only:** the preview changes which screens, buttons and links show. It grants nothing: RLS and the database functions still enforce the real account, so a preview role's saving buttons fail with the database's own message.
+- **Clinic care and Admin pages** show made-up sample data inside a disabled `<fieldset>` while previewing (the real data stays behind the real role). Picking your own real role keeps the banner but uses real data.
+- **Also:** waiting times read "7m / 3h / 15d" (`formatWaited`); disabled controls in a preview are dimmed.

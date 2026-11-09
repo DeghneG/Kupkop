@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { useProfile } from '@/lib/supabase/useProfile';
@@ -37,14 +37,65 @@ function timeAgo(iso: string): string {
   return hours < 24 ? `${hours}h ago` : `${Math.floor(hours / 24)}d ago`;
 }
 
+// True while previewing the Admin role: tabs show made-up rows instead of reading the database
+const SampleContext = createContext(false);
+
+const hoursAgo = (h: number) => new Date(Date.now() - h * 3_600_000).toISOString();
+
+const sampleApplications = (): Application[] => [
+  { id: 'sample-a1', role: 'volunteer', note: 'I rescue strays in my barangay and can respond within 15 minutes.', createdAt: hoursAgo(3), email: 'ana.sample@example.test', clinicName: null },
+  { id: 'sample-a2', role: 'facility', note: 'Receptionist at the clinic; our manager can confirm by phone.', createdAt: hoursAgo(26), email: 'ben.sample@example.test', clinicName: 'Test Clinic B (New Manila)' },
+];
+
+const sampleFlags = (): FlaggedReport[] => [
+  {
+    reportId: 'sample-r1',
+    shortId: 'KK-S101',
+    title: 'Injured Dog · Hit-and-run · Critical',
+    location: 'Aurora Blvd near EDSA, Cubao',
+    photoUrl: null,
+    flagId: 'sample-f1',
+    reasons: [
+      { reason: 'duplicate', note: 'Same dog as KK-S099', email: 'cara.sample@example.test' },
+      { reason: 'fake', note: 'AI check: no animal visible. A photo of a wall.', email: 'AI photo check' },
+    ],
+  },
+];
+
+const sampleUsers = (): UserRow[] => [
+  { id: 'sample-u1', email: 'ana.sample@example.test', full_name: 'Ana', role: 'volunteer', facility_id: null },
+  { id: 'sample-u2', email: 'ben.sample@example.test', full_name: 'Ben', role: 'facility', facility_id: null },
+  { id: 'sample-u3', email: 'cara.sample@example.test', full_name: null, role: 'citizen', facility_id: null },
+  { id: 'sample-u4', email: 'dan.sample@example.test', full_name: 'Dan', role: 'admin', facility_id: null },
+];
+
+const sampleClinics = (): ClinicRow[] => [
+  { id: 'sample-c1', name: 'Test Clinic A (Katipunan)', address: 'Katipunan Ave, Quezon City', status: 'Listed' },
+  { id: 'sample-c2', name: 'Test Clinic B (New Manila)', address: 'E. Rodriguez Sr. Ave, New Manila', status: 'Listed' },
+  { id: 'sample-c3', name: 'Test Shelter D (Kamias)', address: 'Kamias Rd near Anonas', status: 'Paused', paused_reason: 'No update on case #KK-S004 for 14 days' },
+];
+
+const sampleHandoffs = (): HandoffRow[] => [
+  {
+    id: 'sample-h1',
+    note: 'Tricycle driver taking it to Test Clinic A on Katipunan',
+    plate_photo_path: 'sample',
+    created_at: hoursAgo(5),
+    sos_reports: { short_id: 'KK-S102' },
+    profiles: { email: 'ana.sample@example.test' },
+  },
+];
+
 // Admin tools. The page is only a convenience: every action is a database function that checks is_admin().
 export default function AdminPage() {
-  const { user, realRole, loading } = useProfile();
+  const { user, realRole, role, isPreview, loading } = useProfile();
   const [tab, setTab] = useState<Tab>('applications');
 
   if (loading) return <p className="px-4 pt-6 text-[14px] text-fg-muted">Loading…</p>;
 
-  if (!user || realRole !== 'admin') {
+  // A preview follows the role being shown; a real visit needs a real admin account
+  const showAdmin = isPreview ? role === 'admin' : !!user && realRole === 'admin';
+  if (!showAdmin) {
     return (
       <div className="px-4 pt-6 space-y-2">
         <p className="text-[14px] font-semibold text-fg">Admins only</p>
@@ -86,6 +137,14 @@ export default function AdminPage() {
         ))}
       </div>
 
+      {isPreview && (
+        <p className="text-[12px] text-fg-muted rounded-xl border border-dashed border-border p-3">
+          Preview with sample data. Buttons are turned off.
+        </p>
+      )}
+
+      <SampleContext.Provider value={isPreview}>
+      <fieldset disabled={isPreview} className="min-w-0 border-0 p-0 m-0">
       <div role="tabpanel">
         {tab === 'applications' && <Applications />}
         {tab === 'flags' && <Flags />}
@@ -98,6 +157,8 @@ export default function AdminPage() {
         )}
         {tab === 'handoffs' && <Handoffs />}
       </div>
+      </fieldset>
+      </SampleContext.Provider>
     </div>
   );
 }
@@ -130,7 +191,9 @@ function useLoader<T>(load: () => PromiseLike<T>) {
 }
 
 function Applications() {
+  const sample = useContext(SampleContext);
   const load = useCallback(async (): Promise<Application[]> => {
+    if (sample) return sampleApplications();
     const { data, error } = await createClient()
       .from('role_applications')
       .select('id,requested_role,note,created_at,profiles!role_applications_user_id_fkey(email),facilities(name)')
@@ -153,7 +216,7 @@ function Applications() {
       email: r.profiles?.email ?? 'Unknown account',
       clinicName: r.facilities?.name ?? null,
     }));
-  }, []);
+  }, [sample]);
   const { data, error, reload } = useLoader(load);
 
   return (
@@ -181,7 +244,9 @@ function Applications() {
 }
 
 function Flags() {
+  const sample = useContext(SampleContext);
   const load = useCallback(async (): Promise<FlaggedReport[]> => {
+    if (sample) return sampleFlags();
     const { data, error } = await createClient()
       .from('report_flags')
       .select(
@@ -226,7 +291,7 @@ function Flags() {
       byReport.set(report.id, entry);
     }
     return [...byReport.values()];
-  }, []);
+  }, [sample]);
   const { data, error, reload } = useLoader(load);
 
   return (
@@ -476,7 +541,9 @@ function useListedClinics() {
 
 // Change anyone's role (not your own). Removing a volunteer releases any rescue they still hold.
 function Users() {
+  const sample = useContext(SampleContext);
   const load = useCallback(async (): Promise<UserRow[]> => {
+    if (sample) return sampleUsers();
     const { data, error } = await createClient()
       .from('profiles')
       .select('*')
@@ -484,7 +551,7 @@ function Users() {
       .limit(200);
     if (error) throw error;
     return (data ?? []) as UserRow[];
-  }, []);
+  }, [sample]);
   const { data, error, reload } = useLoader(load);
   const clinics = useListedClinics();
   const [query, setQuery] = useState('');
@@ -578,11 +645,13 @@ type ClinicRow = { id: string; name: string; address: string; status: string; pa
 
 // Paused clinics are hidden from the clinic picker and the Clinics page until listed again
 function ClinicList() {
+  const sample = useContext(SampleContext);
   const load = useCallback(async (): Promise<ClinicRow[]> => {
+    if (sample) return sampleClinics();
     const { data, error } = await createClient().from('facilities').select('*').order('name');
     if (error) throw error;
     return (data ?? []) as ClinicRow[];
-  }, []);
+  }, [sample]);
   const { data, error, reload } = useLoader(load);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -644,7 +713,9 @@ type HandoffRow = {
 };
 
 function Handoffs() {
+  const sample = useContext(SampleContext);
   const load = useCallback(async (): Promise<HandoffRow[]> => {
+    if (sample) return sampleHandoffs();
     const { data, error } = await createClient()
       .from('handoffs')
       .select('id,note,plate_photo_path,created_at,sos_reports(short_id),profiles(email)')
@@ -652,7 +723,7 @@ function Handoffs() {
       .limit(100);
     if (error) throw error;
     return (data ?? []) as unknown as HandoffRow[];
-  }, []);
+  }, [sample]);
   const { data, error } = useLoader(load);
 
   const view = async (path: string) => {

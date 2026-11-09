@@ -28,8 +28,8 @@ function subscribeStorage(callback: () => void) {
 
 export type ViewAsRole = 'citizen' | 'volunteer' | 'facility' | 'admin';
 
-// Admin-only UI preview of another role. Display only: the database still
-// enforces the real role, and useProfile ignores this unless the user is an admin.
+// Role preview (anyone can choose one). Display only: the database still enforces the real
+// account's permissions, so a preview never grants access to anything.
 export function useViewAs(): [ViewAsRole | null, (role: ViewAsRole | null) => void] {
   const stored = useSyncExternalStore<string | null>(
     subscribeStorage,

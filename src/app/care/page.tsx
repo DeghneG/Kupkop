@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { AlertCircle, HeartPulse, ShieldAlert } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
@@ -50,22 +50,85 @@ function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
+const ago = (hours: number) => new Date(Date.now() - hours * 3_600_000).toISOString();
+const SAMPLE_CLINIC = 'Test Clinic A (Katipunan)';
+
+// Shown only while previewing the Clinic staff or Admin role: made-up cases that show each state of the page
+function sampleCases(): CareCase[] {
+  const base = { clinicName: SAMPLE_CLINIC };
+  return [
+    {
+      ...base,
+      id: 'sample-1',
+      shortId: 'KK-S001',
+      animal: 'Injured Dog',
+      type: 'Hit-and-run · Critical',
+      state: 'admitted',
+      awaitingIntake: true,
+      updates: [{ notes: 'Brought to the clinic. Waiting for the clinic to confirm.', state: 'admitted', createdAt: ago(1) }],
+    },
+    {
+      ...base,
+      id: 'sample-2',
+      shortId: 'KK-S002',
+      animal: 'Injured Cat',
+      type: 'Fracture / Limping',
+      state: 'healing',
+      awaitingIntake: false,
+      updates: [{ notes: 'Splint on, eating well.', state: 'healing', createdAt: ago(48) }],
+    },
+    {
+      ...base,
+      id: 'sample-3',
+      shortId: 'KK-S003',
+      animal: 'Injured Dog',
+      type: 'Sick / Severe Mange',
+      state: 'admitted',
+      awaitingIntake: false,
+      updates: [{ notes: 'Started treatment, needs rechecking.', state: 'admitted', createdAt: ago(12 * 24) }],
+    },
+    {
+      ...base,
+      id: 'sample-4',
+      shortId: 'KK-S004',
+      animal: 'Injured Cat',
+      type: 'Bleeding · Critical',
+      state: 'healing',
+      awaitingIntake: false,
+      updates: [{ notes: 'Wound closed, weak but stable.', state: 'healing', createdAt: ago(16 * 24) }],
+    },
+    {
+      ...base,
+      id: 'sample-5',
+      shortId: 'KK-S005',
+      animal: 'Injured Dog',
+      type: 'Fracture / Limping',
+      state: 'resolved',
+      awaitingIntake: false,
+      updates: [{ notes: 'Recovered and returned to the street.', state: 'resolved', createdAt: ago(5 * 24) }],
+    },
+  ];
+}
+
 // Listed clinic staff log how each admitted animal is doing. Every update restarts that case's
 // 14-day clock; the database checks that the clinic is the one caring for the animal.
 export default function CarePage() {
-  const { user, realRole, facilityId, loading } = useProfile();
+  const { user, realRole, role, isPreview, facilityId, loading } = useProfile();
   const [cases, setCases] = useState<CareCase[] | null>(null);
   const [clinicName, setClinicName] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
 
-  const isAdmin = realRole === 'admin';
-  const isStaff = realRole === 'facility' && !!facilityId;
+  // A role preview shows sample cases, read-only; the real clinic data stays behind the real role
+  const sample = isPreview;
+  const isAdmin = sample ? role === 'admin' : realRole === 'admin';
+  const isStaff = sample ? role === 'facility' : realRole === 'facility' && !!facilityId;
   const canView = isAdmin || isStaff;
+  const previewCases = useMemo(() => (sample && canView ? sampleCases() : null), [sample, canView]);
 
   useEffect(() => {
-    if (!canView) return;
+    if (!canView || sample) return;
     let active = true;
     const supabase = createClient();
 
@@ -117,20 +180,22 @@ export default function CarePage() {
     return () => {
       active = false;
     };
-  }, [canView, isAdmin, facilityId, reloadKey]);
+  }, [canView, sample, isAdmin, facilityId, reloadKey]);
 
   const reload = useCallback(() => {
     setOpenId(null);
     setReloadKey((k) => k + 1);
   }, []);
 
-  const awaiting = (cases ?? []).filter((c) => c.awaitingIntake);
-  const inCare = (cases ?? [])
+  const shown = previewCases ?? cases;
+  const shownClinic = sample && !isAdmin ? SAMPLE_CLINIC : clinicName;
+  const awaiting = (shown ?? []).filter((c) => c.awaitingIntake);
+  const inCare = (shown ?? [])
     .filter((c) => c.state !== 'resolved' && !c.awaitingIntake)
     .map((c) => ({ c, clock: calculateFacilityInactivity(lastUpdateAt(c)) }))
     // Most overdue first
     .sort((a, b) => STATUS_RANK[a.clock.status] - STATUS_RANK[b.clock.status] || b.clock.elapsedDays - a.clock.elapsedDays);
-  const released = (cases ?? []).filter((c) => c.state === 'resolved').slice(0, 10);
+  const released = (shown ?? []).filter((c) => c.state === 'resolved').slice(0, 10);
   const overdue = inCare.filter(({ clock }) => clock.status !== 'active').length;
 
   return (
@@ -140,15 +205,22 @@ export default function CarePage() {
         <p className="text-[12px] text-fg-muted mt-1">
           {isAdmin
             ? 'Every animal in care at Listed clinics. Admins can post updates for any case.'
-            : clinicName
-              ? `${clinicName} · Listed. Log how each animal is doing at least every 14 days.`
+            : shownClinic
+              ? `${shownClinic} · Listed. Log how each animal is doing at least every 14 days.`
               : 'Log how each animal is doing at least every 14 days.'}
         </p>
       </header>
 
+      {sample && canView && (
+        <p className="text-[12px] text-fg-muted rounded-xl border border-dashed border-border p-3">
+          Preview with sample cases. Buttons are turned off.
+        </p>
+      )}
+
+      <fieldset disabled={sample} className="min-w-0 border-0 p-0 m-0 space-y-6">
       {loading ? (
         <p className="text-[14px] text-fg-muted">Loading…</p>
-      ) : !user ? (
+      ) : !user && !sample ? (
         <Notice title="Sign in to see your clinic's cases">
           <Link href="/settings" className="text-[14px] font-semibold text-link underline underline-offset-4">
             Go to Settings to sign in
@@ -178,7 +250,7 @@ export default function CarePage() {
             Try again
           </button>
         </Notice>
-      ) : cases == null ? (
+      ) : shown == null ? (
         <p role="status" className="text-[14px] text-fg-muted">
           Loading cases…
         </p>
@@ -278,6 +350,7 @@ export default function CarePage() {
           )}
         </>
       )}
+      </fieldset>
     </div>
   );
 }

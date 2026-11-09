@@ -149,3 +149,9 @@ body {
   }
 }
 
+
+/* Role previews wrap their screens in a disabled fieldset: every control inside is inert, so show it */
+fieldset:disabled :is(button, input, select, textarea) {
+  opacity: 0.55;
+  cursor: not-allowed;
+}

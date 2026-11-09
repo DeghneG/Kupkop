@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { IncidentData } from './ListRow';
 import { formatCoordinates } from '@/lib/sos/utils';
-import { calculateClaimTimer, calculateFacilityInactivity, calculateEscalation, needsRescuer } from '@/lib/sos/escalation';
+import { calculateClaimTimer, calculateFacilityInactivity, calculateEscalation, needsRescuer, formatWaited } from '@/lib/sos/escalation';
 import TriageGlyph from '@/components/icons/TriageGlyph';
 import CaseRecovery from '@/components/CaseRecovery';
 import { useFocusTrap } from '@/lib/useFocusTrap';
@@ -341,8 +341,8 @@ export default function DetailSheet({
               />
               <span>
                 {escalation.isAlert
-                  ? `No volunteer has claimed this in ${escalation.elapsedMinutes} minutes. It is shown at the top of the feed.`
-                  : `Waiting ${escalation.elapsedMinutes} minutes for a rescuer. It has moved up the feed.`}
+                  ? `No volunteer has claimed this for ${formatWaited(escalation.elapsedMinutes)}. It is shown at the top of the feed.`
+                  : `Waiting ${formatWaited(escalation.elapsedMinutes)} for a rescuer. It has moved up the feed.`}
               </span>
             </div>
           )}

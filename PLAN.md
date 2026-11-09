@@ -44,7 +44,7 @@
 - [x] Port all Phase 1-2 screens to mobile/ (Feed, SOS, Rafa, Clinics, Settings, Welcome).
 - [ ] Run on a real Android phone in Expo Go: SOS end to end, claim with two accounts.
 - [ ] First APK via EAS (preview profile) shared with a tester.
-- [ ] Paused until the web app is complete (D-030). Then port: clinic-staff application, recovery timeline, flag button, care and admin screens; EAS setup.
+- Parked: the product is a web app only for now (builder's call, 2026-11-09). The `mobile/` folder is kept as is, with no further work, and is not part of any phase until the builder reopens it.
 
 ### To Do (Phase 0 - Setup)
 *(All Phase 0 setup tasks completed)*

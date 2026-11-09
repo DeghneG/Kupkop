@@ -5,6 +5,7 @@ import {
   calculateFacilityInactivity,
   getEscalationTier,
   needsRescuer,
+  formatWaited,
 } from './escalation';
 import { alertRecipients, currentAlertStage, planAlertStages, usersInArea } from './alerts';
 import { distanceKm, generateCaseId } from './geo';
@@ -121,4 +122,15 @@ describe('geo', () => {
   it('case IDs are short and readable aloud', () => {
     for (let i = 0; i < 50; i++) expect(generateCaseId()).toMatch(/^KK-[A-Z0-9]{4}$/);
   });
+});
+
+describe('waiting time labels', () => {
+  it.each([
+    [7, '7m'],
+    [59, '59m'],
+    [60, '1h'],
+    [200, '3h'],
+    [1440, '1d'],
+    [21874, '15d'],
+  ])('%i minutes reads %s', (minutes, label) => expect(formatWaited(minutes)).toBe(label));
 });

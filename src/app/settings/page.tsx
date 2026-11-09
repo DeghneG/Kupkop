@@ -8,13 +8,13 @@ import AuthModal from '@/components/AuthModal';
 import RoleApplication from '@/components/RoleApplication';
 import AlertSettings from '@/components/AlertSettings';
 import InlineError from '@/components/InlineError';
-import { useThemeMode, useViewAs } from '@/lib/storage';
+import RoleSwitcher from '@/components/RoleSwitcher';
+import { useThemeMode } from '@/lib/storage';
 import { useProfile } from '@/lib/supabase/useProfile';
 
 export default function SettingsPage() {
   const [themeMode, handleThemeChange] = useThemeMode();
-  const { user, role, realRole, facilityId } = useProfile();
-  const [, setViewAs] = useViewAs();
+  const { user, role, realRole, facilityId, isPreview } = useProfile();
   const [isAuthOpen, setIsAuthOpen] = useState(false);
 
   // Alerts stop on this device first, so the next person signing in here never gets this user's alerts
@@ -92,15 +92,15 @@ export default function SettingsPage() {
         )}
       </section>
 
-      {user && (realRole === 'volunteer' || realRole === 'admin' || (realRole === 'facility' && facilityId)) && (
-        <AlertSettings userId={user.id} showArea={realRole !== 'facility'} />
+      {user && (role === 'volunteer' || role === 'admin' || (role === 'facility' && (facilityId || isPreview))) && (
+        <AlertSettings userId={user.id} showArea={role !== 'facility'} />
       )}
 
       {/* Role tools: clinic staff log recovery updates, admins review the queue */}
-      {user && (realRole === 'admin' || (realRole === 'facility' && facilityId)) && (
+      {(user || isPreview) && (role === 'admin' || (role === 'facility' && (facilityId || isPreview))) && (
         <nav aria-label="Role tools" className="bg-surface rounded-2xl border border-border shadow-sm divide-y divide-border">
           <ToolLink href="/care" icon={HeartPulse} label="Clinic care" hint="Animals in care and the 14-day clock" />
-          {realRole === 'admin' && (
+          {role === 'admin' && (
             <ToolLink href="/admin" icon={ShieldCheck} label="Admin" hint="Applications, flags, users, clinics, handoffs" />
           )}
         </nav>
@@ -164,38 +164,20 @@ export default function SettingsPage() {
         </div>
       </section>
 
-      {/* 4a. Admin-only preview of other roles (UI only; the database still enforces your real role) */}
-      {realRole === 'admin' && (
-        <section aria-labelledby="settings-viewas-heading" className="bg-surface rounded-2xl p-4 border border-border shadow-sm space-y-3">
-          <div className="flex items-center gap-2">
-            <Eye className="w-4 h-4 text-fg-muted shrink-0" aria-hidden="true" />
-            <h2 id="settings-viewas-heading" className="text-[12px] font-semibold text-fg-muted">
-              View as (admin preview)
-            </h2>
-          </div>
-          <p className="text-[12px] text-fg-muted leading-normal">
-            See the app as another role. This only changes what is shown; permissions stay tied to your real admin role.
-          </p>
-          <div role="radiogroup" aria-label="View as role" className="grid grid-cols-2 gap-2">
-            {(['citizen', 'volunteer', 'facility', 'admin'] as const).map((r) => (
-              <button
-                key={r}
-                type="button"
-                role="radio"
-                aria-checked={role === r}
-                onClick={() => setViewAs(r === 'admin' ? null : r)}
-                className={`min-h-[44px] px-3 rounded-xl text-[14px] font-semibold capitalize border transition-colors cursor-pointer ${
-                  role === r
-                    ? 'bg-action text-action-fg border-action'
-                    : 'bg-surface-muted text-fg border-border hover:bg-border/60'
-                }`}
-              >
-                {r}
-              </button>
-            ))}
-          </div>
-        </section>
-      )}
+      {/* 4a. Preview a role: shows the screens each role sees. Display only; nothing here grants access. */}
+      <section aria-labelledby="settings-preview-heading" className="bg-surface rounded-2xl p-4 border border-border shadow-sm space-y-3">
+        <div className="flex items-center gap-2">
+          <Eye className="w-4 h-4 text-fg-muted shrink-0" aria-hidden="true" />
+          <h2 id="settings-preview-heading" className="text-[12px] font-semibold text-fg-muted">
+            Preview a role
+          </h2>
+        </div>
+        <p className="text-[12px] text-fg-muted leading-normal">
+          Tap a role to see the app the way that role sees it. This only changes what is shown; your real account keeps
+          its own permissions. A banner stays on screen until you exit.
+        </p>
+        <RoleSwitcher />
+      </section>
 
       {/* 4. Volunteer application (role is set by an admin, never by the user) */}
       <RoleApplication

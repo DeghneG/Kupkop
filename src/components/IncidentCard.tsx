@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { ArrowUp, Camera } from 'lucide-react';
-import { calculateEscalation, calculateClaimTimer, needsRescuer as isWaiting } from '@/lib/sos/escalation';
+import { calculateEscalation, calculateClaimTimer, needsRescuer as isWaiting, formatWaited } from '@/lib/sos/escalation';
 import TriageGlyph from '@/components/icons/TriageGlyph';
 
 export interface IncidentData {
@@ -65,13 +65,13 @@ function getStatus(incident: IncidentData): { label: string; tone: string } {
       const escalation = calculateEscalation(incident.createdAt, incident.type);
       if (!incident.createdAt) return { label: 'Reported', tone: 'text-reported-fg' };
       if (escalation.stage === 'alert') {
-        return { label: `No responder yet · ${escalation.elapsedMinutes}m`, tone: 'text-reported-fg' };
+        return { label: `No responder yet · ${formatWaited(escalation.elapsedMinutes)}`, tone: 'text-reported-fg' };
       }
       if (escalation.stage === 'widened') {
         return {
           label: incident.alertWidened
-            ? `Alert sent to all volunteers · ${escalation.elapsedMinutes}m`
-            : `Waiting ${escalation.elapsedMinutes}m for a rescuer`,
+            ? `Alert sent to all volunteers · ${formatWaited(escalation.elapsedMinutes)}`
+            : `Waiting ${formatWaited(escalation.elapsedMinutes)} for a rescuer`,
           tone: 'text-reported-fg',
         };
       }

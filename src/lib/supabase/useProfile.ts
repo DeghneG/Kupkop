@@ -9,8 +9,12 @@ export type UserRole = 'citizen' | 'volunteer' | 'facility' | 'admin';
 
 export interface ProfileState {
   user: User | null;
-  /** Role the UI should show (the preview role when an admin is using "View as"). */
+  /** Role the UI should show: the preview role while one is chosen, else the real role. */
   role: UserRole;
+  /** A role preview is on and differs from the real role (screens switch to sample data) */
+  isPreview: boolean;
+  /** The role picked in the preview switcher, or null when no preview is on */
+  previewRole: UserRole | null;
   /** Role stored in profiles.role. */
   realRole: UserRole;
   /** Clinic a facility-role user works at (set by an admin). */
@@ -20,7 +24,7 @@ export interface ProfileState {
 
 type LoadedProfile = Pick<ProfileState, 'user' | 'realRole' | 'facilityId' | 'loading'>;
 
-// Display-only. Real permissions are enforced by RLS and the claim/admit functions.
+// Display-only, including role previews. Real permissions are enforced by RLS and the database functions.
 export function useProfile(): ProfileState {
   const [viewAs] = useViewAs();
   const [state, setState] = useState<LoadedProfile>({ user: null, realRole: 'citizen', facilityId: null, loading: true });
@@ -63,6 +67,7 @@ export function useProfile(): ProfileState {
     };
   }, []);
 
-  const role = state.realRole === 'admin' && viewAs ? viewAs : state.realRole;
-  return { ...state, role };
+  const role = viewAs ?? state.realRole;
+  const isPreview = !state.loading && viewAs !== null && viewAs !== state.realRole;
+  return { ...state, role, isPreview, previewRole: viewAs };
 }
