@@ -27,10 +27,10 @@ no animation on the SOS camera screen except the shutter flash, functional motio
 before decorative.
 PROTOTYPE RULES: fake plate/face images only; TEST MODE banner on; facilities
 labeled "Listed", never "Verified".
-DESIGN SOURCE: Claude Design project "KupKop" (https://claude.ai/design/p/8a049058-372f-400f-9aa3-bf6c53b2771d). Local reference
-copies: DESIGN.md (tokens, type, spacing, dock) and PRODUCT.md (users, purpose).
-Tokens live in src/app/globals.css (web) and mobile/src/theme/tokens.ts (app),
-kept identical; components use tokens, not hardcoded colors.
+DESIGN SOURCE: DESIGN.md is the source (the "Banig" redesign, 2026-11-09, chosen by the builder) with
+PRODUCT.md (users, purpose); the old Claude Design project "KupKop" is retired.
+Tokens live in src/app/globals.css (web). mobile/src/theme/tokens.ts still holds the OLD
+tokens: the app is parked (web only for now). Components use tokens, not hardcoded colors.
 DESIGN FLOOR (holds even if the design source changes):
 - Text never below 12px; text and icons >= 4.5:1 contrast in light and dark.
 - Coral = emergency action + Reported status only; max 2 saturated filled elements per screen.

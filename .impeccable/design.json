@@ -1,0 +1,129 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-09T00:00:00Z",
+  "title": "Design System: KupKop",
+  "extensions": {
+    "colorMeta": {
+      "indigo-shell": { "role": "primary", "displayName": "Indigo Shell", "canonical": "#232D69", "tonalRamp": ["#0F1436", "#1A2250", "#232D69", "#3A4793", "#5B69B8", "#8A95D2", "#BCC3E8", "#E3E7F6"] },
+      "emergency-red": { "role": "secondary", "displayName": "Emergency Red", "canonical": "#D92D20", "tonalRamp": ["#3A0F0B", "#6B1810", "#B42318", "#D92D20", "#EC6A5E", "#F59C93", "#FACBC6", "#FDECEA"] },
+      "leaf": { "role": "secondary", "displayName": "Leaf", "canonical": "#2F7D4F", "tonalRamp": ["#0F2D20", "#17462F", "#1F6B43", "#2F7D4F", "#3DA874", "#7DDDAA", "#B9EBD0", "#E4F2EA"] },
+      "ochre": { "role": "tertiary", "displayName": "Ochre", "canonical": "#D9A21B", "tonalRamp": ["#3A2A06", "#5C4208", "#7A5200", "#B8860F", "#D9A21B", "#E3B23C", "#F5C75B", "#FFF4D6"] },
+      "straw": { "role": "tertiary", "displayName": "Straw", "canonical": "#EADFB9", "tonalRamp": ["#53597F", "#8A8A78", "#B5A97A", "#D2C592", "#EADFB9", "#F0E8CB", "#F6F0DD", "#FBF8EE"] },
+      "page": { "role": "neutral", "displayName": "Mat Ground", "canonical": "#ECEFF6", "tonalRamp": ["#0D1226", "#151B38", "#1D2547", "#2B3461", "#D3D8E8", "#E1E5F2", "#ECEFF6", "#FFFFFF"] },
+      "ink": { "role": "neutral", "displayName": "Indigo Ink", "canonical": "#151A33", "tonalRamp": ["#0D1226", "#151A33", "#2B3461", "#4A5273", "#6F779A", "#A5AED3", "#D3D8E8", "#EEF0FA"] }
+    },
+    "typographyMeta": {
+      "title": { "displayName": "Title", "purpose": "Screen header titles and case sheet titles." },
+      "headline": { "displayName": "Headline", "purpose": "Feed row animal name, section headings, summary counts." },
+      "body": { "displayName": "Body", "purpose": "Locations, form text, buttons (semibold)." },
+      "label": { "displayName": "Label", "purpose": "Timestamps, status line, tab labels, banners, weave stage names. 12px floor." }
+    },
+    "shadows": [
+      { "name": "dock", "value": "0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1)", "purpose": "Floating tab bar." },
+      { "name": "sos-beacon", "value": "0 4px 6px -1px rgba(0,0,0,0.2), 0 2px 4px -2px rgba(0,0,0,0.2)", "purpose": "Raised SOS button, with a 2px surface ring." },
+      { "name": "sheet", "value": "0 25px 50px -12px rgba(0,0,0,0.25)", "purpose": "Case detail bottom sheet over a 60% black blurred scrim (flagged as drift from the no-glow floor)." }
+    ],
+    "motion": [
+      { "name": "tab-underline", "value": "transform 200ms ease-out", "purpose": "Feed filter tab underline; disabled under reduced motion." },
+      { "name": "press", "value": "transform 150ms, scale 0.95", "purpose": "SOS press feedback." },
+      { "name": "reduced-motion", "value": "0.01ms durations, single iteration", "purpose": "Global collapse under prefers-reduced-motion." }
+    ],
+    "breakpoints": [
+      { "name": "column-max", "value": "448px" },
+      { "name": "design-viewport", "value": "390px x 844px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Header Band with Selvedge",
+      "kind": "nav",
+      "refersTo": "header-band",
+      "description": "Indigo band that opens every main screen, closed by the woven selvedge.",
+      "html": "<div><header class=\"ds-header\"><div><h1>Clinics</h1><p>Listed clinics near you</p></div></header><div class=\"ds-selvedge\"></div></div>",
+      "css": ".ds-header{background:var(--shell,#232D69);color:#fff;padding:12px 16px;font-family:var(--font-atkinson),system-ui,sans-serif}.ds-header h1{margin:0;font-size:22px;font-weight:700;line-height:1}.ds-header p{margin:4px 0 0;font-size:12px;color:var(--shell-muted,#C9CFEA)}.ds-selvedge{height:8px;background:repeating-linear-gradient(90deg,var(--weave-b,#D9A21B) 0 12px,var(--weave-a,#232D69) 12px 24px,var(--weave-c,#2F7D4F) 24px 36px,var(--straw,#EADFB9) 36px 48px)}"
+    },
+    {
+      "name": "Stage Weave",
+      "kind": "custom",
+      "refersTo": "feed-row",
+      "description": "Five twill cells filling from Reported to Resolved; shown here at Claimed.",
+      "html": "<div class=\"ds-weave\"><i class=\"w\"></i><i class=\"w\"></i><i></i><i></i><i></i></div>",
+      "css": ".ds-weave{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:3px;width:220px}.ds-weave i{display:block;height:8px;border:1.5px solid var(--weave-a,#232D69);border-radius:1px;background:repeating-linear-gradient(45deg,transparent 0 3px,color-mix(in srgb,var(--weave-a,#232D69) 16%,transparent) 3px 6px)}.ds-weave .w{background:repeating-linear-gradient(45deg,var(--weave-a,#232D69) 0 3px,var(--weave-b,#D9A21B) 3px 6px)}"
+    },
+    {
+      "name": "Day Weave",
+      "kind": "custom",
+      "refersTo": "feed-row",
+      "description": "Fourteen-day recovery clock; leaf days 1-10, ochre 11-13, dark ochre from 14. Shown on day 12.",
+      "html": "<div class=\"ds-days\"><i class=\"g\"></i><i class=\"g\"></i><i class=\"g\"></i><i class=\"g\"></i><i class=\"g\"></i><i class=\"g\"></i><i class=\"g\"></i><i class=\"g\"></i><i class=\"g\"></i><i class=\"g\"></i><i class=\"w\"></i><i class=\"w\"></i><i></i><i></i></div>",
+      "css": ".ds-days{display:grid;grid-template-columns:repeat(14,minmax(0,1fr));gap:2px;width:300px}.ds-days i{display:block;height:8px;border:1.5px solid var(--weave-a,#232D69);border-radius:1px;background:repeating-linear-gradient(45deg,transparent 0 3px,color-mix(in srgb,var(--weave-a,#232D69) 16%,transparent) 3px 6px)}.ds-days .g{border-color:var(--weave-c,#2F7D4F);background:repeating-linear-gradient(45deg,var(--weave-c,#2F7D4F) 0 3px,var(--straw,#EADFB9) 3px 6px)}.ds-days .w{background:repeating-linear-gradient(45deg,var(--weave-a,#232D69) 0 3px,var(--weave-b,#D9A21B) 3px 6px)}"
+    },
+    {
+      "name": "Feed Row (needs a rescuer)",
+      "kind": "card",
+      "refersTo": "feed-row-needs-rescuer",
+      "description": "Faint red tint row with status text, weave strip and the Claim button at right.",
+      "html": "<div class=\"ds-row\"><div class=\"ds-main\"><b>Dog <span>· Hit and Run</span></b><p>Katipunan Ave</p><em>Waiting for a rescuer · #A1F3</em></div><button class=\"ds-claim\">Claim</button></div>",
+      "css": ".ds-row{display:flex;align-items:center;gap:8px;padding:12px 16px;background:var(--reported-bg,#FDECEA);color:var(--fg,#151A33);font-family:var(--font-atkinson),system-ui,sans-serif}.ds-main{flex:1}.ds-main b{font-size:16px}.ds-main b span{font-size:14px;font-weight:400;color:var(--fg-muted,#4A5273)}.ds-main p{margin:2px 0;font-size:14px;color:var(--fg-muted,#4A5273)}.ds-main em{font-style:normal;font-size:12px;font-weight:700;color:var(--reported-fg,#B42318)}.ds-claim{height:44px;padding:0 16px;border-radius:12px;border:1px solid var(--border,#D3D8E8);background:var(--surface,#fff);color:var(--fg,#151A33);font-size:14px;font-weight:700;cursor:pointer}.ds-claim:hover{background:var(--surface-muted,#E1E5F2)}.ds-claim:focus-visible{outline:2px solid var(--action,#232D69);outline-offset:2px}"
+    },
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Indigo 48px action button.",
+      "html": "<button class=\"ds-btn-primary\">Save</button>",
+      "css": ".ds-btn-primary{min-height:48px;padding:0 24px;border:0;border-radius:12px;background:var(--action,#232D69);color:var(--action-fg,#fff);font-family:var(--font-atkinson),system-ui,sans-serif;font-size:14px;font-weight:700;cursor:pointer}.ds-btn-primary:hover{opacity:.95}.ds-btn-primary:focus-visible{outline:2px solid var(--action,#232D69);outline-offset:2px}.ds-btn-primary:disabled{opacity:.5;cursor:not-allowed}"
+    },
+    {
+      "name": "Tab Dock with Raised SOS",
+      "kind": "nav",
+      "refersTo": "dock",
+      "description": "Floating white dock; red 56px SOS circle lifted 16px at centre.",
+      "html": "<nav class=\"ds-dock\"><a class=\"on\">Feed</a><a>Rafa AI</a><a class=\"ds-sos\">SOS</a><a>Clinics</a><a>Settings</a></nav>",
+      "css": ".ds-dock{display:flex;align-items:center;justify-content:space-between;gap:4px;padding:6px 8px;background:var(--surface,#fff);border:1px solid var(--border,#D3D8E8);border-radius:16px;box-shadow:0 4px 6px -1px rgba(0,0,0,.1);font-family:var(--font-atkinson),system-ui,sans-serif;font-size:12px;width:380px}.ds-dock a{min-width:56px;min-height:46px;display:flex;align-items:center;justify-content:center;border-radius:12px;color:var(--fg-muted,#4A5273)}.ds-dock a.on{color:var(--action,#232D69);font-weight:700;background:var(--surface-muted,#E1E5F2)}.ds-dock a.ds-sos{width:56px;height:56px;border-radius:9999px;margin-top:-32px;background:var(--accent,#D92D20);color:#fff;font-weight:700;border:2px solid var(--surface,#fff);box-shadow:0 4px 6px -1px rgba(0,0,0,.2)}"
+    },
+    {
+      "name": "TEST MODE Banner",
+      "kind": "custom",
+      "refersTo": "test-mode-banner",
+      "description": "Amber strip, sticky on every page.",
+      "html": "<aside class=\"ds-banner\">TEST MODE: prototype, no real dispatch</aside>",
+      "css": ".ds-banner{padding:8px 16px;background:var(--banner-bg,#FFF3C4);color:var(--banner-fg,#4A3600);border-bottom:1px solid var(--border,#D3D8E8);font-family:var(--font-atkinson),system-ui,sans-serif;font-size:12px;line-height:1.25}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Woven Mat (Banig)",
+    "overview": "KupKop is one woven mat. Indigo is the warp that holds the shell together; ochre and leaf are the weft that shows progress; the emergency red is the single warm thread reserved for the moment something needs a rescuer. The form comes from banig, the woven sleeping mats of Samar and Tawi-Tawi. It shows up as diagonal twill cells and a striped selvedge, never as folk ornament or patterned backgrounds.\n\nThis is an operate-mode app: a bystander in sun or rain with one hand free, a volunteer scanning for open cases, clinic staff and admins who scan, act and confirm. It lives in a single mobile column (448px max), with a cool periwinkle-grey ground, white rows divided by hairlines, and no cards in the feed. Surfaces are flat. Status is told twice, in words and in weave, so nobody has to trust colour alone. Atkinson Hyperlegible carries every word, chosen for low-vision legibility outdoors.\n\nIt rejects the category default: pill badges in a rounded-card feed on a green-teal ground. Status is coloured text plus a weave strip, not a filled pill.",
+    "keyCharacteristics": [
+      "Cool indigo shell, periwinkle-grey ground, white rows on hairlines.",
+      "One signature: the five-cell stage weave on every case, the 14-cell recovery clock, the selvedge stripe under every screen header.",
+      "Emergency red only for SOS and the Reported status.",
+      "Flat surfaces; floating elements (dock, SOS) carry one soft shadow, nothing glows.",
+      "Light, dark (class or data-theme), and system-follow themes share one token set."
+    ],
+    "rules": [
+      { "name": "The One Red Thread Rule", "body": "Red marks SOS and Reported only. It never means overdue, error, or delete. The recovery clock goes ochre, then dark ochre, never red.", "section": "colors" },
+      { "name": "The Two Fills Rule", "body": "At most two saturated filled elements per screen (for example the indigo header plus the raised SOS). Everything else is tinted, outlined, or text.", "section": "colors" },
+      { "name": "The Tokens-Only Rule", "body": "Components read the CSS variables (through Tailwind bg-surface, text-fg, and the like); no hex in components.", "section": "colors" },
+      { "name": "The Twelve Floor Rule", "body": "No text under 12px. Numerals that change (times, distances, counts) use tabular figures.", "section": "typography" },
+      { "name": "The Two Weights Rule", "body": "Only 400 and 700 are loaded. Components ask for font-semibold, which the browser resolves to the loaded 700, so treat semibold and bold as one emphasis weight.", "section": "typography" },
+      { "name": "The Flat Mat Rule", "body": "Rows, headers and cards never get shadows. No glows, and no gradients except the woven twill and selvedge, whose stops are hard.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do show status in words and weave together on every case.",
+      "Do keep SOS one tap away on every main screen via the raised dock button.",
+      "Do put primary buttons at 48px, secondary at 44px, tap targets at least 44px.",
+      "Do use ochre, then dark ochre, for approaching and overdue recovery updates.",
+      "Do colour status as ink text on the row; tint the whole row only for Reported.",
+      "Do end every main screen header with the selvedge."
+    ],
+    "donts": [
+      "Don't use red for anything but SOS and Reported.",
+      "Don't use filled pill badges for status, or nest a card in a card.",
+      "Don't add glows or gradients other than the hard-stop twill and selvedge.",
+      "Don't hardcode hex in components or use text under 12px.",
+      "Don't label a clinic \"Verified\"; it is \"Listed\".",
+      "Don't treat mobile/ as part of this system: it is a parked Expo app still carrying the old sage-and-teal tokens."
+    ]
+  }
+}

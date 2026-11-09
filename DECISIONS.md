@@ -322,3 +322,24 @@
 - **Display only:** the preview changes which screens, buttons and links show. It grants nothing: RLS and the database functions still enforce the real account, so a preview role's saving buttons fail with the database's own message.
 - **Clinic care and Admin pages** show made-up sample data inside a disabled `<fieldset>` while previewing (the real data stays behind the real role). Picking your own real role keeps the banner but uses real data.
 - **Also:** waiting times read "7m / 3h / 15d" (`formatWaited`); disabled controls in a preview are dimmed.
+
+### D-034: Redesign to "Banig" (whole web UI)
+- **Date:** 2026-11-09
+- **Decision (builder picked one of five directions):** Banig, after the woven banig mats of Samar and Tawi-Tawi. Indigo shell, cool pale ground, white rows on hairlines, one warm red reserved for SOS and Reported. Atkinson Hyperlegible replaces Inter and Bricolage Grotesque (a face designed for low vision, for outdoor reading). Kept by the builder: SOS one tap away, bottom tab bar, Feed as home.
+- **Signature:** every case carries a five-cell weave (`StageWeave`: red twill Reported, indigo/ochre Claimed, leaf Admitted to Resolved); recovery days are a 14-cell weave (`DayWeave`: leaf 1-10, ochre 11-13, dark ochre 14+, never red); a woven selvedge stripe sits under every screen header (`ScreenHeader`).
+- **Where:** tokens and the weave CSS in `src/app/globals.css` (light, dark, system-dark); fonts in `layout.tsx`; app icons and manifest follow the shell colour. Settings, Facilities and role sections are flat hairline bands, not shadowed cards. The role-preview bar is one compact strip.
+- **Process:** direction roll and five sketches, then a fresh finish review (fix), eight fixes, a verdict pass (seven resolved, one partial), then two last fixes (wider tab-edge fade, overdue cell no longer red). Those last two were checked by the builder's assistant, not re-reviewed.
+- **Open:** the recovery clock inside the case sheet for an animal in clinic care was never captured (the demo database has no such case). The `mobile/` Expo app is parked and still carries the old tokens. Dark palette awaits the builder's eye.
+- **Checks:** `tsc`, eslint (0 errors), 36 unit tests, production build, detector with no findings, screenshots at 390 and 1440 wide in light and dark.
+
+### D-035: Brand details on the Banig design
+- **Date:** 2026-11-09
+- **Decision (builder said "ok go" to the first round of customization):** a two-strand wordmark with a woven underline; a woven 3x3 plait mark and app icon in place of the paw glyph; the selvedge on the tab bar and case sheet; finished and blank mats for list ends and empty states; one animation, where newly reached weave cells weave in when a case advances a stage (never on first paint).
+- **Checks:** `tsc`, eslint (0 errors), 36 unit tests, production build, screenshots of Feed, case sheet, Clinics, Welcome and dark Feed. The animation's computed style was checked (`weave-in`, 0.52s); it was not watched playing on a real stage change.
+- **Not yet done from the menu:** drawn animal illustrations, Filipino wording, first-run welcome flow, Sun mode, strand palette choice.
+
+### D-036: Phone layout refinements
+- **Date:** 2026-11-09
+- **Decision (builder said "go on"):** the Feed's first case starts about 70px higher (refresh moved into the header's Live control, the "Nearby cases" heading row became screen-reader-only, summary strip tightened); the case sheet's main action is pinned to the bottom of the sheet and its photo is shorter (160px); case rows show animal and type without truncation, and only the location shortens.
+- **Not done:** a compact row mode for volunteers, grouping Settings (Account, Alerts, Appearance, Demo tools), and the desktop two-pane layout with a side rail (needs its own plan).
+- **Checks:** `tsc`, eslint (0 errors), 36 unit tests, production build; first row top measured at 305px (was about 375px) and the pinned Claim button at 645-693px of 844px.
