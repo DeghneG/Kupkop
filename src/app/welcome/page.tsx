@@ -64,7 +64,7 @@ export default function WelcomePage() {
     }
   }, []);
 
-  // Already signed in (including the return from an email link or Google/Facebook): go to the feed
+  // Already signed in (including the return from an email link or Google): go to the feed
   useEffect(() => {
     if (!profile.loading && profile.user) router.replace('/');
   }, [profile.loading, profile.user, router]);

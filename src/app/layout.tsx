@@ -25,6 +25,7 @@ export const metadata: Metadata = {
   title: 'KupKop — Street Animal Emergency Network',
   description: 'Fast, community-driven street animal emergency dispatch, claim locking, and recovery tracking.',
   manifest: '/manifest.json',
+  icons: { apple: '/pwa-icon?size=180' },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',

@@ -142,7 +142,7 @@ export default function ClinicPicker({ open, caseLabel, near, busy, error, onPic
         </div>
 
         {error && (
-          <p role="alert" className="text-[12px] text-reported-fg">
+          <p role="alert" className="text-[12px] font-semibold text-fg">
             {error}
           </p>
         )}

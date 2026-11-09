@@ -91,7 +91,7 @@ export default function ActiveCaseBar({
               : `Locked to you until ${lockUntil}`}
         </p>
         {error && (
-          <p role="alert" className="text-[12px] font-semibold text-reported-fg">
+          <p role="alert" className="text-[12px] font-semibold text-fg">
             {error}
           </p>
         )}

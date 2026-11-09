@@ -6,8 +6,9 @@ import { createClient } from '@/lib/supabase/client';
 import { useProfile } from '@/lib/supabase/useProfile';
 import { animalLabel, emergencyLabel, FLAG_REASON_LABELS } from '@/lib/sos/labels';
 import type { FlagReason } from '@/types/database';
+import InlineError from '@/components/InlineError';
 
-type Tab = 'applications' | 'flags' | 'clinics';
+type Tab = 'applications' | 'flags' | 'users' | 'clinics' | 'handoffs';
 
 interface Application {
   id: string;
@@ -57,17 +58,19 @@ export default function AdminPage() {
   const tabs: { id: Tab; label: string }[] = [
     { id: 'applications', label: 'Applications' },
     { id: 'flags', label: 'Flags' },
-    { id: 'clinics', label: 'Add clinic' },
+    { id: 'users', label: 'Users' },
+    { id: 'clinics', label: 'Clinics' },
+    { id: 'handoffs', label: 'Handoffs' },
   ];
 
   return (
     <div className="flex flex-col flex-1 px-4 pt-3 pb-8 space-y-4">
       <header className="pb-1">
         <h1 className="text-[22px] font-semibold tracking-tight text-fg font-brand">Admin</h1>
-        <p className="text-[12px] text-fg-muted mt-1">Review volunteers and clinic staff, flagged reports, and Listed clinics.</p>
+        <p className="text-[12px] text-fg-muted mt-1">Review applications and flagged reports, manage roles and Listed clinics, and check handoffs.</p>
       </header>
 
-      <div role="tablist" aria-label="Admin sections" className="flex gap-5 border-b border-border">
+      <div role="tablist" aria-label="Admin sections" className="flex gap-5 border-b border-border overflow-x-auto no-scrollbar">
         {tabs.map((t) => (
           <button
             key={t.id}
@@ -75,7 +78,7 @@ export default function AdminPage() {
             role="tab"
             aria-selected={tab === t.id}
             onClick={() => setTab(t.id)}
-            className={`relative h-11 text-[14px] cursor-pointer ${tab === t.id ? 'text-fg font-semibold' : 'text-fg-muted hover:text-fg'}`}
+            className={`relative h-11 shrink-0 whitespace-nowrap text-[14px] cursor-pointer ${tab === t.id ? 'text-fg font-semibold' : 'text-fg-muted hover:text-fg'}`}
           >
             {t.label}
             {tab === t.id && <span aria-hidden="true" className="absolute left-0 right-0 -bottom-px h-0.5 rounded-full bg-fg" />}
@@ -86,7 +89,14 @@ export default function AdminPage() {
       <div role="tabpanel">
         {tab === 'applications' && <Applications />}
         {tab === 'flags' && <Flags />}
-        {tab === 'clinics' && <AddClinic />}
+        {tab === 'users' && <Users />}
+        {tab === 'clinics' && (
+          <div className="space-y-8">
+            <ClinicList />
+            <AddClinic />
+          </div>
+        )}
+        {tab === 'handoffs' && <Handoffs />}
       </div>
     </div>
   );
@@ -175,7 +185,7 @@ function Flags() {
     const { data, error } = await createClient()
       .from('report_flags')
       .select(
-        'id,reason,note,created_at,profiles!report_flags_flagged_by_fkey(email),sos_reports(id,short_id,animal_type,emergency_type,location_name,photo_url)'
+        '*,profiles!report_flags_flagged_by_fkey(email),sos_reports(id,short_id,animal_type,emergency_type,location_name,photo_url)'
       )
       .eq('status', 'open')
       .order('created_at');
@@ -208,7 +218,11 @@ function Flags() {
         flagId: r.id,
         reasons: [],
       };
-      entry.reasons.push({ reason: r.reason, note: r.note, email: r.profiles?.email ?? 'Unknown account' });
+      entry.reasons.push({
+        reason: r.reason,
+        note: r.note,
+        email: (r as { source?: string }).source === 'ai' ? 'AI photo check' : r.profiles?.email ?? 'Unknown account',
+      });
       byReport.set(report.id, entry);
     }
     return [...byReport.values()];
@@ -282,7 +296,7 @@ function ReviewList<T extends { id?: string; reportId?: string }>({
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [actionError, setActionError] = useState<{ key: string; message: string } | null>(null);
 
-  if (error) return <p role="alert" className="text-[14px] text-reported-fg">{error}</p>;
+  if (error) return <p role="alert" className="text-[14px] font-semibold text-fg">{error}</p>;
   if (items == null) return <p role="status" className="text-[14px] text-fg-muted">Loading…</p>;
   if (items.length === 0) return <p className="text-[14px] text-fg-muted">{empty}</p>;
 
@@ -294,7 +308,7 @@ function ReviewList<T extends { id?: string; reportId?: string }>({
           <li key={key} className="py-3 space-y-3">
             <div className="space-y-1">{render(item)}</div>
             {actionError?.key === key && (
-              <p role="alert" className="text-[12px] text-reported-fg">
+              <p role="alert" className="text-[12px] font-semibold text-fg">
                 {actionError.message}
               </p>
             )}
@@ -425,7 +439,7 @@ function AddClinic() {
         {locating ? 'Locating…' : "I'm at the clinic: use my location"}
       </button>
       {message && (
-        <p role={message.ok ? 'status' : 'alert'} className={`text-[14px] ${message.ok ? 'text-healing-fg' : 'text-reported-fg'}`}>
+        <p role={message.ok ? 'status' : 'alert'} className={`text-[14px] ${message.ok ? 'text-healing-fg' : 'font-semibold text-fg'}`}>
           {message.text}
         </p>
       )}
@@ -437,5 +451,237 @@ function AddClinic() {
         {busy ? 'Saving…' : 'Add Listed clinic'}
       </button>
     </form>
+  );
+}
+
+const ROLES = ['citizen', 'volunteer', 'facility', 'admin'] as const;
+type Role = (typeof ROLES)[number];
+type UserRow = { id: string; email: string; full_name: string | null; role: Role; facility_id: string | null };
+
+function useListedClinics() {
+  const [clinics, setClinics] = useState<{ id: string; name: string }[]>([]);
+  useEffect(() => {
+    let active = true;
+    createClient()
+      .from('facilities')
+      .select('id,name')
+      .order('name')
+      .then(({ data }) => active && setClinics(data ?? []));
+    return () => {
+      active = false;
+    };
+  }, []);
+  return clinics;
+}
+
+// Change anyone's role (not your own). Removing a volunteer releases any rescue they still hold.
+function Users() {
+  const load = useCallback(async (): Promise<UserRow[]> => {
+    const { data, error } = await createClient()
+      .from('profiles')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(200);
+    if (error) throw error;
+    return (data ?? []) as UserRow[];
+  }, []);
+  const { data, error, reload } = useLoader(load);
+  const clinics = useListedClinics();
+  const [query, setQuery] = useState('');
+
+  if (error) return <InlineError>{error}</InlineError>;
+  if (data == null) return <p role="status" className="text-[14px] text-fg-muted">Loading…</p>;
+
+  const q = query.trim().toLowerCase();
+  const shown = q ? data.filter((u) => u.email.toLowerCase().includes(q) || (u.full_name ?? '').toLowerCase().includes(q)) : data;
+
+  return (
+    <div className="space-y-3">
+      <label className="block space-y-1">
+        <span className="text-[12px] font-semibold text-fg">Find a user</span>
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Email or name"
+          className="w-full min-h-[44px] rounded-xl border border-border bg-surface-muted text-fg text-[14px] px-3 focus:outline-none focus:ring-2 focus:ring-action"
+        />
+      </label>
+      <ul className="divide-y divide-border border-y border-border">
+        {shown.map((u) => (
+          <UserRole key={u.id} user={u} clinics={clinics} onSaved={reload} />
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function UserRole({ user, clinics, onSaved }: { user: UserRow; clinics: { id: string; name: string }[]; onSaved: () => void }) {
+  const [role, setRole] = useState<Role>(user.role);
+  const [clinicId, setClinicId] = useState(user.facility_id ?? '');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const changed = role !== user.role || (role === 'facility' && clinicId !== (user.facility_id ?? ''));
+  const field = 'min-h-[44px] rounded-xl border border-border bg-surface-muted text-fg text-[14px] px-3';
+
+  return (
+    <li className="py-3 space-y-2">
+      <div>
+        <p className="text-[14px] font-semibold text-fg break-all">{user.email}</p>
+        <p className="text-[12px] text-fg-muted">{user.full_name || 'No name set'}</p>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <select aria-label={`Role for ${user.email}`} value={role} onChange={(e) => setRole(e.target.value as Role)} className={field}>
+          {ROLES.map((r) => (
+            <option key={r} value={r}>
+              {r === 'facility' ? 'clinic staff' : r}
+            </option>
+          ))}
+        </select>
+        {role === 'facility' && (
+          <select aria-label="Clinic" value={clinicId} onChange={(e) => setClinicId(e.target.value)} className={`flex-1 min-w-0 ${field}`}>
+            <option value="">Choose a clinic</option>
+            {clinics.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        )}
+        {changed && (
+          <button
+            type="button"
+            disabled={busy || (role === 'facility' && !clinicId)}
+            onClick={async () => {
+              setBusy(true);
+              setError(null);
+              const message = await rpc('admin_set_role', {
+                p_user_id: user.id,
+                p_role: role,
+                p_facility_id: role === 'facility' ? clinicId : null,
+              });
+              setBusy(false);
+              if (message) setError(message);
+              else onSaved();
+            }}
+            className="min-h-[44px] px-4 rounded-xl bg-fg text-page font-semibold text-[14px] cursor-pointer disabled:opacity-50"
+          >
+            {busy ? 'Saving…' : 'Save'}
+          </button>
+        )}
+      </div>
+      {error && <InlineError>{error}</InlineError>}
+    </li>
+  );
+}
+
+type ClinicRow = { id: string; name: string; address: string; status: string; paused_reason?: string | null };
+
+// Paused clinics are hidden from the clinic picker and the Clinics page until listed again
+function ClinicList() {
+  const load = useCallback(async (): Promise<ClinicRow[]> => {
+    const { data, error } = await createClient().from('facilities').select('*').order('name');
+    if (error) throw error;
+    return (data ?? []) as ClinicRow[];
+  }, []);
+  const { data, error, reload } = useLoader(load);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  const setStatus = async (c: ClinicRow, status: 'Listed' | 'Paused') => {
+    setBusyId(c.id);
+    setActionError(null);
+    const patch =
+      status === 'Listed'
+        ? { status, paused_reason: null, paused_at: null, last_active_at: new Date().toISOString() }
+        : { status, paused_reason: 'Paused by an admin', paused_at: new Date().toISOString() };
+    const { error: updateError } = await createClient().from('facilities').update(patch).eq('id', c.id);
+    setBusyId(null);
+    if (updateError) setActionError(updateError.message);
+    else reload();
+  };
+
+  if (error) return <InlineError>{error}</InlineError>;
+  if (data == null) return <p role="status" className="text-[14px] text-fg-muted">Loading…</p>;
+
+  return (
+    <section aria-labelledby="clinic-list-heading" className="space-y-2">
+      <h2 id="clinic-list-heading" className="text-[16px] font-semibold text-fg">
+        Clinics
+      </h2>
+      {actionError && <InlineError>{actionError}</InlineError>}
+      <ul className="divide-y divide-border border-y border-border">
+        {data.map((c) => (
+          <li key={c.id} className="py-3 flex items-center gap-3">
+            <div className="flex-1 min-w-0">
+              <p className="text-[14px] font-semibold text-fg">{c.name}</p>
+              <p className="text-[12px] text-fg-muted">
+                {c.status}
+                {c.status === 'Paused' && c.paused_reason ? ` · ${c.paused_reason}` : ` · ${c.address}`}
+              </p>
+            </div>
+            <button
+              type="button"
+              disabled={busyId === c.id}
+              onClick={() => setStatus(c, c.status === 'Listed' ? 'Paused' : 'Listed')}
+              className="shrink-0 min-h-[44px] px-4 rounded-xl border border-border bg-surface hover:bg-surface-muted text-fg font-semibold text-[14px] cursor-pointer disabled:opacity-50"
+            >
+              {c.status === 'Listed' ? 'Pause' : 'List again'}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+type HandoffRow = {
+  id: string;
+  note: string;
+  plate_photo_path: string;
+  created_at: string;
+  sos_reports: { short_id: string } | null;
+  profiles: { email: string } | null;
+};
+
+function Handoffs() {
+  const load = useCallback(async (): Promise<HandoffRow[]> => {
+    const { data, error } = await createClient()
+      .from('handoffs')
+      .select('id,note,plate_photo_path,created_at,sos_reports(short_id),profiles(email)')
+      .order('created_at', { ascending: false })
+      .limit(100);
+    if (error) throw error;
+    return (data ?? []) as unknown as HandoffRow[];
+  }, []);
+  const { data, error } = useLoader(load);
+
+  const view = async (path: string) => {
+    const { data: signed } = await createClient().storage.from('plate-photos').createSignedUrl(path, 120);
+    if (signed?.signedUrl) window.open(signed.signedUrl, '_blank', 'noopener');
+  };
+
+  if (error) return <InlineError>{error}</InlineError>;
+  if (data == null) return <p role="status" className="text-[14px] text-fg-muted">Loading…</p>;
+  if (data.length === 0) return <p className="text-[14px] text-fg-muted">No handoffs yet.</p>;
+
+  return (
+    <ul className="divide-y divide-border border-y border-border">
+      {data.map((h) => (
+        <li key={h.id} className="py-3 space-y-1">
+          <p className="text-[14px] font-semibold text-fg">
+            Case <span className="font-mono">#{h.sos_reports?.short_id ?? '?'}</span> · {timeAgo(h.created_at)}
+          </p>
+          <p className="text-[14px] text-fg">{h.note}</p>
+          <p className="text-[12px] text-fg-muted break-all">By {h.profiles?.email ?? 'unknown account'}</p>
+          <button
+            type="button"
+            onClick={() => view(h.plate_photo_path)}
+            className="min-h-[44px] text-[14px] font-semibold text-link underline underline-offset-4 cursor-pointer"
+          >
+            View plate photo
+          </button>
+        </li>
+      ))}
+    </ul>
   );
 }

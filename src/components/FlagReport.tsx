@@ -91,7 +91,7 @@ export default function FlagReport({ reportId, userId, onSignIn }: FlagReportPro
         />
       </label>
       {result && !result.ok && (
-        <p role="alert" className="text-[12px] text-reported-fg">
+        <p role="alert" className="text-[12px] font-semibold text-fg">
           {result.text}
         </p>
       )}

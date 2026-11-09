@@ -232,6 +232,7 @@ export default function HomePage() {
               latitude: r.latitude ?? undefined,
               longitude: r.longitude ?? undefined,
               claimedBy: r.claimed_by || null,
+              reporterId: r.reporter_id || null,
               claimedAt: r.claimed_at || null,
               createdAt: r.created_at || r.server_timestamp || null,
               facilityId: r.facility_id || null,
@@ -634,7 +635,7 @@ export default function HomePage() {
 
         {/* Quick-claim failures; the sheet and the case bar show their own errors */}
         {actionError && !selectedIncident && !activeCase && (
-          <p role="alert" className="px-4 pt-3 text-[12px] font-semibold text-reported-fg">
+          <p role="alert" className="px-4 pt-3 text-[12px] font-semibold text-fg">
             {actionError}
           </p>
         )}

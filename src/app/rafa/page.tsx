@@ -313,9 +313,9 @@ export default function RafaPage() {
         {errorMsg && (
           <div
             role="alert"
-            className="flex items-center gap-2 p-3 rounded-xl bg-reported-bg text-reported-fg border border-reported-fg/20 text-[12px] font-normal"
+            className="flex items-center gap-2 p-3 rounded-xl bg-surface-muted text-fg border border-border text-[12px] font-normal"
           >
-            <AlertCircle className="w-4 h-4 shrink-0" />
+            <AlertCircle className="w-4 h-4 shrink-0 text-claimed-fg" aria-hidden="true" />
             <span>{errorMsg}</span>
           </div>
         )}

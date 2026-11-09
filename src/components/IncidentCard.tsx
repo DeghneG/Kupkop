@@ -22,6 +22,7 @@ export interface IncidentData {
   longitude?: number;
   description?: string;
   claimedBy?: string | null;
+  reporterId?: string | null;
   claimedAt?: string | null;
   createdAt?: string | null;
   facilityId?: string | null;

@@ -194,7 +194,7 @@ export default function RoleApplication({ userId, role, onSignIn }: RoleApplicat
             />
           </label>
           {error && (
-            <p role="alert" className="text-[14px] text-reported-fg">
+            <p role="alert" className="text-[14px] font-semibold text-fg">
               {error}
             </p>
           )}

@@ -21,6 +21,7 @@ interface CaseRecoveryProps {
 export default function CaseRecovery({ reportId, state, canPost }: CaseRecoveryProps) {
   const [updates, setUpdates] = useState<Update[] | null>(null);
   const [clinicName, setClinicName] = useState<string | null>(null);
+  const [awaitingIntake, setAwaitingIntake] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -33,12 +34,15 @@ export default function CaseRecovery({ reportId, state, canPost }: CaseRecoveryP
       .then(({ data }) => active && setUpdates((data ?? []) as Update[]));
     supabase
       .from('sos_reports')
-      .select('facilities(name)')
+      .select('*,facilities(name)')
       .eq('id', reportId)
       .maybeSingle()
       .then(({ data }) => {
-        const facility = (data as { facilities: { name: string } | null } | null)?.facilities;
-        if (active) setClinicName(facility?.name ?? null);
+        const row = data as { facilities: { name: string } | null; intake_confirmed_at?: string | null } | null;
+        if (!active) return;
+        setClinicName(row?.facilities?.name ?? null);
+        // Before the intake migration the column is absent: treat as confirmed
+        setAwaitingIntake(state === 'admitted' && !!row && 'intake_confirmed_at' in row && !row.intake_confirmed_at);
       });
     return () => {
       active = false;
@@ -58,7 +62,13 @@ export default function CaseRecovery({ reportId, state, canPost }: CaseRecoveryP
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 font-semibold text-[14px]">
           <TriageGlyph state={inCare ? 'healing' : 'resolved'} size={16} className="shrink-0" />
-          <span>{inCare ? `In care${clinicName ? ` at ${clinicName}` : ''}` : 'Recovery complete'}</span>
+          <span>
+            {!inCare
+              ? 'Recovery complete'
+              : awaitingIntake
+                ? `Waiting for ${clinicName ?? 'the clinic'} to confirm it arrived`
+                : `In care${clinicName ? ` at ${clinicName}` : ''}`}
+          </span>
         </div>
         {inCare && updates && (
           <span className="text-[12px] font-semibold tabular-nums text-right">

@@ -572,7 +572,7 @@ export default function SOSCameraPage() {
             <div className="flex items-center gap-2 truncate">
               <MapPin className="w-4 h-4 text-fg-muted shrink-0" aria-hidden="true" />
               <div className="truncate">
-                <p className={`font-semibold truncate ${coords ? 'text-fg' : 'text-reported-fg'}`}>
+                <p className={`font-semibold truncate ${coords ? 'text-fg' : 'text-claimed-fg'}`}>
                   {resolvedAddress ||
                     (coords
                       ? `${coords.lat.toFixed(4)}°, ${coords.lng.toFixed(4)}°`
@@ -694,8 +694,8 @@ export default function SOSCameraPage() {
 
         {/* Dispatch Error Banner */}
         {dispatchError && (
-          <div className="p-3 rounded-xl bg-reported-bg border border-reported-fg/20 text-reported-fg text-[12px] flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4 shrink-0" aria-hidden="true" />
+          <div className="p-3 rounded-xl bg-surface-muted border border-border text-fg text-[12px] flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 shrink-0 text-claimed-fg" aria-hidden="true" />
             <span>{dispatchError}</span>
           </div>
         )}
@@ -1097,8 +1097,8 @@ export default function SOSCameraPage() {
 
       {/* Dispatch Error Banner */}
       {dispatchError && (
-        <div className="p-3 rounded-xl bg-reported-bg border border-reported-fg/20 text-reported-fg text-[12px] flex items-center gap-2">
-          <AlertTriangle className="w-4 h-4 shrink-0" aria-hidden="true" />
+        <div className="p-3 rounded-xl bg-surface-muted border border-border text-fg text-[12px] flex items-center gap-2">
+          <AlertTriangle className="w-4 h-4 shrink-0 text-claimed-fg" aria-hidden="true" />
           <span>{dispatchError}</span>
         </div>
       )}

@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { AlertCircle, HeartPulse, ShieldAlert } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import InlineError from '@/components/InlineError';
 import { useProfile } from '@/lib/supabase/useProfile';
 import { calculateFacilityInactivity, type FacilityClockStatus } from '@/lib/sos/escalation';
 import { animalLabel, emergencyLabel, CARE_STATE_LABELS } from '@/lib/sos/labels';
@@ -23,6 +24,8 @@ interface CareCase {
   type: string;
   state: CareState;
   clinicName: string;
+  /** Brought in by a rescuer, not yet confirmed by the clinic */
+  awaitingIntake: boolean;
   /** Newest first */
   updates: CareUpdate[];
 }
@@ -34,6 +37,8 @@ type Row = {
   emergency_type: string | null;
   state: CareState;
   updated_at: string;
+  /** Missing before the intake migration runs */
+  intake_confirmed_at?: string | null;
   facilities: { name: string } | null;
   recovery_updates: { notes: string; state: CareState; created_at: string }[] | null;
 };
@@ -67,7 +72,7 @@ export default function CarePage() {
     let query = supabase
       .from('sos_reports')
       .select(
-        'id,short_id,animal_type,emergency_type,state,updated_at,facilities(name),recovery_updates(notes,state,created_at)'
+        '*,facilities(name),recovery_updates(notes,state,created_at)'
       )
       .in('state', ['admitted', 'healing', 'resolved'])
       .not('facility_id', 'is', null)
@@ -92,6 +97,7 @@ export default function CarePage() {
           type: emergencyLabel(r.emergency_type),
           state: r.state,
           clinicName: r.facilities?.name ?? 'Listed clinic',
+          awaitingIntake: r.state === 'admitted' && 'intake_confirmed_at' in r && !r.intake_confirmed_at,
           updates: (r.recovery_updates ?? [])
             .map((u) => ({ notes: u.notes, state: u.state, createdAt: u.created_at }))
             .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
@@ -118,8 +124,9 @@ export default function CarePage() {
     setReloadKey((k) => k + 1);
   }, []);
 
+  const awaiting = (cases ?? []).filter((c) => c.awaitingIntake);
   const inCare = (cases ?? [])
-    .filter((c) => c.state !== 'resolved')
+    .filter((c) => c.state !== 'resolved' && !c.awaitingIntake)
     .map((c) => ({ c, clock: calculateFacilityInactivity(lastUpdateAt(c)) }))
     // Most overdue first
     .sort((a, b) => STATUS_RANK[a.clock.status] - STATUS_RANK[b.clock.status] || b.clock.elapsedDays - a.clock.elapsedDays);
@@ -189,6 +196,33 @@ export default function CarePage() {
               </dd>
             </div>
           </dl>
+
+          {awaiting.length > 0 && (
+            <section aria-labelledby="intake-heading" className="space-y-2">
+              <h2 id="intake-heading" className="text-[16px] font-semibold text-fg">
+                Waiting for intake
+              </h2>
+              <p className="text-[12px] text-fg-muted">
+                A rescuer brought these here. Confirm the animal arrived, or say you can&apos;t take it so the rescuer
+                can choose another clinic.
+              </p>
+              <ul className="divide-y divide-border border-y border-border">
+                {awaiting.map((c) => (
+                  <li key={c.id} className="py-3 space-y-2">
+                    <p className="text-[14px] font-semibold text-fg">
+                      {c.animal} <span className="font-mono text-[12px] text-fg-muted">#{c.shortId}</span>
+                    </p>
+                    <p className="text-[12px] text-fg-muted">
+                      {c.type}
+                      {isAdmin ? ` · ${c.clinicName}` : ''}
+                      {c.updates[0] ? ` · brought ${formatDate(c.updates[0].createdAt)}` : ''}
+                    </p>
+                    <IntakeActions c={c} onDone={reload} />
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
 
           <section aria-labelledby="in-care-heading" className="space-y-2">
             <h2 id="in-care-heading" className="text-[16px] font-semibold text-fg">
@@ -294,6 +328,78 @@ function CaseSummary({ c, clock, showClinic }: { c: CareCase; clock: FacilityClo
   );
 }
 
+function IntakeActions({ c, onDone }: { c: CareCase; onDone: () => void }) {
+  const [declining, setDeclining] = useState(false);
+  const [reason, setReason] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const run = async (fn: 'confirm_intake' | 'decline_admission') => {
+    setBusy(true);
+    setError(null);
+    const args = fn === 'confirm_intake' ? { p_report_id: c.id } : { p_report_id: c.id, p_reason: reason.trim() };
+    const { data, error: rpcError } = await createClient().rpc(fn, args);
+    setBusy(false);
+    if (rpcError || !data?.success) {
+      setError(data?.error || rpcError?.message || 'Something went wrong. Please try again.');
+      return;
+    }
+    onDone();
+  };
+
+  const secondary =
+    'min-h-[44px] px-4 rounded-xl border border-border bg-surface hover:bg-surface-muted text-fg font-semibold text-[14px] cursor-pointer disabled:opacity-50';
+
+  return (
+    <div className="space-y-2">
+      {declining ? (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            run('decline_admission');
+          }}
+          className="space-y-2 rounded-xl bg-surface-muted p-3"
+        >
+          <label className="block space-y-1">
+            <span className="text-[12px] font-semibold text-fg">Why can&apos;t the clinic take it? (shown to the rescuer)</span>
+            <textarea
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              maxLength={300}
+              rows={2}
+              required
+              className="w-full rounded-xl border border-border bg-surface text-fg text-[14px] p-3 focus:outline-none focus:ring-2 focus:ring-action"
+            />
+          </label>
+          <div className="flex gap-2">
+            <button type="button" onClick={() => setDeclining(false)} className={secondary}>
+              Back
+            </button>
+            <button type="submit" disabled={busy || reason.trim().length < 3} className={`flex-1 ${secondary}`}>
+              {busy ? 'Sending…' : 'Send back to the rescuer'}
+            </button>
+          </div>
+        </form>
+      ) : (
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => run('confirm_intake')}
+            disabled={busy}
+            className="flex-1 min-h-[48px] rounded-xl bg-action text-action-fg font-semibold text-[14px] cursor-pointer disabled:opacity-50"
+          >
+            {busy ? 'Saving…' : 'Animal arrived'}
+          </button>
+          <button type="button" onClick={() => setDeclining(true)} disabled={busy} className={secondary}>
+            Can&apos;t accept
+          </button>
+        </div>
+      )}
+      {error && <InlineError>{error}</InlineError>}
+    </div>
+  );
+}
+
 function UpdateForm({ c, onCancel, onPosted }: { c: CareCase; onCancel: () => void; onPosted: () => void }) {
   // Healing never goes back to admitted; the database enforces the same rule
   const options: CareState[] = c.state === 'healing' ? ['healing', 'resolved'] : ['admitted', 'healing', 'resolved'];
@@ -360,7 +466,7 @@ function UpdateForm({ c, onCancel, onPosted }: { c: CareCase; onCancel: () => vo
         <p className="text-[12px] text-fg-muted">Marks the case resolved: released, adopted, or returned. This closes it.</p>
       )}
       {error && (
-        <p role="alert" className="text-[12px] text-reported-fg">
+        <p role="alert" className="text-[12px] font-semibold text-fg">
           {error}
         </p>
       )}

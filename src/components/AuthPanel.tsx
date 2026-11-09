@@ -5,7 +5,8 @@ import { createClient } from '@/lib/supabase/client';
 import { Mail, CheckCircle2, AlertCircle, Loader2, ArrowLeft } from 'lucide-react';
 
 export type AuthMode = 'login' | 'signup';
-type OAuthProvider = 'google' | 'facebook';
+// Login methods per AGENTS.md: email and Google (phone OTP later)
+type OAuthProvider = 'google';
 
 interface AuthPanelProps {
   /** Id for the heading, so a dialog can point aria-labelledby at it. */
@@ -17,7 +18,7 @@ interface AuthPanelProps {
   onDone?: () => void;
 }
 
-const PROVIDER_LABEL: Record<OAuthProvider, string> = { google: 'Google', facebook: 'Facebook' };
+const PROVIDER_LABEL: Record<OAuthProvider, string> = { google: 'Google' };
 
 /**
  * Which social providers are switched on in Supabase. A disabled provider fails on Supabase's own
@@ -35,7 +36,7 @@ function useEnabledProviders(): Record<OAuthProvider, boolean> | null {
       .then((res) => (res.ok ? res.json() : null))
       .then((settings) => {
         if (!active || !settings?.external) return;
-        setEnabled({ google: !!settings.external.google, facebook: !!settings.external.facebook });
+        setEnabled({ google: !!settings.external.google });
       })
       .catch(() => {});
     return () => {
@@ -46,7 +47,7 @@ function useEnabledProviders(): Record<OAuthProvider, boolean> | null {
   return enabled;
 }
 
-// Shared sign-in form: email magic link (log in or create account), Google, and Facebook.
+// Shared sign-in form: email link or code (log in or create account), and Google.
 // Used by the landing page and by AuthModal.
 export default function AuthPanel({ headingId, initialMode = 'login', redirectPath, onDone }: AuthPanelProps) {
   const [mode, setMode] = useState<AuthMode>(initialMode);
@@ -209,7 +210,7 @@ export default function AuthPanel({ headingId, initialMode = 'login', redirectPa
             className="w-full min-h-[48px] px-4 text-[16px] tracking-[0.3em] text-center bg-surface-muted text-fg rounded-xl border border-border outline-none focus:ring-2 focus:ring-action disabled:opacity-60"
           />
           {codeError && (
-            <p role="alert" className="text-[12px] text-reported-fg">
+            <p role="alert" className="text-[12px] font-semibold text-fg">
               {codeError}
             </p>
           )}
@@ -285,9 +286,9 @@ export default function AuthPanel({ headingId, initialMode = 'login', redirectPa
       {errorMsg && (
         <div
           role="alert"
-          className="flex items-start gap-2 p-3 rounded-xl bg-reported-bg text-reported-fg text-[12px]"
+          className="flex items-start gap-2 p-3 rounded-xl bg-surface-muted border border-border text-fg text-[12px]"
         >
-          <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />
+          <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-claimed-fg" aria-hidden="true" />
           <div className="space-y-1">
             <div>{errorMsg}</div>
             {isNonExistent && (
@@ -325,25 +326,6 @@ export default function AuthPanel({ headingId, initialMode = 'login', redirectPa
           <span>{isOff('google') ? 'Google sign-in not set up yet' : 'Continue with Google'}</span>
         </button>
 
-        <button
-          type="button"
-          onClick={() => handleOAuth('facebook')}
-          disabled={busy || isOff('facebook')}
-          className="w-full min-h-[48px] bg-surface hover:bg-surface-muted text-fg border border-border font-semibold text-[14px] rounded-xl flex items-center justify-center gap-3 transition-colors disabled:opacity-50 cursor-pointer"
-        >
-          {loading === 'facebook' ? (
-            <Loader2 className="w-4 h-4 motion-safe:animate-spin" aria-hidden="true" />
-          ) : (
-            // Brand mark keeps Facebook's own blue
-            <svg className="w-4 h-4" viewBox="0 0 24 24" aria-hidden="true">
-              <path
-                fill="#1877F2"
-                d="M24 12.07C24 5.4 18.63 0 12 0S0 5.4 0 12.07C0 18.1 4.39 23.1 10.13 24v-8.44H7.08v-3.49h3.05V9.41c0-3.02 1.79-4.69 4.53-4.69 1.31 0 2.68.24 2.68.24v2.97h-1.51c-1.49 0-1.96.93-1.96 1.89v2.25h3.33l-.53 3.49h-2.8V24C19.61 23.1 24 18.1 24 12.07z"
-              />
-            </svg>
-          )}
-          <span>{isOff('facebook') ? 'Facebook sign-in not set up yet' : 'Continue with Facebook'}</span>
-        </button>
       </div>
 
       <div className="flex items-center gap-3" aria-hidden="true">

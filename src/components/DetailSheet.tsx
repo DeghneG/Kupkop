@@ -26,6 +26,8 @@ import TriageGlyph from '@/components/icons/TriageGlyph';
 import CaseRecovery from '@/components/CaseRecovery';
 import { useFocusTrap } from '@/lib/useFocusTrap';
 import FlagReport from '@/components/FlagReport';
+import HandoffPanel from '@/components/HandoffPanel';
+import { createClient } from '@/lib/supabase/client';
 
 interface DetailSheetProps {
   incident: IncidentData | null;
@@ -61,6 +63,27 @@ export default function DetailSheet({
 
   const [isPhotoRevealed, setIsPhotoRevealed] = useState(false);
   const [callNotice, setCallNotice] = useState<string | null>(null);
+  // First name of the rescuer on a claimed case (public_profiles never exposes email)
+  const [claimer, setClaimer] = useState<{ id: string; name: string } | null>(null);
+  const claimedById = incident?.state === 'claimed' ? incident.claimedBy ?? null : null;
+
+  useEffect(() => {
+    if (!claimedById) return;
+    let active = true;
+    createClient()
+      .from('public_profiles')
+      .select('full_name')
+      .eq('id', claimedById)
+      .maybeSingle()
+      .then(({ data }) => {
+        const first = (data?.full_name ?? '').trim().split(/\s+/)[0];
+        if (active) setClaimer({ id: claimedById, name: first });
+      });
+    return () => {
+      active = false;
+    };
+  }, [claimedById]);
+  const claimerName = claimer && claimer.id === claimedById ? claimer.name : '';
   const [, setTicker] = useState(0);
 
   // Live timer tick for active claim lock countdown
@@ -284,7 +307,7 @@ export default function DetailSheet({
               ) : (
                 <>
                   <Eye className="w-5 h-5 drop-shadow" aria-hidden="true" />
-                  <span className="drop-shadow">Tap to reveal</span>
+                  <span className="drop-shadow">{incident.aiGraphic ? 'Graphic injury · tap to reveal' : 'Tap to reveal'}</span>
                 </>
               )}
             </button>
@@ -428,7 +451,7 @@ export default function DetailSheet({
             {/* 3. Action Buttons Based on Role and State */}
             <div className="space-y-2 pt-1">
               {actionError && (
-                <p role="alert" className="text-[14px] text-reported-fg bg-reported-bg rounded-xl px-3 py-2">
+                <p role="alert" className="text-[14px] font-semibold text-fg bg-surface-muted border border-border rounded-xl px-3 py-2">
                   {actionError}
                 </p>
               )}
@@ -485,7 +508,10 @@ export default function DetailSheet({
                 ) : (
                   <div className="w-full min-h-[48px] rounded-xl bg-surface-muted border border-border flex items-center justify-center gap-2 text-[14px] text-fg-muted font-normal">
                     <TriageGlyph state="claimed" size={14} className="text-claimed-fg shrink-0" />
-                    <span>Rescuer en route ({calculateClaimTimer(incident.claimedAt).remainingMinutes}m lock left)</span>
+                    <span>
+                      {claimerName ? `${claimerName} is on the way` : 'A rescuer is on the way'} (
+                      {calculateClaimTimer(incident.claimedAt).remainingMinutes}m lock left)
+                    </span>
                   </div>
                 )
               ) : (
@@ -506,6 +532,19 @@ export default function DetailSheet({
                   <Phone className="w-4 h-4 text-fg-muted" aria-hidden="true" />
                   <span>Call the clinic</span>
                 </button>
+              )}
+
+              {isLive && (
+                <HandoffPanel
+                  key={`handoff-${incident.id}`}
+                  reportId={incident.id!}
+                  userId={userId}
+                  canHandOff={
+                    !!userId &&
+                    (incident.state === 'reported' || incident.state === 'claimed') &&
+                    (incident.reporterId === userId || incident.claimedBy === userId)
+                  }
+                />
               )}
 
               {isLive && <FlagReport key={incident.id} reportId={incident.id!} userId={userId} onSignIn={onSignIn} />}
