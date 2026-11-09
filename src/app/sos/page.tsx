@@ -15,7 +15,10 @@ import {
   MessageCircle,
   ExternalLink,
 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import AuthModal from '@/components/AuthModal';
+import InlineError from '@/components/InlineError';
+import { useProfile } from '@/lib/supabase/useProfile';
 import { createClient } from '@/lib/supabase/client';
 import { generateCaseId, formatCoordinates, compressVideoFrame, createSimulatedFrame } from '@/lib/sos/utils';
 
@@ -41,6 +44,8 @@ const EMERGENCY_TIERS: EmergencyOption[] = [
 ];
 
 interface DispatchedReport {
+  /** Database id, for "I'll take it myself"; null if the insert did not return it */
+  reportId: string | null;
   shortId: string;
   animalType: AnimalType;
   emergencyTier: EmergencyTier;
@@ -71,6 +76,9 @@ export default function SOSCameraPage() {
   const [dispatchStep, setDispatchStep] = useState<'camera' | 'review' | 'uploading' | 'success'>('camera');
   const [dispatchError, setDispatchError] = useState<string | null>(null);
   const [dispatchedData, setDispatchedData] = useState<DispatchedReport | null>(null);
+  const [selfClaim, setSelfClaim] = useState<{ busy: boolean; error: string | null }>({ busy: false, error: null });
+  const profile = useProfile();
+  const router = useRouter();
 
   // Bind media stream to video DOM element whenever stream or screen view updates
   useEffect(() => {
@@ -370,15 +378,17 @@ export default function SOSCameraPage() {
         // Case IDs are 4 random characters, so a duplicate is rare but possible.
         // On a short_id clash, draw a new ID and send the same report again.
         let serverTimestamp: string | null = null;
+        let reportId: string | null = null;
         const insertReport = async (payload: Record<string, unknown>) => {
           const send = () =>
-            supabase.from('sos_reports').insert({ ...payload, short_id: shortId }).select('server_timestamp').single();
+            supabase.from('sos_reports').insert({ ...payload, short_id: shortId }).select('id,server_timestamp').single();
           let res = await send();
           for (let retries = 0; retries < 3 && res.error?.code === '23505' && res.error.message?.includes('short_id'); retries++) {
             shortId = generateCaseId();
             res = await send();
           }
           serverTimestamp = res.data?.server_timestamp ?? null;
+          reportId = res.data?.id ?? null;
           return res.error;
         };
 
@@ -427,6 +437,7 @@ export default function SOSCameraPage() {
         }
 
         setDispatchedData({
+          reportId,
           shortId,
           animalType: animal,
           emergencyTier: emergency,
@@ -818,6 +829,32 @@ export default function SOSCameraPage() {
 
           {/* Action Buttons */}
           <div className="space-y-2 pt-1">
+            {(profile.role === 'volunteer' || profile.role === 'admin') && dispatchedData.reportId && (
+              <div className="space-y-2 pb-2">
+                <button
+                  type="button"
+                  disabled={selfClaim.busy}
+                  onClick={async () => {
+                    setSelfClaim({ busy: true, error: null });
+                    const { data, error } = await createClient().rpc('claim_sos_report', {
+                      p_report_id: dispatchedData.reportId,
+                    });
+                    if (error || !data?.success) {
+                      setSelfClaim({ busy: false, error: data?.error || error?.message || 'Could not claim this case.' });
+                      return;
+                    }
+                    router.push(`/?case=${dispatchedData.reportId}`);
+                  }}
+                  className="w-full min-h-[48px] rounded-xl border border-border bg-surface text-fg font-semibold text-[14px] flex items-center justify-center gap-2 hover:bg-surface-muted cursor-pointer disabled:opacity-60"
+                >
+                  {selfClaim.busy ? 'Claiming…' : "I'll take it myself"}
+                </button>
+                <p className="text-[12px] text-fg-muted text-center">
+                  Claims the rescue for you, so other volunteers don&apos;t come too.
+                </p>
+                {selfClaim.error && <InlineError>{selfClaim.error}</InlineError>}
+              </div>
+            )}
             <Link
               href="/rafa"
               className="w-full min-h-[48px] rounded-xl bg-action text-action-fg font-semibold text-[14px] flex items-center justify-center gap-2 shadow-sm hover:opacity-95 active:scale-[0.99] transition-all"

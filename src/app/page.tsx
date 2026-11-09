@@ -148,6 +148,8 @@ export default function HomePage() {
   const [now, setNow] = useState(0);
   const profile = useProfile();
   const router = useRouter();
+  // A tapped alert opens /?case=<id>; the case opens once, after the first load
+  const openedFromLinkRef = React.useRef(false);
 
   // First visit on this device while signed out: show the landing page once.
   // It offers "Report an emergency now" up top, so reporting is never blocked behind it.
@@ -233,11 +235,32 @@ export default function HomePage() {
               claimedAt: r.claimed_at || null,
               createdAt: r.created_at || r.server_timestamp || null,
               facilityId: r.facility_id || null,
+              aiGraphic: r.ai_graphic === true,
             };
           });
 
+          // Which open cases already alerted every volunteer, so the label only says so when it is true.
+          // Read separately: before the alerts migration the table doesn't exist and the feed still loads.
+          const openIds = liveIncidents.filter((i) => i.state === 'reported').map((i) => i.id);
+          if (openIds.length) {
+            const { data: widened } = await supabase
+              .from('sos_alert_log')
+              .select('report_id')
+              .eq('stage', 'widened')
+              .in('report_id', openIds);
+            const done = new Set((widened ?? []).map((w) => w.report_id as string));
+            for (const incident of liveIncidents) incident.alertWidened = done.has(incident.id);
+          }
+
           setEmergencies(liveIncidents);
           setFeedStatus('live');
+
+          if (!openedFromLinkRef.current) {
+            openedFromLinkRef.current = true;
+            const linked = new URLSearchParams(window.location.search).get('case');
+            const match = linked ? liveIncidents.find((i) => i.id === linked) : undefined;
+            if (match) setSelectedIncident(match);
+          }
         }
       } catch (err) {
         console.error('Failed to load live reports:', err);

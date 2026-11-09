@@ -1,0 +1,221 @@
+import { timingSafeEqual } from 'node:crypto';
+import { NextResponse } from 'next/server';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { sendWebPush, webPushReady } from '@/lib/push/webPush';
+import { checkReportPhoto } from '@/lib/gemini/photoCheck';
+import { alertMessage, alertRecipients, currentAlertStage, planAlertStages, type AlertArea, type AlertStage } from '@/lib/sos/alerts';
+import { ESCALATION_CONFIG } from '@/lib/sos/escalation';
+import { animalLabel, emergencyLabel } from '@/lib/sos/labels';
+
+// Called every minute by the Supabase scheduler (pg_cron + pg_net), see supabase/setup/cron_tick.sql.
+// Each job is idempotent: logs decide what was already done, so a missed or doubled tick is harmless.
+
+const DAY_MS = 86_400_000;
+
+function secretMatches(given: string | null, expected: string): boolean {
+  if (!given) return false;
+  const a = Buffer.from(given);
+  const b = Buffer.from(expected);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
+export async function POST(request: Request) {
+  const secret = process.env.CRON_SECRET;
+  const db = createAdminClient();
+  if (!secret || !db) {
+    return NextResponse.json({ error: 'Scheduler is not configured on the server.' }, { status: 503 });
+  }
+  if (!secretMatches(request.headers.get('x-cron-secret'), secret)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const site = process.env.NEXT_PUBLIC_SITE_URL || new URL(request.url).origin;
+  const pushReady = webPushReady(site);
+
+  const result: Record<string, unknown> = { pushReady };
+  for (const [name, job] of [
+    ['escalation', escalate],
+    ['care', overdueCare],
+    ['declines', declinedAdmissions],
+    ['photos', photoChecks],
+  ] as const) {
+    try {
+      result[name] = await job(db, pushReady);
+    } catch (e) {
+      // One failing job never stops the others
+      console.error(`cron ${name} failed:`, e);
+      result[name] = { error: e instanceof Error ? e.message : 'failed' };
+    }
+  }
+  return NextResponse.json(result);
+}
+
+async function responderTargets(db: SupabaseClient) {
+  const [{ data: people }, { data: areas }] = await Promise.all([
+    db.from('profiles').select('id,role').in('role', ['volunteer', 'admin']),
+    db.from('responder_alert_prefs').select('user_id,latitude,longitude,radius_km'),
+  ]);
+  return {
+    volunteerIds: (people ?? []).filter((p) => p.role === 'volunteer').map((p) => p.id as string),
+    adminIds: (people ?? []).filter((p) => p.role === 'admin').map((p) => p.id as string),
+    areas: (areas ?? []).map(
+      (a): AlertArea => ({ userId: a.user_id, latitude: a.latitude, longitude: a.longitude, radiusKm: Number(a.radius_km) })
+    ),
+  };
+}
+
+/** SOS escalation: area alert at once, everyone at the widen time, admins at "no responder". */
+async function escalate(db: SupabaseClient, pushReady: boolean) {
+  // Open reports from the last 3 hours; the longest tier ("no responder" at 60 min) fits inside it
+  const since = new Date(Date.now() - 3 * 3_600_000).toISOString();
+  const { data: reports, error } = await db
+    .from('sos_reports')
+    .select('id,short_id,reporter_id,animal_type,emergency_type,location_name,latitude,longitude,created_at,sos_alert_log(stage)')
+    .eq('state', 'reported')
+    .is('hidden_at', null)
+    .gte('created_at', since);
+  if (error) throw error;
+  if (!reports?.length) return { sent: 0 };
+
+  const targets = await responderTargets(db);
+  let sent = 0;
+  for (const r of reports) {
+    const already = ((r.sos_alert_log as { stage: AlertStage }[] | null) ?? []).map((l) => l.stage);
+    const plan = planAlertStages(currentAlertStage(r.created_at, r.emergency_type), already);
+    if (!plan.send) continue;
+
+    const recipients = alertRecipients(plan.send, { lat: r.latitude, lng: r.longitude }, { ...targets, reporterId: r.reporter_id });
+    // Claim the stage first; a parallel tick that loses the insert sends nothing
+    const rows = [
+      ...plan.skip.map((stage) => ({ report_id: r.id, stage, recipients: 0 })),
+      { report_id: r.id, stage: plan.send, recipients: recipients.length },
+    ];
+    const { error: logError } = await db.from('sos_alert_log').insert(rows);
+    if (logError) continue;
+
+    if (pushReady && recipients.length) {
+      const minutes = Math.floor((Date.now() - new Date(r.created_at).getTime()) / 60_000);
+      const msg = alertMessage(plan.send, {
+        animal: animalLabel(r.animal_type),
+        type: emergencyLabel(r.emergency_type),
+        place: (r.location_name || 'Pinned location').split(' — ')[0],
+        shortId: r.short_id,
+        minutes,
+      });
+      sent += await sendWebPush(db, recipients, { ...msg, url: `/?case=${r.id}`, tag: `case-${r.id}` });
+    }
+  }
+  return { sent };
+}
+
+/** 14-day clock: an in-care case with no update for 14 days pauses (delists) its clinic and alerts staff and admins. */
+async function overdueCare(db: SupabaseClient, pushReady: boolean) {
+  const { data: cases, error } = await db
+    .from('sos_reports')
+    .select('id,short_id,facility_id,updated_at,recovery_updates(created_at),facilities(name,status)')
+    .in('state', ['admitted', 'healing'])
+    .not('facility_id', 'is', null);
+  if (error) throw error;
+
+  let paused = 0;
+  for (const c of cases ?? []) {
+    const last =
+      ((c.recovery_updates as { created_at: string }[] | null) ?? []).map((u) => u.created_at).sort().at(-1) ?? c.updated_at;
+    if (Date.now() - new Date(last).getTime() < ESCALATION_CONFIG.facilityInactivityMaxDays * DAY_MS) continue;
+
+    // Once per missed update: a new update gives a new last_update_at and a fresh 14 days
+    const { error: logError } = await db.from('care_alert_log').insert({ report_id: c.id, last_update_at: last });
+    if (logError) continue;
+
+    const clinic = c.facilities as unknown as { name: string; status: string } | null;
+    if (clinic?.status === 'Listed') {
+      await db
+        .from('facilities')
+        .update({ status: 'Paused', paused_at: new Date().toISOString(), paused_reason: `No update on case #${c.short_id} for 14 days` })
+        .eq('id', c.facility_id);
+      paused++;
+    }
+
+    if (pushReady) {
+      const { data: staff } = await db.from('profiles').select('id').or(`role.eq.admin,and(role.eq.facility,facility_id.eq.${c.facility_id})`);
+      await sendWebPush(
+        db,
+        (staff ?? []).map((s) => s.id as string),
+        {
+          title: `Recovery update overdue · #${c.short_id}`,
+          body: `${clinic?.name ?? 'The clinic'} has not posted an update for 14 days and is paused until an admin lists it again.`,
+          url: '/care',
+          tag: `care-${c.id}`,
+        }
+      );
+    }
+  }
+  return { paused };
+}
+
+/** "Can't accept": tell the rescuer to pick another clinic. */
+async function declinedAdmissions(db: SupabaseClient, pushReady: boolean) {
+  if (!pushReady) return { sent: 0 };
+  const since = new Date(Date.now() - 30 * 60_000).toISOString();
+  const { data: updates, error } = await db
+    .from('recovery_updates')
+    .select('id,notes,report_id,sos_reports(short_id,claimed_by,state)')
+    .eq('state', 'claimed')
+    .gte('created_at', since);
+  if (error) throw error;
+
+  let sent = 0;
+  for (const u of updates ?? []) {
+    const report = u.sos_reports as unknown as { short_id: string; claimed_by: string | null; state: string } | null;
+    if (!report?.claimed_by || report.state !== 'claimed') continue;
+    const { error: logError } = await db.from('push_event_log').insert({ key: `declined:${u.id}` });
+    if (logError) continue;
+    sent += await sendWebPush(db, [report.claimed_by], {
+      title: `Choose another clinic · #${report.short_id}`,
+      body: u.notes,
+      url: `/?case=${u.report_id}`,
+      tag: `case-${u.report_id}`,
+    });
+  }
+  return { sent };
+}
+
+/** AI check of new report photos: no animal or a photo of a screen goes to the admin flag queue. */
+async function photoChecks(db: SupabaseClient) {
+  if (!process.env.GEMINI_API_KEY) return { checked: 0, skipped: 'no GEMINI_API_KEY' };
+  const since = new Date(Date.now() - 2 * DAY_MS).toISOString();
+  const { data: reports, error } = await db
+    .from('sos_reports')
+    .select('id,photo_url')
+    .is('ai_checked_at', null)
+    .gte('created_at', since)
+    .order('created_at')
+    .limit(3);
+  if (error) throw error;
+
+  let flagged = 0;
+  for (const r of reports ?? []) {
+    const check = await checkReportPhoto(r.photo_url).catch(() => null);
+    await db
+      .from('sos_reports')
+      .update({
+        ai_checked_at: new Date().toISOString(),
+        ai_has_animal: check?.hasAnimal ?? null,
+        ai_graphic: check?.graphic ?? null,
+        ai_note: check ? check.note : 'Photo could not be checked',
+      })
+      .eq('id', r.id);
+    if (check && (!check.hasAnimal || check.isScreen)) {
+      await db.from('report_flags').insert({
+        report_id: r.id,
+        flagged_by: null,
+        source: 'ai',
+        reason: 'fake',
+        note: `AI check: ${check.isScreen ? 'looks like a photo of a screen. ' : ''}${check.hasAnimal ? '' : 'no animal visible. '}${check.note}`.slice(0, 300),
+      });
+      flagged++;
+    }
+  }
+  return { checked: reports?.length ?? 0, flagged };
+}

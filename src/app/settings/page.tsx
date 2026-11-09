@@ -1,11 +1,13 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { User, Sun, Moon, Laptop, LogOut, LogIn, Eye, ChevronRight, HeartPulse, ShieldCheck } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import AuthModal from '@/components/AuthModal';
 import RoleApplication from '@/components/RoleApplication';
+import AlertSettings from '@/components/AlertSettings';
+import InlineError from '@/components/InlineError';
 import { useThemeMode, useViewAs } from '@/lib/storage';
 import { useProfile } from '@/lib/supabase/useProfile';
 
@@ -15,7 +17,18 @@ export default function SettingsPage() {
   const [, setViewAs] = useViewAs();
   const [isAuthOpen, setIsAuthOpen] = useState(false);
 
+  // Alerts stop on this device first, so the next person signing in here never gets this user's alerts
   const handleSignOut = async () => {
+    try {
+      const reg = 'serviceWorker' in navigator ? await navigator.serviceWorker.getRegistration() : undefined;
+      const sub = await reg?.pushManager.getSubscription();
+      if (sub) {
+        await createClient().from('web_push_subscriptions').delete().eq('endpoint', sub.endpoint);
+        await sub.unsubscribe();
+      }
+    } catch {
+      // The server drops dead subscriptions on its own when a push fails
+    }
     await createClient().auth.signOut();
   };
 
@@ -60,7 +73,9 @@ export default function SettingsPage() {
               <span>Sign out</span>
             </button>
           </div>
-        ) : (
+        ) : null}
+        {user && <DisplayNameField userId={user.id} />}
+        {!user && (
           <div className="pt-1 space-y-3">
             <p className="text-[14px] text-fg-muted leading-relaxed">
               Sign in to manage incident reports, claim emergency rescues, and verify responder credentials.
@@ -77,12 +92,16 @@ export default function SettingsPage() {
         )}
       </section>
 
+      {user && (realRole === 'volunteer' || realRole === 'admin' || (realRole === 'facility' && facilityId)) && (
+        <AlertSettings userId={user.id} showArea={realRole !== 'facility'} />
+      )}
+
       {/* Role tools: clinic staff log recovery updates, admins review the queue */}
       {user && (realRole === 'admin' || (realRole === 'facility' && facilityId)) && (
         <nav aria-label="Role tools" className="bg-surface rounded-2xl border border-border shadow-sm divide-y divide-border">
           <ToolLink href="/care" icon={HeartPulse} label="Clinic care" hint="Animals in care and the 14-day clock" />
           {realRole === 'admin' && (
-            <ToolLink href="/admin" icon={ShieldCheck} label="Admin" hint="Applications, flagged reports, clinics" />
+            <ToolLink href="/admin" icon={ShieldCheck} label="Admin" hint="Applications, flags, users, clinics, handoffs" />
           )}
         </nav>
       )}
@@ -207,5 +226,78 @@ function ToolLink({ href, icon: Icon, label, hint }: { href: string; icon: typeo
       </span>
       <ChevronRight className="w-4 h-4 text-fg-muted shrink-0" aria-hidden="true" />
     </Link>
+  );
+}
+
+// First name shown to others on a case you claim ("Ana is on the way"). Email is never shown publicly.
+function DisplayNameField({ userId }: { userId: string }) {
+  const [name, setName] = useState('');
+  const [saved, setSaved] = useState('');
+  const [state, setState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+
+  useEffect(() => {
+    let active = true;
+    createClient()
+      .from('profiles')
+      .select('full_name')
+      .eq('id', userId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!active) return;
+        setName(data?.full_name ?? '');
+        setSaved(data?.full_name ?? '');
+      });
+    return () => {
+      active = false;
+    };
+  }, [userId]);
+
+  const save = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setState('saving');
+    const clean = name.trim().slice(0, 60);
+    const { error } = await createClient().from('profiles').update({ full_name: clean }).eq('id', userId);
+    if (error) {
+      setState('error');
+      return;
+    }
+    setSaved(clean);
+    setName(clean);
+    setState('saved');
+  };
+
+  return (
+    <form onSubmit={save} className="pt-3 border-t border-border space-y-2">
+      <label htmlFor="display-name" className="block text-[12px] font-semibold text-fg">
+        Your name (shown on rescues you claim)
+      </label>
+      <div className="flex gap-2">
+        <input
+          id="display-name"
+          value={name}
+          onChange={(e) => {
+            setName(e.target.value);
+            setState('idle');
+          }}
+          maxLength={60}
+          autoComplete="given-name"
+          placeholder="e.g. Ana"
+          className="flex-1 min-w-0 min-h-[44px] rounded-xl border border-border bg-surface-muted text-fg text-[14px] px-3 focus:outline-none focus:ring-2 focus:ring-action"
+        />
+        <button
+          type="submit"
+          disabled={state === 'saving' || name.trim() === saved}
+          className="min-h-[44px] px-4 rounded-xl border border-border bg-surface hover:bg-surface-muted text-fg font-semibold text-[14px] cursor-pointer disabled:opacity-50"
+        >
+          {state === 'saving' ? 'Saving…' : 'Save'}
+        </button>
+      </div>
+      {state === 'saved' && (
+        <p role="status" className="text-[12px] text-healing-fg">
+          Saved.
+        </p>
+      )}
+      {state === 'error' && <InlineError>Could not save your name. Please try again.</InlineError>}
+    </form>
   );
 }

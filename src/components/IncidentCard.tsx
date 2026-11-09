@@ -26,6 +26,10 @@ export interface IncidentData {
   createdAt?: string | null;
   facilityId?: string | null;
   facilityName?: string | null;
+  /** The scheduler has alerted every volunteer about this case */
+  alertWidened?: boolean;
+  /** The AI photo check found graphic injuries; the photo stays blurred until revealed */
+  aiGraphic?: boolean;
 }
 
 export interface IncidentCardProps {
@@ -63,7 +67,12 @@ function getStatus(incident: IncidentData): { label: string; tone: string } {
         return { label: `No responder yet · ${escalation.elapsedMinutes}m`, tone: 'text-reported-fg' };
       }
       if (escalation.stage === 'widened') {
-        return { label: `Waiting ${escalation.elapsedMinutes}m for a rescuer`, tone: 'text-reported-fg' };
+        return {
+          label: incident.alertWidened
+            ? `Alert sent to all volunteers · ${escalation.elapsedMinutes}m`
+            : `Waiting ${escalation.elapsedMinutes}m for a rescuer`,
+          tone: 'text-reported-fg',
+        };
       }
       return { label: 'Reported', tone: 'text-reported-fg' };
     }
