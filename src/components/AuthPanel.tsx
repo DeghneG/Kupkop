@@ -20,6 +20,15 @@ interface AuthPanelProps {
 
 const PROVIDER_LABEL: Record<OAuthProvider, string> = { google: 'Google' };
 
+// TEMPORARY test login: only in `npm run dev`, only when both variables are set in .env.local.
+// A production build removes this branch, so the live site never shows or contains the button.
+const DEV_LOGIN =
+  process.env.NODE_ENV === 'development' &&
+  process.env.NEXT_PUBLIC_DEV_LOGIN_EMAIL &&
+  process.env.NEXT_PUBLIC_DEV_LOGIN_PASSWORD
+    ? { email: process.env.NEXT_PUBLIC_DEV_LOGIN_EMAIL, password: process.env.NEXT_PUBLIC_DEV_LOGIN_PASSWORD }
+    : null;
+
 /**
  * Which social providers are switched on in Supabase. A disabled provider fails on Supabase's own
  * error page after the redirect, so we check first. null = unknown (show the buttons and let it try).
@@ -52,7 +61,7 @@ function useEnabledProviders(): Record<OAuthProvider, boolean> | null {
 export default function AuthPanel({ headingId, initialMode = 'login', redirectPath, onDone }: AuthPanelProps) {
   const [mode, setMode] = useState<AuthMode>(initialMode);
   const [email, setEmail] = useState('');
-  const [loading, setLoading] = useState<'email' | OAuthProvider | null>(null);
+  const [loading, setLoading] = useState<'email' | 'dev' | OAuthProvider | null>(null);
   const [sent, setSent] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isNonExistent, setIsNonExistent] = useState(false);
@@ -153,6 +162,24 @@ export default function AuthPanel({ headingId, initialMode = 'login', redirectPa
       setErrorMsg(err instanceof Error ? err.message : `${PROVIDER_LABEL[provider]} sign-in error.`);
       setLoading(null);
     }
+  };
+
+  const handleDevLogin = async () => {
+    if (!DEV_LOGIN) return;
+    setLoading('dev');
+    setErrorMsg(null);
+    const { error } = await createClient().auth.signInWithPassword(DEV_LOGIN);
+    setLoading(null);
+    if (error) {
+      setErrorMsg(
+        error.message?.toLowerCase().includes('invalid login')
+          ? 'The test account does not exist yet. In Supabase: Authentication > Users > Add user, with the email and password from .env.local, and tick Auto Confirm User.'
+          : error.message
+      );
+      return;
+    }
+    if (redirectPath) window.location.assign(redirectPath);
+    else onDone?.();
   };
 
   // Typing the code signs in this tab. On phones the email link often opens in the mail app's own
@@ -370,6 +397,21 @@ export default function AuthPanel({ headingId, initialMode = 'login', redirectPa
         </button>
         <p className="text-[12px] text-fg-muted text-center">No password needed. The link signs you in.</p>
       </form>
+
+      {DEV_LOGIN && (
+        <div className="pt-3 border-t border-dashed border-border space-y-2">
+          <button
+            type="button"
+            onClick={handleDevLogin}
+            disabled={busy}
+            className="w-full min-h-[48px] border border-dashed border-fg-muted text-fg font-semibold text-[14px] rounded-xl flex items-center justify-center gap-2 hover:bg-surface-muted disabled:opacity-50 cursor-pointer"
+          >
+            {loading === 'dev' && <Loader2 className="w-4 h-4 motion-safe:animate-spin" aria-hidden="true" />}
+            <span>Sign in as test account</span>
+          </button>
+          <p className="text-[12px] text-fg-muted text-center">Temporary, development only. Not shown on the live site.</p>
+        </div>
+      )}
     </div>
   );
 }
