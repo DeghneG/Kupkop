@@ -343,3 +343,15 @@
 - **Decision (builder said "go on"):** the Feed's first case starts about 70px higher (refresh moved into the header's Live control, the "Nearby cases" heading row became screen-reader-only, summary strip tightened); the case sheet's main action is pinned to the bottom of the sheet and its photo is shorter (160px); case rows show animal and type without truncation, and only the location shortens.
 - **Not done:** a compact row mode for volunteers, grouping Settings (Account, Alerts, Appearance, Demo tools), and the desktop two-pane layout with a side rail (needs its own plan).
 - **Checks:** `tsc`, eslint (0 errors), 36 unit tests, production build; first row top measured at 305px (was about 375px) and the pinned Claim button at 645-693px of 844px.
+
+### D-037: Case photo card, preview-bar minimize
+- **Date:** 2026-11-10
+- **Decision (builder asked for a professional redesign of the photo card, and a minimize button for the role preview bar):** `CasePhoto` replaces the old whole-surface reveal button. Why: the old card put "Tap to blur" over the subject of a revealed photo, kept a 30% dark layer on it, cropped it to 160px, offered no larger view, carried no evidence stamp, relied on drop-shadow text over arbitrary photos, and animated the blur filter (against the transform/opacity-only rule). The role preview bar can shrink to one slim row (remembered on the device).
+- **Checks:** `tsc`, eslint (0 errors), 36 unit tests, production build; hidden, shown and full-screen states captured at 390px; Escape closes only the viewer first.
+- **Not covered:** pinch-zoom in the viewer, and the AI "graphic" label was not seen on a real flagged photo (the demo data has none).
+
+### D-038: Case row redesign (urgency, age, dark wash, CTA order)
+- **Date:** 2026-11-10
+- **Decision (builder shared a dark-mode Feed screenshot and asked for the same professional pass as the photo card):** urgency tier is visible on open rows (Critical / Urgent tag); the waiting age is the strongest element on open rows and quiet otherwise; the dark-mode row wash is a soft plum (`--open-bg`) instead of a heavy maroon band; filter tabs omit zero counts (the font's slashed zero read as a broken "Ø"); "Report an emergency" leads the end-of-list actions as an outlined red button.
+- **Checks:** `tsc`, eslint (0 errors), 36 unit tests, production build; dark and light Feed captured at 390px; Claim buttons still render for a volunteer preview.
+- **Not changed:** the summary strip still shows the slashed zero for "In progress 0"; the row's "Pinned location" fallback is unchanged (the street name comes from the report).

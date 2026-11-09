@@ -24,6 +24,7 @@
   --weave-b: #D9A21B;
   --weave-c: #2F7D4F;
   --straw: #EADFB9;
+  --open-bg: #FDECEA;       /* Row wash for cases that still need a rescuer */
   --reported-bg: #FDECEA;  --reported-fg: #B42318;
   --claimed-bg:  #FFF4D6;  --claimed-fg:  #7A5200;
   --healing-bg:  #E4F2EA;  --healing-fg:  #1F6B43;
@@ -52,6 +53,7 @@
   --weave-b: #E3B23C;
   --weave-c: #3DA874;
   --straw: #53597F;
+  --open-bg: #2B1B36;
   --reported-bg: #3A1613;  --reported-fg: #FF9C92;
   --claimed-bg:  #3A2A06;  --claimed-fg:  #F5C75B;
   --healing-bg:  #0F2D20;  --healing-fg:  #7DDDAA;
@@ -81,6 +83,7 @@
     --weave-b: #E3B23C;
     --weave-c: #3DA874;
     --straw: #53597F;
+  --open-bg: #2B1B36;
     --reported-bg: #3A1613;  --reported-fg: #FF9C92;
     --claimed-bg:  #3A2A06;  --claimed-fg:  #F5C75B;
     --healing-bg:  #0F2D20;  --healing-fg:  #7DDDAA;
@@ -110,6 +113,7 @@
   --color-weave-b: var(--weave-b);
   --color-weave-c: var(--weave-c);
   --color-straw: var(--straw);
+  --color-open-bg: var(--open-bg);
   --color-reported-bg: var(--reported-bg);
   --color-reported-fg: var(--reported-fg);
   --color-claimed-bg: var(--claimed-bg);

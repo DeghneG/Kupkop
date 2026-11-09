@@ -600,7 +600,7 @@ export default function HomePage() {
                 }`}
               >
                 {channel.label}
-                {showCounts && (
+                {showCounts && count > 0 && (
                   <span className="text-[12px] font-normal text-fg-muted tabular-nums">{count}</span>
                 )}
                 <span
@@ -704,16 +704,16 @@ export default function HomePage() {
                 </p>
                 <div className="flex flex-col gap-2 w-full max-w-[280px]">
                   <Link
+                    href="/sos"
+                    className="min-h-[48px] px-4 rounded-xl border-2 border-accent bg-surface text-reported-fg font-bold text-[14px] flex items-center justify-center hover:bg-open-bg"
+                  >
+                    Report an emergency
+                  </Link>
+                  <Link
                     href="/rafa"
                     className="min-h-[48px] px-4 rounded-xl border border-border bg-surface hover:bg-surface-muted text-fg font-semibold text-[14px] flex items-center justify-center"
                   >
                     Ask Rafa for first aid
-                  </Link>
-                  <Link
-                    href="/sos"
-                    className="min-h-[48px] px-4 rounded-xl text-link font-semibold text-[14px] flex items-center justify-center hover:underline underline-offset-4"
-                  >
-                    Report an emergency
                   </Link>
                 </div>
               </div>

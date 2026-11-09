@@ -5,9 +5,6 @@ import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
 import {
   X,
-  Camera,
-  Eye,
-  EyeOff,
   HeartPulse,
   CheckCircle2,
   MapPin,
@@ -26,6 +23,7 @@ import TriageGlyph from '@/components/icons/TriageGlyph';
 import CaseRecovery from '@/components/CaseRecovery';
 import { useFocusTrap } from '@/lib/useFocusTrap';
 import FlagReport from '@/components/FlagReport';
+import CasePhoto from '@/components/CasePhoto';
 import HandoffPanel from '@/components/HandoffPanel';
 import StageWeave from '@/components/StageWeave';
 import { createClient } from '@/lib/supabase/client';
@@ -62,7 +60,6 @@ export default function DetailSheet({
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   useFocusTrap(sheetRef, !!incident);
 
-  const [isPhotoRevealed, setIsPhotoRevealed] = useState(false);
   const [callNotice, setCallNotice] = useState<string | null>(null);
   // First name of the rescuer on a claimed case (public_profiles never exposes email)
   const [claimer, setClaimer] = useState<{ id: string; name: string } | null>(null);
@@ -100,7 +97,6 @@ export default function DetailSheet({
   const [prevIncidentId, setPrevIncidentId] = useState(incident?.id);
   if (incident?.id !== prevIncidentId) {
     setPrevIncidentId(incident?.id);
-    setIsPhotoRevealed(false);
     setCallNotice(null);
   }
 
@@ -272,48 +268,14 @@ export default function DetailSheet({
 
         {/* Scrollable Sheet Content */}
         <div className="overflow-y-auto px-4 pb-6 space-y-4">
-          {/* Large Photo with Reveal Toggle */}
-          <div className="relative w-full h-40 rounded-2xl overflow-hidden bg-surface-muted border border-border flex items-center justify-center">
-            {incident.photoUrl ? (
-              /* eslint-disable-next-line @next/next/no-img-element */
-              <img
-                src={incident.photoUrl}
-                alt={`Live camera snapshot of ${incident.animal}`}
-                className={`w-full h-full object-cover transition-all duration-300 ${
-                  isPhotoRevealed ? 'blur-0' : 'blur-md scale-105'
-                }`}
-              />
-            ) : (
-              <div
-                className={`w-full h-full flex flex-col items-center justify-center transition-all duration-300 ${
-                  isPhotoRevealed ? 'blur-0' : 'blur-md scale-105'
-                }`}
-              >
-                <Camera className="w-12 h-12 text-fg-muted" aria-hidden="true" />
-                <span className="text-[12px] text-fg-muted font-normal mt-1">Live camera snapshot</span>
-              </div>
-            )}
-
-            {/* Tap to Reveal / Re-blur button */}
-            <button
-              type="button"
-              onClick={() => setIsPhotoRevealed(!isPhotoRevealed)}
-              className="absolute inset-0 z-10 flex items-center justify-center bg-black/30 hover:bg-black/40 text-white font-semibold text-[14px] gap-2 transition-colors cursor-pointer"
-              aria-label={isPhotoRevealed ? 'Blur photo' : 'Reveal photo'}
-            >
-              {isPhotoRevealed ? (
-                <>
-                  <EyeOff className="w-5 h-5 drop-shadow" aria-hidden="true" />
-                  <span className="drop-shadow">Tap to blur</span>
-                </>
-              ) : (
-                <>
-                  <Eye className="w-5 h-5 drop-shadow" aria-hidden="true" />
-                  <span className="drop-shadow">{incident.aiGraphic ? 'Graphic injury · tap to reveal' : 'Tap to reveal'}</span>
-                </>
-              )}
-            </button>
-          </div>
+          {/* The evidence photo: blurred until viewed, clean once shown, expandable */}
+          <CasePhoto
+            key={incident.id}
+            photoUrl={incident.photoUrl}
+            alt={`Live camera snapshot of ${incident.animal}`}
+            graphic={incident.aiGraphic}
+            capturedAt={incident.createdAt}
+          />
 
           {/* Heading Row: Name, Status & Case ID */}
           <div className="space-y-1">

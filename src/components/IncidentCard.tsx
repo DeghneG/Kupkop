@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { ArrowUp, Camera } from 'lucide-react';
-import { calculateEscalation, calculateClaimTimer, needsRescuer as isWaiting } from '@/lib/sos/escalation';
+import { calculateEscalation, calculateClaimTimer, getEscalationTier, needsRescuer as isWaiting } from '@/lib/sos/escalation';
 import TriageGlyph from '@/components/icons/TriageGlyph';
 import StageWeave from '@/components/StageWeave';
 
@@ -90,6 +90,7 @@ const formatTriageTag = (type: string) => type.replace(/\s*[·•]\s*Critical/i,
 export function IncidentCard({ incident, onClick, onClaim, claiming }: IncidentCardProps) {
   const status = getStatus(incident);
   const needsRescuer = isWaiting(incident.state, incident.claimedAt);
+  const tier = getEscalationTier(incident.type);
 
   const showClaim = !!onClaim && needsRescuer;
 
@@ -97,7 +98,7 @@ export function IncidentCard({ incident, onClick, onClaim, claiming }: IncidentC
   return (
     <div
       className={`w-full flex items-center gap-2 transition-colors ${showClaim ? 'pr-4' : ''} ${
-        needsRescuer ? 'bg-reported-bg hover:bg-reported-bg/80' : 'bg-surface hover:bg-surface-muted'
+        needsRescuer ? 'bg-open-bg hover:bg-open-bg/70' : 'bg-surface hover:bg-surface-muted'
       }`}
     >
     <article
@@ -125,8 +126,22 @@ export function IncidentCard({ incident, onClick, onClaim, claiming }: IncidentC
 
       <div className="flex-1 min-w-0 flex flex-col gap-1">
         <div className="flex items-baseline justify-between gap-3">
-          <h3 className="text-[16px] font-bold text-fg tracking-tight leading-snug truncate">{incident.animal}</h3>
-          <span className="text-[12px] text-fg-muted tabular-nums shrink-0">{incident.timeAgo}</span>
+          <div className="flex items-baseline gap-2 min-w-0">
+            <h3 className="text-[16px] font-bold text-fg tracking-tight leading-snug truncate">{incident.animal}</h3>
+            {needsRescuer && tier !== 'moderate' && (
+              <span
+                className={`shrink-0 text-[12px] font-bold uppercase tracking-wide ${
+                  tier === 'critical' ? 'text-reported-fg' : 'text-claimed-fg'
+                }`}
+              >
+                {tier === 'critical' ? 'Critical' : 'Urgent'}
+              </span>
+            )}
+          </div>
+          {/* How long it has waited is the most urgent fact: strong while a rescuer is needed, quiet after */}
+          <span className={`text-[12px] tabular-nums shrink-0 ${needsRescuer ? 'font-bold text-fg' : 'text-fg-muted'}`}>
+            {incident.timeAgo}
+          </span>
         </div>
 
         <p className="flex gap-1 text-[14px] leading-snug min-w-0">
