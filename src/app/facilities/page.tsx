@@ -6,6 +6,8 @@ import { useUserPosition } from '@/lib/useUserPosition';
 import { distanceKm, formatDistance } from '@/lib/sos/utils';
 import { calculateFacilityInactivity, type FacilityClockStatus } from '@/lib/sos/escalation';
 import { createClient } from '@/lib/supabase/client';
+import ScreenHeader from '@/components/ScreenHeader';
+import StageWeave from '@/components/StageWeave';
 
 interface Clinic {
   id: string;
@@ -100,12 +102,11 @@ export default function FacilitiesPage() {
         </div>
       )}
 
-      <header className="pb-3 border-b border-border">
-        <h1 className="text-[22px] font-semibold tracking-tight text-fg font-brand">Clinics</h1>
-        <p className="text-[12px] text-fg-muted font-normal mt-1">
-          Listed clinics post a recovery update at least every 14 days for each animal in their care.
-        </p>
-      </header>
+      <ScreenHeader
+        title="Clinics"
+        subtitle="Listed clinics post a recovery update at least every 14 days for each animal in their care."
+        className="-mx-4 -mt-3"
+      />
 
       {loadError ? (
         <div role="alert" className="rounded-2xl p-6 border border-border text-center space-y-3">
@@ -124,11 +125,14 @@ export default function FacilitiesPage() {
           Loading clinics…
         </p>
       ) : sorted.length === 0 ? (
-        <p className="text-[14px] text-fg-muted">No Listed clinics yet. An admin adds them.</p>
+        <div className="space-y-3">
+          <StageWeave blank className="w-32" />
+          <p className="text-[14px] text-fg-muted">No Listed clinics yet. An admin adds them.</p>
+        </div>
       ) : (
         <div className="space-y-3">
           {sorted.map((clinic) => (
-            <article key={clinic.id} className="bg-surface border border-border rounded-2xl p-4 shadow-sm space-y-3">
+            <article key={clinic.id} className="bg-surface -mx-4 px-4 py-4 border-y border-border space-y-3">
               <div className="flex items-start justify-between gap-2">
                 <div className="space-y-0.5 min-w-0">
                   <h2 className="text-[16px] font-semibold text-fg">{clinic.name}</h2>

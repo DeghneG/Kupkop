@@ -13,6 +13,8 @@ import { useLocation } from '@/lib/useUserPosition';
 import { usePullToRefresh } from '@/lib/usePullToRefresh';
 import { distanceKm, formatDistance, getDirectionalBearing } from '@/lib/sos/utils';
 import { KupkopMark } from '@/components/icons/TriageGlyph';
+import Wordmark from '@/components/Wordmark';
+import StageWeave from '@/components/StageWeave';
 import { calculateEscalation, needsRescuer } from '@/lib/sos/escalation';
 import { animalLabel, emergencyLabel } from '@/lib/sos/labels';
 import Link from 'next/link';
@@ -465,7 +467,7 @@ export default function HomePage() {
           : 'Connecting…';
 
   return (
-    <div className={`flex flex-col flex-1 pt-4 ${activeCase ? 'pb-56' : 'pb-6'}`}>
+    <div className={`flex flex-col flex-1 pt-0 ${activeCase ? 'pb-56' : 'pb-6'}`}>
       {/* Pull-to-refresh indicator; only this pill moves so the fixed case bar is unaffected */}
       {(pull.distance > 0 || refreshing) && (
         <div
@@ -491,38 +493,43 @@ export default function HomePage() {
         </div>
       )}
 
-      <header className="flex items-center justify-between gap-3 px-4">
+      <header className="bg-shell text-shell-fg flex items-center justify-between gap-3 px-4 py-3">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-10 h-10 rounded-xl bg-fg flex items-center justify-center shrink-0">
-            <KupkopMark size={22} className="text-page" />
+          <div className="w-10 h-10 rounded-xl bg-shell-fg flex items-center justify-center shrink-0">
+            <KupkopMark size={26} />
           </div>
           <div className="min-w-0">
-            <h1 className="text-[22px] font-semibold tracking-tight leading-none text-fg font-brand">
-              KupKop
-            </h1>
-            <p className="text-[12px] text-fg-muted mt-1 truncate">Street animal emergency network</p>
+            <h1 className="leading-none"><Wordmark onShell className="text-[22px]" /></h1>
+            <p className="text-[12px] text-shell-muted mt-1 truncate">Animal emergency network</p>
           </div>
         </div>
         <div className="flex items-center gap-3 shrink-0">
           {showCounts && (
-            <span className="inline-flex items-center gap-2 text-[12px] font-semibold text-fg-muted">
+            <button
+              type="button"
+              onClick={refreshFeed}
+              disabled={refreshing}
+              aria-label={updatedLabel ? `${updatedLabel}. Refresh cases` : 'Refresh cases'}
+              className="min-h-[44px] px-2 -mx-2 inline-flex items-center gap-2 text-[12px] font-bold text-shell-muted cursor-pointer disabled:cursor-wait"
+            >
               <span
-                className={`w-2 h-2 rounded-full ${liveLabel === 'Live' ? 'bg-action' : 'bg-fg-muted'}`}
+                className={`w-2 h-2 rounded-full ${liveLabel === 'Live' ? 'bg-shell-fg' : 'bg-shell-muted'}`}
                 aria-hidden="true"
               />
-              <span aria-live="polite">{liveLabel}</span>
-            </span>
+              <span aria-live="polite">{refreshing ? 'Refreshing…' : liveLabel}</span>
+            </button>
           )}
           <AccountButton />
         </div>
       </header>
+      <div className="selvedge" aria-hidden="true" />
 
       <AuthErrorNotice />
 
       {/* Summary: counts across all cases, independent of the filter */}
       {showCounts && (
-        <dl className="mt-5 mx-4 grid grid-cols-3 divide-x divide-border border-y border-border">
-          <div className="py-3 pr-3 flex flex-col gap-1">
+        <dl className="mt-3 mx-4 grid grid-cols-3 divide-x divide-border border-y border-border">
+          <div className="py-2 pr-3 flex flex-col gap-0.5">
             <dt className="text-[12px] text-fg-muted">Need rescuer</dt>
             <dd
               className={`text-[16px] font-semibold tabular-nums ${
@@ -532,11 +539,11 @@ export default function HomePage() {
               {openCases.length}
             </dd>
           </div>
-          <div className="py-3 px-3 flex flex-col gap-1">
+          <div className="py-2 px-3 flex flex-col gap-0.5">
             <dt className="text-[12px] text-fg-muted">In progress</dt>
             <dd className="text-[16px] font-semibold tabular-nums text-fg">{inProgressCount}</dd>
           </div>
-          <div className="py-3 pl-3 flex flex-col gap-1">
+          <div className="py-2 pl-3 flex flex-col gap-0.5">
             <dt className="text-[12px] text-fg-muted">Nearest open</dt>
             <dd className="text-[16px] font-semibold tabular-nums text-fg">
               {nearestOpenKm != null ? (
@@ -549,7 +556,7 @@ export default function HomePage() {
                   type="button"
                   onClick={requestLocation}
                   disabled={locationStatus === 'requesting'}
-                  className="-my-3 min-h-[44px] text-[14px] font-semibold text-link cursor-pointer hover:underline underline-offset-4 disabled:cursor-wait"
+                  className="-my-2 min-h-[44px] text-[14px] font-semibold text-link cursor-pointer hover:underline underline-offset-4 disabled:cursor-wait"
                 >
                   {locationStatus === 'requesting' ? 'Locating…' : 'Show distances'}
                 </button>
@@ -567,24 +574,10 @@ export default function HomePage() {
         </dl>
       )}
 
-      <section aria-labelledby="nearby-heading" className="mt-6">
-        <div className="flex items-center justify-between gap-3 px-4">
-          <h2 id="nearby-heading" className="text-[16px] font-semibold text-fg tracking-tight">
-            Nearby cases
-          </h2>
-          {updatedLabel && (
-            <button
-              type="button"
-              onClick={refreshFeed}
-              disabled={refreshing}
-              aria-label={`${updatedLabel}. Refresh cases`}
-              className="-mr-2 min-h-[44px] px-2 inline-flex items-center gap-1.5 rounded-xl text-[12px] text-fg-muted tabular-nums cursor-pointer hover:text-fg hover:bg-surface-muted disabled:cursor-wait"
-            >
-              <RotateCw className={`w-3.5 h-3.5 ${refreshing ? 'motion-safe:animate-spin' : ''}`} aria-hidden="true" />
-              {refreshing ? 'Refreshing…' : updatedLabel}
-            </button>
-          )}
-        </div>
+      <section aria-labelledby="nearby-heading" className="mt-3">
+        <h2 id="nearby-heading" className="sr-only">
+          Nearby cases
+        </h2>
 
         {/* Filters: underlined text tabs with live counts; sticks under the test banner while scrolling */}
         <div className="sticky top-[var(--banner-h,0px)] z-20 bg-page mt-1 border-b border-border">
@@ -612,7 +605,7 @@ export default function HomePage() {
                 )}
                 <span
                   aria-hidden="true"
-                  className={`absolute left-0 right-0 -bottom-px h-0.5 rounded-full bg-fg origin-center transition-transform duration-200 ease-out motion-reduce:transition-none ${
+                  className={`absolute left-0 right-0 -bottom-px h-0.5 rounded-full bg-action origin-center transition-transform duration-200 ease-out motion-reduce:transition-none ${
                     isActive ? 'scale-x-100' : 'scale-x-0'
                   }`}
                 />
@@ -623,7 +616,8 @@ export default function HomePage() {
           {/* Edge fade hints that the tab row scrolls */}
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-page to-transparent"
+            className="pointer-events-none absolute right-0 top-0 bottom-0 w-14"
+            style={{ background: 'linear-gradient(to left, var(--page) 30%, transparent)' }}
           />
         </div>
 
@@ -667,6 +661,7 @@ export default function HomePage() {
             </div>
           ) : filteredEmergencies.length === 0 ? (
             <div className="px-4 py-8 text-center space-y-3">
+              <StageWeave blank className="w-32 mx-auto" />
               <p className="text-[14px] font-semibold text-fg">No cases of this type right now</p>
               <button
                 type="button"
@@ -703,19 +698,20 @@ export default function HomePage() {
 
               {/* End of list: says the list is complete and offers the next useful step */}
               <div className="px-4 pt-8 pb-4 flex flex-col items-center gap-4 text-center">
+                <StageWeave state="resolved" className="w-32" />
                 <p className="text-[14px] text-fg-muted max-w-[280px]">
                   That&apos;s every case near you. New reports appear here as soon as they&apos;re filed.
                 </p>
-                <div className="flex items-center gap-3">
+                <div className="flex flex-col gap-2 w-full max-w-[280px]">
                   <Link
                     href="/rafa"
-                    className="min-h-[44px] px-4 rounded-xl border border-border bg-surface hover:bg-surface-muted text-fg font-semibold text-[14px] flex items-center"
+                    className="min-h-[48px] px-4 rounded-xl border border-border bg-surface hover:bg-surface-muted text-fg font-semibold text-[14px] flex items-center justify-center"
                   >
                     Ask Rafa for first aid
                   </Link>
                   <Link
                     href="/sos"
-                    className="min-h-[44px] px-4 rounded-xl text-link font-semibold text-[14px] flex items-center hover:underline underline-offset-4"
+                    className="min-h-[48px] px-4 rounded-xl text-link font-semibold text-[14px] flex items-center justify-center hover:underline underline-offset-4"
                   >
                     Report an emergency
                   </Link>

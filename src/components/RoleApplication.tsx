@@ -90,7 +90,7 @@ export default function RoleApplication({ userId, role, onSignIn }: RoleApplicat
     <section
       id="volunteer"
       aria-labelledby="settings-volunteer-heading"
-      className="bg-surface rounded-2xl p-4 border border-border shadow-sm space-y-3"
+      className="bg-surface -mx-4 px-4 py-4 border-y border-border space-y-3"
     >
       <div className="flex items-center gap-2">
         <HeartHandshake className="w-4 h-4 text-fg-muted shrink-0" aria-hidden="true" />
@@ -106,7 +106,7 @@ export default function RoleApplication({ userId, role, onSignIn }: RoleApplicat
         </p>
       )}
 
-      {isResponder ? (
+      {role === 'volunteer' && !userId ? null : isResponder ? (
         <p className="text-[14px] text-fg flex items-center gap-2">
           <CheckCircle2 className="w-4 h-4 text-healing-fg shrink-0" aria-hidden="true" />
           <span className="capitalize">You are an approved {role}.</span>

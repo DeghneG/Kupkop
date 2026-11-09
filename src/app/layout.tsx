@@ -1,32 +1,28 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter, Bricolage_Grotesque } from 'next/font/google';
+import { Atkinson_Hyperlegible } from 'next/font/google';
 import './globals.css';
 import TestModeBanner from '@/components/TestModeBanner';
 import RolePreviewBanner from '@/components/RolePreviewBanner';
 import Navigation from '@/components/Navigation';
 import ThemeInit from '@/components/ThemeInit';
 
-const inter = Inter({
+// Designed for low vision: letterforms stay distinct in harsh sun and at arm's length
+const atkinson = Atkinson_Hyperlegible({
+  weight: ['400', '700'],
   subsets: ['latin'],
   display: 'swap',
-  variable: '--font-inter',
+  variable: '--font-atkinson',
 });
 
 // Applies a saved Light or Dark choice before the first paint, so the page never flashes the other theme.
 // 'System' needs nothing here: globals.css follows the phone setting.
 const THEME_SCRIPT = `(function(){try{var t=localStorage.getItem('kupkop-theme');if(t==='dark'||t==='light'){var r=document.documentElement;r.setAttribute('data-theme',t);r.classList.toggle('dark',t==='dark');r.style.colorScheme=t}}catch(e){}})()`;
 
-const bricolage = Bricolage_Grotesque({
-  subsets: ['latin'],
-  display: 'swap',
-  variable: '--font-bricolage',
-});
-
 export const metadata: Metadata = {
   title: 'KupKop — Street Animal Emergency Network',
   description: 'Fast, community-driven street animal emergency dispatch, claim locking, and recovery tracking.',
   manifest: '/manifest.json',
-  icons: { apple: '/pwa-icon?size=180' },
+  icons: { icon: '/pwa-icon?size=96', apple: '/pwa-icon?size=180' },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
@@ -39,8 +35,8 @@ export const viewport: Viewport = {
   initialScale: 1,
   viewportFit: 'cover',
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#F6F4EE' },
-    { media: '(prefers-color-scheme: dark)', color: '#0E1411' },
+    { media: '(prefers-color-scheme: light)', color: '#232D69' },
+    { media: '(prefers-color-scheme: dark)', color: '#2A367F' },
   ],
 };
 
@@ -50,7 +46,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${inter.variable} ${bricolage.variable} h-full antialiased`} suppressHydrationWarning>
+    <html lang="en" className={`${atkinson.variable} h-full antialiased`} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
       </head>

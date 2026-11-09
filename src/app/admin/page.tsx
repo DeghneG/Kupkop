@@ -7,6 +7,7 @@ import { useProfile } from '@/lib/supabase/useProfile';
 import { animalLabel, emergencyLabel, FLAG_REASON_LABELS } from '@/lib/sos/labels';
 import type { FlagReason } from '@/types/database';
 import InlineError from '@/components/InlineError';
+import ScreenHeader from '@/components/ScreenHeader';
 
 type Tab = 'applications' | 'flags' | 'users' | 'clinics' | 'handoffs';
 
@@ -116,10 +117,11 @@ export default function AdminPage() {
 
   return (
     <div className="flex flex-col flex-1 px-4 pt-3 pb-8 space-y-4">
-      <header className="pb-1">
-        <h1 className="text-[22px] font-semibold tracking-tight text-fg font-brand">Admin</h1>
-        <p className="text-[12px] text-fg-muted mt-1">Review applications and flagged reports, manage roles and Listed clinics, and check handoffs.</p>
-      </header>
+      <ScreenHeader
+        title="Admin"
+        subtitle="Review applications and flagged reports, manage roles and Listed clinics, and check handoffs."
+        className="-mx-4 -mt-3"
+      />
 
       <div role="tablist" aria-label="Admin sections" className="flex gap-5 border-b border-border overflow-x-auto no-scrollbar">
         {tabs.map((t) => (

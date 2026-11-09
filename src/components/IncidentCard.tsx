@@ -2,8 +2,9 @@
 
 import React from 'react';
 import { ArrowUp, Camera } from 'lucide-react';
-import { calculateEscalation, calculateClaimTimer, needsRescuer as isWaiting, formatWaited } from '@/lib/sos/escalation';
+import { calculateEscalation, calculateClaimTimer, needsRescuer as isWaiting } from '@/lib/sos/escalation';
 import TriageGlyph from '@/components/icons/TriageGlyph';
+import StageWeave from '@/components/StageWeave';
 
 export interface IncidentData {
   id: string;
@@ -65,13 +66,13 @@ function getStatus(incident: IncidentData): { label: string; tone: string } {
       const escalation = calculateEscalation(incident.createdAt, incident.type);
       if (!incident.createdAt) return { label: 'Reported', tone: 'text-reported-fg' };
       if (escalation.stage === 'alert') {
-        return { label: `No responder yet · ${formatWaited(escalation.elapsedMinutes)}`, tone: 'text-reported-fg' };
+        return { label: `No responder yet`, tone: 'text-reported-fg' };
       }
       if (escalation.stage === 'widened') {
         return {
           label: incident.alertWidened
-            ? `Alert sent to all volunteers · ${formatWaited(escalation.elapsedMinutes)}`
-            : `Waiting ${formatWaited(escalation.elapsedMinutes)} for a rescuer`,
+            ? `Alert sent to all volunteers`
+            : `Waiting for a rescuer`,
           tone: 'text-reported-fg',
         };
       }
@@ -96,7 +97,7 @@ export function IncidentCard({ incident, onClick, onClaim, claiming }: IncidentC
   return (
     <div
       className={`w-full flex items-center gap-2 transition-colors ${showClaim ? 'pr-4' : ''} ${
-        needsRescuer ? 'bg-reported-bg/40 hover:bg-reported-bg/70' : 'hover:bg-surface-muted/60'
+        needsRescuer ? 'bg-reported-bg hover:bg-reported-bg/80' : 'bg-surface hover:bg-surface-muted'
       }`}
     >
     <article
@@ -124,14 +125,14 @@ export function IncidentCard({ incident, onClick, onClaim, claiming }: IncidentC
 
       <div className="flex-1 min-w-0 flex flex-col gap-1">
         <div className="flex items-baseline justify-between gap-3">
-          <h3 className="text-[16px] font-semibold text-fg tracking-tight leading-snug truncate">
-            {incident.animal}
-            <span className="text-fg-muted font-normal text-[14px]"> · {formatTriageTag(incident.type)}</span>
-          </h3>
+          <h3 className="text-[16px] font-bold text-fg tracking-tight leading-snug truncate">{incident.animal}</h3>
           <span className="text-[12px] text-fg-muted tabular-nums shrink-0">{incident.timeAgo}</span>
         </div>
 
-        <p className="text-[14px] text-fg-muted truncate leading-snug">{incident.location}</p>
+        <p className="flex gap-1 text-[14px] leading-snug min-w-0">
+          <span className="font-semibold text-fg shrink-0">{formatTriageTag(incident.type)}</span>
+          <span className="text-fg-muted truncate">· {incident.location}</span>
+        </p>
 
         <div className="flex items-center gap-2 text-[12px] text-fg-muted tabular-nums min-w-0">
           <span className={`inline-flex items-center gap-1 font-semibold shrink-0 ${status.tone}`}>
@@ -156,6 +157,7 @@ export function IncidentCard({ incident, onClick, onClaim, claiming }: IncidentC
           <span aria-hidden="true">·</span>
           <span className="truncate">#{incident.shortId}</span>
         </div>
+        <StageWeave state={incident.state} className="mt-1.5" />
       </div>
     </article>
 

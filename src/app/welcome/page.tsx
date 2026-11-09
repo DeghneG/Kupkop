@@ -9,6 +9,7 @@ import { Camera, ArrowRight } from 'lucide-react';
 import AuthPanel from '@/components/AuthPanel';
 import { IncidentCard, IncidentData } from '@/components/IncidentCard';
 import { KupkopMark } from '@/components/icons/TriageGlyph';
+import Wordmark from '@/components/Wordmark';
 import { useProfile } from '@/lib/supabase/useProfile';
 import { WELCOME_SEEN_KEY } from '@/lib/storage';
 
@@ -89,10 +90,10 @@ export default function WelcomePage() {
     <div ref={rootRef} className="flex flex-col flex-1 pb-10">
       <header className="flex items-center justify-between gap-3 px-4 pt-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-fg flex items-center justify-center shrink-0">
-            <KupkopMark size={22} className="text-page" />
+          <div className="w-10 h-10 rounded-xl bg-surface border border-border flex items-center justify-center shrink-0">
+            <KupkopMark size={26} />
           </div>
-          <span className="text-[22px] font-semibold tracking-tight leading-none text-fg font-brand">KupKop</span>
+          <Wordmark className="text-[22px]" />
         </div>
         <a
           href="#account"

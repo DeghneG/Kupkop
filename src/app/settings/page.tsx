@@ -11,6 +11,7 @@ import InlineError from '@/components/InlineError';
 import RoleSwitcher from '@/components/RoleSwitcher';
 import { useThemeMode } from '@/lib/storage';
 import { useProfile } from '@/lib/supabase/useProfile';
+import ScreenHeader from '@/components/ScreenHeader';
 
 export default function SettingsPage() {
   const [themeMode, handleThemeChange] = useThemeMode();
@@ -35,17 +36,10 @@ export default function SettingsPage() {
   return (
     <div className="flex flex-col flex-1 px-4 pt-3 pb-8 space-y-6">
       {/* 1. Page Header */}
-      <header className="pb-1 border-b border-border">
-        <h1 className="text-[22px] font-semibold tracking-tight text-fg font-brand">
-          Settings
-        </h1>
-        <p className="text-[12px] text-fg-muted font-normal mt-0.5">
-          Account, appearance, and prototype test controls.
-        </p>
-      </header>
+      <ScreenHeader title="Settings" subtitle="Account, appearance, and prototype test controls." className="-mx-4 -mt-3" />
 
       {/* 2. Account Section */}
-      <section aria-labelledby="settings-account-heading" className="bg-surface rounded-2xl p-4 border border-border shadow-sm space-y-3">
+      <section aria-labelledby="settings-account-heading" className="bg-surface -mx-4 px-4 py-4 border-y border-border space-y-3">
         <h2 id="settings-account-heading" className="text-[12px] font-semibold text-fg-muted">
           Account
         </h2>
@@ -83,9 +77,9 @@ export default function SettingsPage() {
             <button
               type="button"
               onClick={() => setIsAuthOpen(true)}
-              className="w-full min-h-[48px] bg-action hover:opacity-95 text-action-fg font-semibold text-[14px] rounded-xl flex items-center justify-center gap-2 shadow-sm transition-opacity cursor-pointer border-none focus:outline-none focus:ring-2 focus:ring-action"
+              className="w-full min-h-[48px] bg-surface text-action font-bold text-[14px] rounded-xl flex items-center justify-center gap-2 border-2 border-action cursor-pointer hover:bg-surface-muted focus:outline-none focus:ring-2 focus:ring-action"
             >
-              <LogIn className="w-4 h-4 text-action-fg" aria-hidden="true" />
+              <LogIn className="w-4 h-4 text-action" aria-hidden="true" />
               <span>Sign in to KupKop</span>
             </button>
           </div>
@@ -98,7 +92,7 @@ export default function SettingsPage() {
 
       {/* Role tools: clinic staff log recovery updates, admins review the queue */}
       {(user || isPreview) && (role === 'admin' || (role === 'facility' && (facilityId || isPreview))) && (
-        <nav aria-label="Role tools" className="bg-surface rounded-2xl border border-border shadow-sm divide-y divide-border">
+        <nav aria-label="Role tools" className="bg-surface -mx-4 border-y border-border divide-y divide-border">
           <ToolLink href="/care" icon={HeartPulse} label="Clinic care" hint="Animals in care and the 14-day clock" />
           {role === 'admin' && (
             <ToolLink href="/admin" icon={ShieldCheck} label="Admin" hint="Applications, flags, users, clinics, handoffs" />
@@ -107,7 +101,7 @@ export default function SettingsPage() {
       )}
 
       {/* 3. Appearance (3-Option iOS Segmented Control) */}
-      <section aria-labelledby="settings-appearance-heading" className="bg-surface rounded-2xl p-4 border border-border shadow-sm space-y-3">
+      <section aria-labelledby="settings-appearance-heading" className="bg-surface -mx-4 px-4 py-4 border-y border-border space-y-3">
         <h2 id="settings-appearance-heading" className="text-[12px] font-semibold text-fg-muted">
           Appearance
         </h2>
@@ -165,7 +159,7 @@ export default function SettingsPage() {
       </section>
 
       {/* 4a. Preview a role: shows the screens each role sees. Display only; nothing here grants access. */}
-      <section aria-labelledby="settings-preview-heading" className="bg-surface rounded-2xl p-4 border border-border shadow-sm space-y-3">
+      <section aria-labelledby="settings-preview-heading" className="bg-surface -mx-4 px-4 py-4 border-y border-border space-y-3">
         <div className="flex items-center gap-2">
           <Eye className="w-4 h-4 text-fg-muted shrink-0" aria-hidden="true" />
           <h2 id="settings-preview-heading" className="text-[12px] font-semibold text-fg-muted">
@@ -200,7 +194,7 @@ export default function SettingsPage() {
 
 function ToolLink({ href, icon: Icon, label, hint }: { href: string; icon: typeof User; label: string; hint: string }) {
   return (
-    <Link href={href} className="min-h-[56px] px-4 py-3 flex items-center gap-3 hover:bg-surface-muted first:rounded-t-2xl last:rounded-b-2xl">
+    <Link href={href} className="min-h-[56px] px-4 py-3 flex items-center gap-3 hover:bg-surface-muted">
       <Icon className="w-5 h-5 text-fg-muted shrink-0" aria-hidden="true" />
       <span className="flex-1 min-w-0">
         <span className="block text-[14px] font-semibold text-fg">{label}</span>

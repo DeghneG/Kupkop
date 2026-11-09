@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client';
 import { calculateFacilityInactivity } from '@/lib/sos/escalation';
 import { CARE_STATE_LABELS } from '@/lib/sos/labels';
 import TriageGlyph from '@/components/icons/TriageGlyph';
+import DayWeave from '@/components/DayWeave';
 
 type CareState = keyof typeof CARE_STATE_LABELS;
 type Update = { id: string; notes: string; state: CareState; created_at: string };
@@ -76,6 +77,8 @@ export default function CaseRecovery({ reportId, state, canPost }: CaseRecoveryP
           </span>
         )}
       </div>
+
+      {inCare && updates && !awaitingIntake && <DayWeave elapsedDays={clock.elapsedDays} />}
 
       {updates == null ? (
         <p className="text-[12px]">Loading updates…</p>

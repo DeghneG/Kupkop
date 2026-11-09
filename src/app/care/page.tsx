@@ -2,12 +2,14 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { AlertCircle, HeartPulse, ShieldAlert } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import InlineError from '@/components/InlineError';
+import DayWeave from '@/components/DayWeave';
+import StageWeave from '@/components/StageWeave';
 import { useProfile } from '@/lib/supabase/useProfile';
 import { calculateFacilityInactivity, type FacilityClockStatus } from '@/lib/sos/escalation';
 import { animalLabel, emergencyLabel, CARE_STATE_LABELS } from '@/lib/sos/labels';
+import ScreenHeader from '@/components/ScreenHeader';
 
 type CareState = keyof typeof CARE_STATE_LABELS;
 
@@ -200,16 +202,17 @@ export default function CarePage() {
 
   return (
     <div className="flex flex-col flex-1 px-4 pt-3 pb-8 space-y-6">
-      <header className="pb-3 border-b border-border">
-        <h1 className="text-[22px] font-semibold tracking-tight text-fg font-brand">Clinic care</h1>
-        <p className="text-[12px] text-fg-muted mt-1">
-          {isAdmin
+      <ScreenHeader
+        title="Clinic care"
+        subtitle={
+          isAdmin
             ? 'Every animal in care at Listed clinics. Admins can post updates for any case.'
             : shownClinic
               ? `${shownClinic} · Listed. Log how each animal is doing at least every 14 days.`
-              : 'Log how each animal is doing at least every 14 days.'}
-        </p>
-      </header>
+              : 'Log how each animal is doing at least every 14 days.'
+        }
+        className="-mx-4 -mt-3"
+      />
 
       {sample && canView && (
         <p className="text-[12px] text-fg-muted rounded-xl border border-dashed border-border p-3">
@@ -301,10 +304,13 @@ export default function CarePage() {
               In care
             </h2>
             {inCare.length === 0 ? (
+              <div className="space-y-3">
+              <StageWeave blank className="w-32" />
               <p className="text-[14px] text-fg-muted">
                 No animals in care right now. Cases appear here when a rescuer admits one to{' '}
                 {isAdmin ? 'a Listed clinic' : 'your clinic'}.
               </p>
+              </div>
             ) : (
               <ul className="divide-y divide-border border-y border-border">
                 {inCare.map(({ c, clock }) => (
@@ -364,34 +370,23 @@ function Notice({ title, children }: { title: string; children: React.ReactNode 
   );
 }
 
-function ClockBadge({ clock }: { clock: FacilityClockStatus }) {
-  const tone =
-    clock.status === 'active' ? 'bg-healing-bg text-healing-fg' : 'bg-claimed-bg text-claimed-fg';
-  const Icon = clock.status === 'alert' ? ShieldAlert : clock.status === 'warning' ? AlertCircle : HeartPulse;
-  return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[12px] font-semibold ${tone}`}>
-      <Icon className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-      {clock.status === 'alert' ? 'Update overdue · welfare check' : clock.badgeText}
-    </span>
-  );
-}
-
 function CaseSummary({ c, clock, showClinic }: { c: CareCase; clock: FacilityClockStatus; showClinic: boolean }) {
   const latest = c.updates[0];
   return (
     <div className="space-y-1.5">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <p className="text-[14px] font-semibold text-fg">
-            {c.animal} <span className="font-mono text-[12px] text-fg-muted">#{c.shortId}</span>
-          </p>
-          <p className="text-[12px] text-fg-muted">
-            {CARE_STATE_LABELS[c.state]} · {c.type}
-            {showClinic ? ` · ${c.clinicName}` : ''}
-          </p>
-        </div>
-        <ClockBadge clock={clock} />
+      <div className="min-w-0">
+        <p className="text-[14px] font-semibold text-fg">
+          {c.animal} <span className="font-mono text-[12px] text-fg-muted">#{c.shortId}</span>
+        </p>
+        <p className="text-[12px] text-fg-muted">
+          {CARE_STATE_LABELS[c.state]} · {c.type}
+          {showClinic ? ` · ${c.clinicName}` : ''}
+        </p>
       </div>
+      <p className={`text-[12px] font-bold ${clock.status === 'active' ? 'text-healing-fg' : 'text-claimed-fg'}`}>
+        {clock.status === 'alert' ? 'Update overdue · welfare check' : clock.badgeText}
+      </p>
+      <DayWeave elapsedDays={clock.elapsedDays} />
       {latest && (
         <p className="text-[12px] text-fg-muted">
           <span className="font-semibold text-fg">Last update {formatDate(latest.createdAt)}:</span> {latest.notes}

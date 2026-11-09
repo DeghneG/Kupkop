@@ -27,6 +27,7 @@ import CaseRecovery from '@/components/CaseRecovery';
 import { useFocusTrap } from '@/lib/useFocusTrap';
 import FlagReport from '@/components/FlagReport';
 import HandoffPanel from '@/components/HandoffPanel';
+import StageWeave from '@/components/StageWeave';
 import { createClient } from '@/lib/supabase/client';
 
 interface DetailSheetProps {
@@ -254,9 +255,10 @@ export default function DetailSheet({
         ref={sheetRef}
         className="relative z-10 w-full max-w-md bg-surface border-t border-border rounded-t-[24px] shadow-2xl overflow-hidden max-h-[90vh] flex flex-col pb-[env(safe-area-inset-bottom,20px)]"
       >
+        <div className="selvedge-thin shrink-0" aria-hidden="true" />
         {/* Drag handle / top bar */}
-        <div className="pt-3 pb-2 flex items-center justify-between px-5">
-          <div className="w-10 h-1 bg-border rounded-full mx-auto -mr-1" aria-hidden="true" />
+        <div className="relative pt-3 pb-2 flex items-center justify-end px-5">
+          <div className="absolute left-1/2 top-3 -translate-x-1/2 w-10 h-1 bg-border rounded-full" aria-hidden="true" />
           <button
             ref={closeButtonRef}
             type="button"
@@ -271,7 +273,7 @@ export default function DetailSheet({
         {/* Scrollable Sheet Content */}
         <div className="overflow-y-auto px-4 pb-6 space-y-4">
           {/* Large Photo with Reveal Toggle */}
-          <div className="relative w-full h-52 rounded-2xl overflow-hidden bg-surface-muted border border-border flex items-center justify-center">
+          <div className="relative w-full h-40 rounded-2xl overflow-hidden bg-surface-muted border border-border flex items-center justify-center">
             {incident.photoUrl ? (
               /* eslint-disable-next-line @next/next/no-img-element */
               <img
@@ -330,6 +332,7 @@ export default function DetailSheet({
               <span className="text-[14px] text-fg-muted font-normal">•</span>
               <span className="text-[14px] font-normal text-fg-muted">{incident.type}</span>
             </div>
+            <StageWeave state={incident.state} showLabels className="pt-3" />
           </div>
 
           {/* Waiting notice: the escalation stage moves the case up the feed; nothing is broadcast yet */}
@@ -450,6 +453,7 @@ export default function DetailSheet({
 
             {/* 3. Action Buttons Based on Role and State */}
             <div className="space-y-2 pt-1">
+              <div className="sticky bottom-0 z-10 -mx-4 px-4 pt-3 pb-3 bg-surface border-t border-border space-y-2">
               {actionError && (
                 <p role="alert" className="text-[14px] font-semibold text-fg bg-surface-muted border border-border rounded-xl px-3 py-2">
                   {actionError}
@@ -520,6 +524,8 @@ export default function DetailSheet({
                   <span>Status: {incident.state}</span>
                 </div>
               )}
+
+              </div>
 
               {/* Calling a clinic only makes sense once one has the animal (disabled in test mode) */}
               {incident.facilityId && (

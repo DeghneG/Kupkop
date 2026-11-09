@@ -226,14 +226,14 @@ export default function RafaPage() {
   return (
     <div className="flex flex-col flex-1 px-4 py-3 space-y-3">
       {/* 1. Header with semantic tokens */}
-      <header className="flex items-center justify-between gap-3 pb-3 border-b border-border">
+      <header className="bg-shell text-shell-fg -mx-4 -mt-3 px-4 py-3 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-full bg-surface-muted border border-border flex items-center justify-center shrink-0">
             <MessageSquareHeart className="w-4 h-4 text-rafa" aria-hidden="true" />
           </div>
           <div>
-            <h1 className="text-[22px] font-semibold tracking-tight text-fg font-brand leading-none">Rafa</h1>
-            <p className="text-[12px] text-fg-muted mt-1">{t.subtitle}</p>
+            <h1 className="text-[22px] font-bold tracking-tight text-shell-fg font-brand leading-none">Rafa</h1>
+            <p className="text-[12px] text-shell-muted mt-1">{t.subtitle}</p>
           </div>
         </div>
 
@@ -271,6 +271,7 @@ export default function RafaPage() {
           </button>
         </div>
       </header>
+      <div className="selvedge -mx-4 -mt-3" aria-hidden="true" />
 
       {/* 2. Chat Messages Area */}
       <div className="flex-1 overflow-y-auto space-y-3 py-1 pr-1">

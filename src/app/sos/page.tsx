@@ -18,6 +18,7 @@ import {
 import { useRouter } from 'next/navigation';
 import AuthModal from '@/components/AuthModal';
 import InlineError from '@/components/InlineError';
+import StageWeave from '@/components/StageWeave';
 import { useProfile } from '@/lib/supabase/useProfile';
 import { createClient } from '@/lib/supabase/client';
 import { generateCaseId, formatCoordinates, compressVideoFrame, createSimulatedFrame } from '@/lib/sos/utils';
@@ -778,6 +779,8 @@ export default function SOSCameraPage() {
               <CheckCircle2 className="w-5 h-5" aria-hidden="true" />
             </div>
           </div>
+
+          <StageWeave state="reported" showLabels />
 
           {/* Captured Snap Preview & Meta */}
           <div className="flex gap-3 items-center">

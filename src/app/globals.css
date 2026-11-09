@@ -2,68 +2,90 @@
 
 @custom-variant dark (&:where(.dark, .dark *, [data-theme="dark"], [data-theme="dark"] *));
 
+/* Banig: tokens are the single source; components use these, never hex values. */
 :root {
   color-scheme: light;
-  --page: #F6F4EE;          /* Warm Oat Linen - grounded organic base */
-  --surface: #FFFFFF;       /* Ivory White Card */
-  --surface-muted: #EBF0EA; /* Soft Sage Mist */
-  --border: #E3E7E0;        /* Warm Stone Border */
-  --fg: #142019;            /* Deep Forest Ink */
-  --fg-muted: #57685D;      /* Earth Moss Slate */
-  --accent: #F04438;        /* Signal Coral emergency fill */
+  --page: #ECEFF6;          /* Cool pale ground, the mat the rows lie on */
+  --surface: #FFFFFF;       /* White rows and sheets */
+  --surface-muted: #E1E5F2; /* Deeper wash for inset blocks */
+  --border: #D3D8E8;        /* Hairline rules */
+  --fg: #151A33;            /* Indigo-black ink */
+  --fg-muted: #4A5273;      /* Slate-indigo secondary text */
+  --accent: #D92D20;        /* Emergency red: SOS and Reported only */
   --accent-fg: #FFFFFF;
-  --action: #0F766E;        /* Deep Healing Sage for neutral actions */
-  --action-fg: #FFFFFF;     /* Action label */
-  --link: #0F766E;          /* Text links */
-  --rafa: #0F766E;          /* Rafa guide accent */
-  --reported-bg: #FEECEB;  --reported-fg: #B91C1C;
-  --claimed-bg:  #FEF3C7;  --claimed-fg:  #92400E;
-  --healing-bg:  #E6F7F0;  --healing-fg:  #0D7A55;
-  --resolved-bg: #DCFCE7;  --resolved-fg: #15803D;
-  --banner-bg: #FEF3C7;    --banner-fg: #92400E;
+  --action: #232D69;        /* Indigo: the shell and primary actions */
+  --action-fg: #FFFFFF;
+  --link: #2B3796;
+  --rafa: #2F7D4F;          /* Leaf green for the guide */
+  --shell: #232D69;         /* Header band */
+  --shell-fg: #FFFFFF;
+  --shell-muted: #C9CFEA;
+  --weave-a: #232D69;       /* Weave strands */
+  --weave-b: #D9A21B;
+  --weave-c: #2F7D4F;
+  --straw: #EADFB9;
+  --reported-bg: #FDECEA;  --reported-fg: #B42318;
+  --claimed-bg:  #FFF4D6;  --claimed-fg:  #7A5200;
+  --healing-bg:  #E4F2EA;  --healing-fg:  #1F6B43;
+  --resolved-bg: #E3E7F6;  --resolved-fg: #2B3796;
+  --banner-bg: #FFF3C4;    --banner-fg: #4A3600;
 }
 
 [data-theme="dark"], .dark {
   color-scheme: dark;
-  --page: #0E1411;          /* Deep Forest Charcoal */
-  --surface: #161E1A;       /* Deep Moss Slate Card */
-  --surface-muted: #1F2923; /* Woodland Shadow */
-  --border: #28342D;        /* Pine Rim Border */
-  --fg: #F2F5F3;            /* Snow Linen Text */
-  --fg-muted: #93A69A;      /* Silvery Sage */
-  --accent: #FF5347;        /* Electric Coral emergency */
+  --page: #0D1226;          /* Indigo night */
+  --surface: #151B38;
+  --surface-muted: #1D2547;
+  --border: #2B3461;
+  --fg: #EEF0FA;
+  --fg-muted: #A5AED3;
+  --accent: #D92D20;
   --accent-fg: #FFFFFF;
-  --action: #2DD4BF;        /* Luminous Mint */
-  --action-fg: #042F2E;     /* High contrast pine text */
-  --link: #34D399;
-  --rafa: #2DD4BF;
-  --reported-bg: #361517;  --reported-fg: #FF9B94;
-  --claimed-bg:  #382508;  --claimed-fg:  #FCD34D;
-  --healing-bg:  #0F2E22;  --healing-fg:  #6EE7B7;
-  --resolved-bg: #0E321C;  --resolved-fg: #86EFAC;
-  --banner-bg: #382508;    --banner-fg: #FCD34D;
+  --action: #AEB9FF;
+  --action-fg: #0D1226;
+  --link: #9FB0FF;
+  --rafa: #6FD1A0;
+  --shell: #2A367F;
+  --shell-fg: #FFFFFF;
+  --shell-muted: #C3CBF0;
+  --weave-a: #6B7BE0;
+  --weave-b: #E3B23C;
+  --weave-c: #3DA874;
+  --straw: #53597F;
+  --reported-bg: #3A1613;  --reported-fg: #FF9C92;
+  --claimed-bg:  #3A2A06;  --claimed-fg:  #F5C75B;
+  --healing-bg:  #0F2D20;  --healing-fg:  #7DDDAA;
+  --resolved-bg: #1B2250;  --resolved-fg: #A9B6FF;
+  --banner-bg: #3A2A06;    --banner-fg: #F5C75B;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
-    --page: #0E1411;
-    --surface: #161E1A;
-    --surface-muted: #1F2923;
-    --border: #28342D;
-    --fg: #F2F5F3;
-    --fg-muted: #93A69A;
-    --accent: #FF5347;
+    --page: #0D1226;          /* Indigo night */
+    --surface: #151B38;
+    --surface-muted: #1D2547;
+    --border: #2B3461;
+    --fg: #EEF0FA;
+    --fg-muted: #A5AED3;
+    --accent: #D92D20;
     --accent-fg: #FFFFFF;
-    --action: #2DD4BF;
-    --action-fg: #042F2E;
-    --link: #34D399;
-    --rafa: #2DD4BF;
-    --reported-bg: #361517;  --reported-fg: #FF9B94;
-    --claimed-bg:  #382508;  --claimed-fg:  #FCD34D;
-    --healing-bg:  #0F2E22;  --healing-fg:  #6EE7B7;
-    --resolved-bg: #0E321C;  --resolved-fg: #86EFAC;
-    --banner-bg: #382508;    --banner-fg: #FCD34D;
+    --action: #AEB9FF;
+    --action-fg: #0D1226;
+    --link: #9FB0FF;
+    --rafa: #6FD1A0;
+    --shell: #2A367F;
+    --shell-fg: #FFFFFF;
+    --shell-muted: #C3CBF0;
+    --weave-a: #6B7BE0;
+    --weave-b: #E3B23C;
+    --weave-c: #3DA874;
+    --straw: #53597F;
+    --reported-bg: #3A1613;  --reported-fg: #FF9C92;
+    --claimed-bg:  #3A2A06;  --claimed-fg:  #F5C75B;
+    --healing-bg:  #0F2D20;  --healing-fg:  #7DDDAA;
+    --resolved-bg: #1B2250;  --resolved-fg: #A9B6FF;
+    --banner-bg: #3A2A06;    --banner-fg: #F5C75B;
   }
 }
 
@@ -81,6 +103,13 @@
   --color-action-fg: var(--action-fg);
   --color-link: var(--link);
   --color-rafa: var(--rafa);
+  --color-shell: var(--shell);
+  --color-shell-fg: var(--shell-fg);
+  --color-shell-muted: var(--shell-muted);
+  --color-weave-a: var(--weave-a);
+  --color-weave-b: var(--weave-b);
+  --color-weave-c: var(--weave-c);
+  --color-straw: var(--straw);
   --color-reported-bg: var(--reported-bg);
   --color-reported-fg: var(--reported-fg);
   --color-claimed-bg: var(--claimed-bg);
@@ -91,17 +120,17 @@
   --color-resolved-fg: var(--resolved-fg);
   --color-banner-bg: var(--banner-bg);
   --color-banner-fg: var(--banner-fg);
-  --font-brand: var(--font-bricolage), -apple-system, sans-serif;
+  --font-brand: var(--font-atkinson), system-ui, sans-serif;
 }
 
 .font-brand {
-  font-family: var(--font-bricolage), -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--font-atkinson), system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
 body {
   background-color: var(--page);
   color: var(--fg);
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", var(--font-inter), system-ui, sans-serif;
+  font-family: var(--font-atkinson), system-ui, -apple-system, "Segoe UI", sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
@@ -109,8 +138,8 @@ body {
 
 /* Themed browser surfaces (craft-floor requirement) */
 ::selection {
-  background-color: var(--healing-bg);
-  color: var(--healing-fg);
+  background-color: var(--resolved-bg);
+  color: var(--resolved-fg);
 }
 
 :focus-visible {
@@ -139,6 +168,88 @@ body {
   }
 }
 
+/* The woven selvedge under every screen header: hard-stop stripes, no blends */
+.selvedge {
+  height: 8px;
+  background: repeating-linear-gradient(
+    90deg,
+    var(--weave-b) 0 12px,
+    var(--weave-a) 12px 24px,
+    var(--weave-c) 24px 36px,
+    var(--straw) 36px 48px
+  );
+}
+
+/* A thin selvedge for edges and underlines (sheet top, tab bar, wordmark) */
+.selvedge-thin {
+  height: 4px;
+  background: repeating-linear-gradient(
+    90deg,
+    var(--weave-b) 0 8px,
+    var(--weave-a) 8px 16px,
+    var(--weave-c) 16px 24px,
+    var(--straw) 24px 32px
+  );
+}
+
+/* A cell that has just been reached weaves in: it grows from its left edge and fades up, once.
+   Transform and opacity only; content is visible without it. */
+@keyframes weave-in {
+  from {
+    opacity: 0;
+    transform: scaleX(0.15);
+  }
+  to {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+}
+.weave .fresh {
+  transform-origin: left center;
+  animation: weave-in 520ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* The signature: five cells that fill as a case moves Reported > Claimed > Admitted > Healing > Resolved.
+   The same cells, fourteen of them, count the recovery days. Unreached cells show the bare mat: a faint twill. */
+.weave,
+.weave14 {
+  display: grid;
+  gap: 3px;
+}
+.weave {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+.weave14 {
+  grid-template-columns: repeat(14, minmax(0, 1fr));
+  gap: 2px;
+}
+:is(.weave, .weave14) i {
+  display: block;
+  height: 8px;
+  border: 1.5px solid var(--weave-a);
+  border-radius: 1px;
+  background: repeating-linear-gradient(
+    45deg,
+    transparent 0 3px,
+    color-mix(in srgb, var(--weave-a) 16%, transparent) 3px 6px
+  );
+}
+:is(.weave, .weave14) .w {
+  background: repeating-linear-gradient(45deg, var(--weave-a) 0 3px, var(--weave-b) 3px 6px);
+}
+:is(.weave, .weave14) .g {
+  border-color: var(--weave-c);
+  background: repeating-linear-gradient(45deg, var(--weave-c) 0 3px, var(--straw) 3px 6px);
+}
+:is(.weave, .weave14) .o {
+  border-color: var(--claimed-fg);
+  background: repeating-linear-gradient(45deg, var(--claimed-fg) 0 3px, var(--weave-b) 3px 6px);
+}
+:is(.weave, .weave14) .r {
+  border-color: var(--accent);
+  background: repeating-linear-gradient(45deg, var(--accent) 0 3px, var(--reported-fg) 3px 6px);
+}
+
 /* Reduced motion helper */
 @media (prefers-reduced-motion: reduce) {
   *, ::before, ::after {
@@ -148,7 +259,6 @@ body {
     scroll-behavior: auto !important;
   }
 }
-
 
 /* Role previews wrap their screens in a disabled fieldset: every control inside is inert, so show it */
 fieldset:disabled :is(button, input, select, textarea) {

@@ -150,7 +150,7 @@ export default function AlertSettings({ userId, showArea }: { userId: string; sh
     'min-h-[44px] px-4 rounded-xl border border-border bg-surface hover:bg-surface-muted text-fg font-semibold text-[14px] cursor-pointer disabled:opacity-50';
 
   return (
-    <section aria-labelledby="settings-alerts-heading" className="bg-surface rounded-2xl p-4 border border-border shadow-sm space-y-3">
+    <section aria-labelledby="settings-alerts-heading" className="bg-surface -mx-4 px-4 py-4 border-y border-border space-y-3">
       <div className="flex items-center gap-2">
         <BellRing className="w-4 h-4 text-fg-muted shrink-0" aria-hidden="true" />
         <h2 id="settings-alerts-heading" className="text-[12px] font-semibold text-fg-muted">

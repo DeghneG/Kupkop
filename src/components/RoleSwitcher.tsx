@@ -56,7 +56,7 @@ export default function RoleSwitcher({ compact = false }: { compact?: boolean })
               compact ? 'px-1 text-[12px]' : 'px-3 text-[14px]'
             } ${
               role === o.id
-                ? 'bg-fg text-page border-fg'
+                ? 'bg-surface-muted text-action border-action border-2 font-bold'
                 : 'bg-surface text-fg border-border hover:bg-surface-muted'
             }`}
           >
