@@ -12,6 +12,8 @@ import type { FlagReason } from '@/types/database';
 import InlineError from '@/components/InlineError';
 import ScreenHeader from '@/components/ScreenHeader';
 import { useConfirm } from '@/components/ConfirmSheet';
+import { DEMO_USER, useDemoData, useDemoMode } from '@/lib/demo/demo';
+import { appRpc } from '@/lib/demo/rpc';
 
 type Tab = 'applications' | 'open' | 'flags' | 'users' | 'clinics' | 'handoffs';
 
@@ -133,6 +135,7 @@ const sampleHandoffs = (): HandoffRow[] => [
 export default function AdminPage() {
   const { user, realRole, role, isPreview, loading } = useProfile();
   const [tab, setTab] = useState<Tab>('applications');
+  const demoOn = useDemoMode();
 
   if (loading) return <p className="px-4 pt-6 text-[14px] text-fg-muted">Loading…</p>;
 
@@ -189,7 +192,8 @@ export default function AdminPage() {
       )}
 
       <SampleContext.Provider value={isPreview}>
-      <fieldset disabled={isPreview} className="min-w-0 border-0 p-0 m-0">
+      {/* In demo mode the No responder tab works on the sample cases; the other tabs stay a read-only preview */}
+      <fieldset disabled={isPreview && !(demoOn && tab === 'open')} className="min-w-0 border-0 p-0 m-0">
       <div role="tabpanel">
         {tab === 'applications' && <Applications />}
         {tab === 'open' && <NoResponder />}
@@ -398,7 +402,7 @@ function Flags() {
 }
 
 async function rpc(fn: string, args: Record<string, unknown>): Promise<string | null> {
-  const { data, error } = await createClient().rpc(fn, args);
+  const { data, error } = await appRpc(fn, args);
   if (error || !data?.success) return data?.error || error?.message || 'Something went wrong. Please try again.';
   return null;
 }
@@ -489,7 +493,48 @@ function ReviewList<T extends { id?: string; reportId?: string }>({
 // or close a false report. Each action asks once more, and the volunteer is notified when assigned.
 function NoResponder() {
   const sample = useContext(SampleContext);
+  const demoOn = useDemoMode();
+  const demo = useDemoData();
   const load = useCallback(async (): Promise<{ cases: OpenCase[]; volunteers: VolunteerOption[] }> => {
+    if (demoOn) {
+      const demoClinics = demo.clinics.map((c) => ({
+        id: c.id,
+        name: c.name,
+        phone: c.phone,
+        latitude: c.latitude,
+        longitude: c.longitude,
+        availability: c.availability,
+        availabilitySetAt: c.availability_set_at,
+      }));
+      return {
+        cases: demo.reports
+          .filter(
+            (r) =>
+              !r.hidden_at &&
+              needsRescuer(r.state, r.claimed_at, r.emergency_type) &&
+              (r.state === 'claimed' || calculateEscalation(r.created_at, r.emergency_type).isAlert)
+          )
+          .map((r) => ({
+            id: r.id,
+            shortId: r.short_id,
+            title: `${animalLabel(r.animal_type)} · ${emergencyLabel(r.emergency_type)}`,
+            location: r.location_name,
+            waited: Math.max(0, Math.floor((Date.now() - new Date(r.created_at).getTime()) / 60_000)),
+            lockExpired: r.state === 'claimed',
+            clinics: rankClinics(demoClinics, { lat: r.latitude, lng: r.longitude })
+              .filter((c) => c.usable)
+              .slice(0, 3)
+              .map((c) => ({
+                id: c.clinic.id,
+                name: c.clinic.name,
+                phone: c.clinic.phone,
+                note: availabilityNote(c.clinic.availability, c.clinic.availabilitySetAt),
+                distance: c.distanceKm != null ? formatDistance(c.distanceKm) : null,
+              })),
+          })),
+        volunteers: [{ id: DEMO_USER, label: 'You (demo volunteer)' }],
+      };
+    }
     if (sample) return sampleOpenCases();
     const supabase = createClient();
     const since = new Date(Date.now() - 24 * 3_600_000).toISOString();
@@ -550,7 +595,7 @@ function NoResponder() {
       label: p.full_name ? `${p.full_name} (${p.email})` : (p.email as string),
     }));
     return { cases, volunteers };
-  }, [sample]);
+  }, [sample, demoOn, demo]);
   const { data, error, reload } = useLoader(load);
 
   if (error) return <p role="alert" className="text-[14px] font-semibold text-fg">{error}</p>;

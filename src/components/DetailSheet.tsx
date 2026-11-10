@@ -27,6 +27,7 @@ import {
   formatWaited,
 } from '@/lib/sos/escalation';
 import { standbyPosition } from '@/lib/sos/standby';
+import { useDemoMode } from '@/lib/demo/demo';
 import TriageGlyph from '@/components/icons/TriageGlyph';
 import CaseRecovery from '@/components/CaseRecovery';
 import { useFocusTrap } from '@/lib/useFocusTrap';
@@ -76,6 +77,7 @@ export default function DetailSheet({
   onTellClinic,
   claimHeld = false,
 }: DetailSheetProps) {
+  const demoOn = useDemoMode();
   const containerRef = useRef<HTMLDivElement>(null);
   const backdropRef = useRef<HTMLDivElement>(null);
   const sheetRef = useRef<HTMLDivElement>(null);
@@ -613,7 +615,7 @@ export default function DetailSheet({
                 </button>
               )}
 
-              {isLive && (
+              {isLive && !demoOn && (
                 <HandoffPanel
                   key={`handoff-${incident.id}`}
                   reportId={incident.id!}
@@ -626,7 +628,7 @@ export default function DetailSheet({
                 />
               )}
 
-              {isLive && <FlagReport key={incident.id} reportId={incident.id!} userId={userId} onSignIn={onSignIn} />}
+              {isLive && !demoOn && <FlagReport key={incident.id} reportId={incident.id!} userId={userId} onSignIn={onSignIn} />}
             </div>
           </div>
 

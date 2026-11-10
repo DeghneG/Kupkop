@@ -11,6 +11,8 @@ import { calculateFacilityInactivity, type FacilityClockStatus } from '@/lib/sos
 import { animalLabel, emergencyLabel, CARE_STATE_LABELS } from '@/lib/sos/labels';
 import { availabilityNote, CLINIC_STATUS_LABELS, effectiveAvailability, type ClinicStatus } from '@/lib/sos/clinics';
 import { useConfirm, type ConfirmOptions } from '@/components/ConfirmSheet';
+import { DEMO_CLINIC_ID, useDemoData, useDemoMode } from '@/lib/demo/demo';
+import { appRpc } from '@/lib/demo/rpc';
 import ScreenHeader from '@/components/ScreenHeader';
 
 type CareState = keyof typeof CARE_STATE_LABELS;
@@ -148,14 +150,18 @@ export default function CarePage() {
   const [adminClinicId, setAdminClinicId] = useState('');
 
   // A role preview shows sample cases, read-only; the real clinic data stays behind the real role
-  const sample = isPreview;
-  const isAdmin = sample ? role === 'admin' : realRole === 'admin';
-  const isStaff = sample ? role === 'facility' : realRole === 'facility' && !!facilityId;
+  // Demo mode lets the previewed role act on the sample data; a plain preview stays read-only
+  const demoOn = useDemoMode();
+  const demo = useDemoData();
+  const sample = isPreview && !demoOn;
+  const isAdmin = isPreview ? role === 'admin' : realRole === 'admin';
+  const isStaff = isPreview ? role === 'facility' : realRole === 'facility' && !!facilityId;
+  const myFacilityId = demoOn ? DEMO_CLINIC_ID : facilityId;
   const canView = isAdmin || isStaff;
   const previewCases = useMemo(() => (sample && canView ? sampleCases() : null), [sample, canView]);
 
   useEffect(() => {
-    if (!canView || sample) return;
+    if (!canView || sample || demoOn) return;
     let active = true;
     const supabase = createClient();
 
@@ -267,7 +273,7 @@ export default function CarePage() {
     return () => {
       active = false;
     };
-  }, [canView, sample, isAdmin, facilityId, reloadKey]);
+  }, [canView, sample, demoOn, isAdmin, facilityId, reloadKey]);
 
   // A rescuer's heads-up should show up without reloading the page
   useEffect(() => {
@@ -281,8 +287,50 @@ export default function CarePage() {
     setReloadKey((k) => k + 1);
   }, []);
 
-  const shown = previewCases ?? cases;
-  const shownClinic = sample && !isAdmin ? SAMPLE_CLINIC : clinicName;
+  // Demo mode: the sample cases, heads-ups and clinics, read from the local demo instead of the database
+  const demoClinicName = demo.clinics.find((c) => c.id === DEMO_CLINIC_ID)?.name ?? null;
+  const demoCases: CareCase[] | null = demoOn
+    ? demo.reports
+        .filter((r) => (r.state === 'admitted' || r.state === 'healing' || r.state === 'resolved') && r.facility_id && (isAdmin || r.facility_id === DEMO_CLINIC_ID))
+        .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
+        .map((r) => ({
+          id: r.id,
+          shortId: r.short_id,
+          animal: animalLabel(r.animal_type),
+          type: emergencyLabel(r.emergency_type),
+          state: r.state as CareState,
+          clinicName: demo.clinics.find((c) => c.id === r.facility_id)?.name ?? 'Listed clinic',
+          animalName: r.animal_name,
+          awaitingIntake: r.state === 'admitted' && !r.intake_confirmed_at,
+          updates: demo.updates
+            .filter((u) => u.report_id === r.id)
+            .map((u) => ({ notes: u.notes, state: u.state as CareState, createdAt: u.created_at }))
+            .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+        }))
+    : null;
+  const demoIncoming: Incoming[] = demoOn
+    ? demo.reports
+        .filter((r) => r.state === 'claimed' && r.heads_up_facility_id && r.heads_up_response !== 'cannot' && (isAdmin || r.heads_up_facility_id === DEMO_CLINIC_ID))
+        .map((r) => ({
+          id: r.id,
+          shortId: r.short_id,
+          animal: animalLabel(r.animal_type),
+          type: emergencyLabel(r.emergency_type),
+          etaMinutes: r.heads_up_eta_minutes,
+          headsUpAt: r.heads_up_at,
+          response: r.heads_up_response,
+          clinicName: demo.clinics.find((c) => c.id === r.heads_up_facility_id)?.name ?? 'Listed clinic',
+        }))
+    : [];
+  const demoMine = demo.clinics.find((c) => c.id === DEMO_CLINIC_ID);
+  const availabilityShown = demoOn ? { status: demoMine?.availability ?? null, setAt: demoMine?.availability_set_at ?? null } : availability;
+  const incomingShown = demoOn ? demoIncoming : incoming;
+  const adminClinicsShown = demoOn
+    ? demo.clinics.map((c) => ({ id: c.id, name: c.name, status: c.availability, setAt: c.availability_set_at }))
+    : adminClinics;
+
+  const shown = previewCases ?? (demoOn ? demoCases : cases);
+  const shownClinic = sample && !isAdmin ? SAMPLE_CLINIC : demoOn && !isAdmin ? demoClinicName : clinicName;
   const awaiting = (shown ?? []).filter((c) => c.awaitingIntake);
   const inCare = (shown ?? [])
     .filter((c) => c.state !== 'resolved' && !c.awaitingIntake)
@@ -315,7 +363,7 @@ export default function CarePage() {
       <fieldset disabled={sample} className="min-w-0 border-0 p-0 m-0 space-y-6">
       {loading ? (
         <p className="text-[14px] text-fg-muted">Loading…</p>
-      ) : !user && !sample ? (
+      ) : !user && !sample && !demoOn ? (
         <Notice title="Sign in to see your clinic's cases">
           <Link href="/settings" className="text-[14px] font-semibold text-link underline underline-offset-4">
             Go to Settings to sign in
@@ -364,18 +412,18 @@ export default function CarePage() {
             </div>
           </dl>
 
-          {isStaff && !sample && facilityId && (
+          {isStaff && !sample && myFacilityId && (
             <AvailabilitySwitch
-              facilityId={facilityId}
+              facilityId={myFacilityId}
               clinicName={shownClinic ?? 'Your clinic'}
-              current={availability}
+              current={availabilityShown}
               onChanged={setAvailability}
               ask={ask}
             />
           )}
 
-          {isAdmin && !sample && adminClinics.length > 0 && (() => {
-            const picked = adminClinics.find((c) => c.id === adminClinicId) ?? adminClinics[0];
+          {isAdmin && !sample && adminClinicsShown.length > 0 && (() => {
+            const picked = adminClinicsShown.find((c) => c.id === adminClinicId) ?? adminClinicsShown[0];
             return (
               <div className="space-y-2">
                 <label className="block space-y-1">
@@ -385,7 +433,7 @@ export default function CarePage() {
                     onChange={(e) => setAdminClinicId(e.target.value)}
                     className="w-full min-h-[44px] rounded-xl border border-border bg-surface text-fg text-[14px] px-3 focus:outline-none focus:ring-2 focus:ring-action"
                   >
-                    {adminClinics.map((c) => (
+                    {adminClinicsShown.map((c) => (
                       <option key={c.id} value={c.id}>
                         {c.name}
                       </option>
@@ -406,7 +454,7 @@ export default function CarePage() {
             );
           })()}
 
-          {incoming.length > 0 && (
+          {incomingShown.length > 0 && (
             <section aria-labelledby="incoming-heading" className="space-y-2">
               <h2 id="incoming-heading" className="text-[16px] font-semibold text-fg">
                 On their way to you
@@ -415,7 +463,7 @@ export default function CarePage() {
                 A rescuer told {isAdmin ? 'a clinic' : 'your clinic'} they are bringing an animal. Answer so they know whether to come.
               </p>
               <ul className="divide-y divide-border border-y border-border">
-                {incoming.map((i) => (
+                {incomingShown.map((i) => (
                   <li key={i.id} className="py-3">
                     <IncomingCard item={i} showClinic={isAdmin} onDone={reload} ask={ask} />
                   </li>
@@ -586,7 +634,7 @@ function AvailabilitySwitch({
       confirmLabel: `Yes, set to ${option.label}`,
       onConfirm: async () => {
         setError(null);
-        const { data, error: rpcError } = await createClient().rpc('set_clinic_availability', {
+        const { data, error: rpcError } = await appRpc('set_clinic_availability', {
           p_facility_id: facilityId,
           p_status: option.value,
         });
@@ -643,7 +691,7 @@ function IncomingCard({ item, showClinic, onDone, ask }: { item: Incoming; showC
       confirmLabel: response === 'expecting' ? 'Yes, we are expecting it' : 'Yes, we cannot take it',
       onConfirm: async () => {
         setError(null);
-        const { data, error: rpcError } = await createClient().rpc('respond_to_heads_up', {
+        const { data, error: rpcError } = await appRpc('respond_to_heads_up', {
           p_report_id: item.id,
           p_response: response,
           p_note: response === 'cannot' ? note.trim() || null : null,
@@ -713,7 +761,7 @@ function AnimalLinks({ c, onSaved }: { c: CareCase; onSaved: () => void }) {
     e.preventDefault();
     setBusy(true);
     setError(null);
-    const { data, error: rpcError } = await createClient().rpc('set_animal_name', { p_report_id: c.id, p_name: name.trim() });
+    const { data, error: rpcError } = await appRpc('set_animal_name', { p_report_id: c.id, p_name: name.trim() });
     setBusy(false);
     if (rpcError || !data?.success) {
       setError(data?.error || rpcError?.message || 'Could not save the name. Please try again.');
@@ -774,7 +822,7 @@ function IntakeActions({ c, onDone, ask }: { c: CareCase; onDone: () => void; as
     setBusy(true);
     setError(null);
     const args = fn === 'confirm_intake' ? { p_report_id: c.id } : { p_report_id: c.id, p_reason: reason.trim() };
-    const { data, error: rpcError } = await createClient().rpc(fn, args);
+    const { data, error: rpcError } = await appRpc(fn, args);
     setBusy(false);
     if (rpcError || !data?.success) {
       setError(data?.error || rpcError?.message || 'Something went wrong. Please try again.');
@@ -860,7 +908,7 @@ function UpdateForm({ c, onCancel, onPosted }: { c: CareCase; onCancel: () => vo
     e.preventDefault();
     setBusy(true);
     setError(null);
-    const { data, error: rpcError } = await createClient().rpc('post_recovery_update', {
+    const { data, error: rpcError } = await appRpc('post_recovery_update', {
       p_report_id: c.id,
       p_notes: notes.trim(),
       p_state: state,

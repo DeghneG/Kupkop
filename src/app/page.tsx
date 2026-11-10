@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { IncidentCard, ListRowSkeleton, IncidentData } from '@/components/ListRow';
 import AccountButton from '@/components/AccountButton';
 import DetailSheet from '@/components/DetailSheet';
@@ -8,6 +8,8 @@ import ActiveCaseBar from '@/components/ActiveCaseBar';
 import ClinicPicker from '@/components/ClinicPicker';
 import AuthErrorNotice from '@/components/AuthErrorNotice';
 import { useConfirm } from '@/components/ConfirmSheet';
+import { DEMO_USER, useDemoData, useDemoMode, type DemoReport } from '@/lib/demo/demo';
+import { appRpc } from '@/lib/demo/rpc';
 import { canClaimNow, claimPhase } from '@/lib/sos/standby';
 import { useProfile } from '@/lib/supabase/useProfile';
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/client';
@@ -116,12 +118,60 @@ function byUrgency(a: IncidentData, b: IncidentData): number {
   );
 }
 
+// One report row (from the database or from demo mode) as a case for the Feed
+function toIncident(r: DemoReport): IncidentData {
+  let locationStr = r.location_name || 'Pinned location';
+  let descriptionStr = r.description || '';
+
+  if (locationStr.includes(' — ')) {
+    const [locPart, descPart] = locationStr.split(' — ');
+    locationStr = locPart;
+    if (!descriptionStr) descriptionStr = descPart;
+  }
+
+  // The SOS screen stores raw coordinates when street lookup fails; the pin is still real
+  if (/^Near -?\d+\.\d+/.test(locationStr)) {
+    locationStr = 'Pinned location';
+  }
+
+  return {
+    id: r.id,
+    shortId: r.short_id,
+    animal: animalLabel(r.animal_type),
+    type: emergencyLabel(r.emergency_type),
+    state: (r.state as IncidentData['state']) || 'reported',
+    location: locationStr,
+    description: descriptionStr || undefined,
+    timeAgo: formatTimeAgo(r.created_at || r.server_timestamp),
+    blurred: true,
+    photoUrl: r.photo_url || undefined,
+    animalType: (r.animal_type as IncidentData['animalType']) ?? null,
+    latitude: r.latitude ?? undefined,
+    longitude: r.longitude ?? undefined,
+    claimedBy: r.claimed_by || null,
+    reporterId: r.reporter_id || null,
+    claimedAt: r.claimed_at || null,
+    createdAt: r.created_at || r.server_timestamp || null,
+    facilityId: r.facility_id || null,
+    aiGraphic: r.ai_graphic === true,
+    // These columns arrive with the D-042 migration; before it they are simply missing
+    animalName: r.animal_name ?? null,
+    updatedAt: r.updated_at ?? null,
+    checkinKind: r.checkin_kind ?? null,
+    checkinAt: r.checkin_at ?? null,
+    headsUpFacilityId: r.heads_up_facility_id ?? null,
+    headsUpEtaMinutes: r.heads_up_eta_minutes ?? null,
+    headsUpResponse: r.heads_up_response ?? null,
+    headsUpNote: r.heads_up_note ?? null,
+  };
+}
+
 export default function HomePage() {
-  const [emergencies, setEmergencies] = useState<IncidentData[]>([]);
+  const [fetchedEmergencies, setEmergencies] = useState<IncidentData[]>([]);
   const [reloadKey, setReloadKey] = useState(0);
-  const [feedStatus, setFeedStatus] = useState<'loading' | 'live' | 'sample' | 'error'>('loading');
+  const [fetchedStatus, setFeedStatus] = useState<'loading' | 'live' | 'sample' | 'error'>('loading');
   const { position: userPosition, status: locationStatus, request: requestLocation } = useLocation();
-  const [realtimeState, setRealtimeState] = useState<'connecting' | 'live' | 'down'>('connecting');
+  const [fetchedRealtime, setRealtimeState] = useState<'connecting' | 'live' | 'down'>('connecting');
   const [lastUpdated, setLastUpdated] = useState<number | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [claimingId, setClaimingId] = useState<string | null>(null);
@@ -162,8 +212,11 @@ export default function HomePage() {
   const [facilityNames, setFacilityNames] = useState<Record<string, string>>({});
   // A short note with Undo for the low-stakes "I'm available" tap
   const [toast, setToast] = useState<{ message: string; undo?: () => void } | null>(null);
+  // Demo mode: sample cases and the whole flow played locally, nothing read from or written to the database
+  const demoOn = useDemoMode();
+  const demo = useDemoData();
   const isResponder = profile.role === 'volunteer' || profile.role === 'admin';
-  const userId = profile.user?.id ?? null;
+  const userId = demoOn ? DEMO_USER : (profile.user?.id ?? null);
   // A tapped alert opens /?case=<id>; the case opens once, after the first load
   const openedFromLinkRef = React.useRef(false);
 
@@ -188,7 +241,7 @@ export default function HomePage() {
   // Who is on standby for which case. Only responders can read the list; before the D-042 migration the
   // table is missing and this stays empty. Refreshed every 20 seconds and after any standby action.
   useEffect(() => {
-    if (!isResponder || !userId || !isSupabaseConfigured) return;
+    if (demoOn || !isResponder || !userId || !isSupabaseConfigured) return;
     let active = true;
     const supabase = createClient();
     const load = async () => {
@@ -206,11 +259,11 @@ export default function HomePage() {
       active = false;
       clearInterval(interval);
     };
-  }, [isResponder, userId, standbyReload]);
+  }, [demoOn, isResponder, userId, standbyReload]);
 
   // Clinic names, so a case can say which clinic it is heading to
   useEffect(() => {
-    if (!isSupabaseConfigured) return;
+    if (demoOn || !isSupabaseConfigured) return;
     let active = true;
     createClient()
       .from('facilities')
@@ -222,7 +275,7 @@ export default function HomePage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [demoOn]);
 
   // The undo note goes away by itself
   useEffect(() => {
@@ -232,6 +285,7 @@ export default function HomePage() {
   }, [toast]);
 
   useEffect(() => {
+    if (demoOn) return;
     const supabase = createClient();
 
     const fetchLiveReports = async () => {
@@ -277,52 +331,7 @@ export default function HomePage() {
                   type: r.emergency_type,
                 })
             )
-            .map((r) => {
-            let locationStr = r.location_name || 'Pinned location';
-            let descriptionStr = r.description || '';
-
-            if (locationStr.includes(' — ')) {
-              const [locPart, descPart] = locationStr.split(' — ');
-              locationStr = locPart;
-              if (!descriptionStr) descriptionStr = descPart;
-            }
-
-            // The SOS screen stores raw coordinates when street lookup fails; the pin is still real
-            if (/^Near -?\d+\.\d+/.test(locationStr)) {
-              locationStr = 'Pinned location';
-            }
-
-            return {
-              id: r.id,
-              shortId: r.short_id,
-              animal: animalLabel(r.animal_type),
-              type: emergencyLabel(r.emergency_type),
-              state: (r.state as IncidentData['state']) || 'reported',
-              location: locationStr,
-              description: descriptionStr || undefined,
-              timeAgo: formatTimeAgo(r.created_at || r.server_timestamp),
-              blurred: true,
-              photoUrl: r.photo_url || undefined,
-              animalType: (r.animal_type as IncidentData['animalType']) ?? null,
-              latitude: r.latitude ?? undefined,
-              longitude: r.longitude ?? undefined,
-              claimedBy: r.claimed_by || null,
-              reporterId: r.reporter_id || null,
-              claimedAt: r.claimed_at || null,
-              createdAt: r.created_at || r.server_timestamp || null,
-              facilityId: r.facility_id || null,
-              aiGraphic: r.ai_graphic === true,
-              // These columns arrive with the D-042 migration; before it they are simply missing
-              animalName: r.animal_name ?? null,
-              updatedAt: r.updated_at ?? null,
-              checkinKind: r.checkin_kind ?? null,
-              checkinAt: r.checkin_at ?? null,
-              headsUpFacilityId: r.heads_up_facility_id ?? null,
-              headsUpEtaMinutes: r.heads_up_eta_minutes ?? null,
-              headsUpResponse: r.heads_up_response ?? null,
-              headsUpNote: r.heads_up_note ?? null,
-            };
-          });
+            .map(toIncident);
 
           // Which open cases already alerted every volunteer, so the label only says so when it is true.
           // Read separately: before the alerts migration the table doesn't exist and the feed still loads.
@@ -379,7 +388,28 @@ export default function HomePage() {
       setRealtimeState('connecting');
       supabase.removeChannel(channel);
     };
-  }, [reloadKey]);
+  }, [reloadKey, demoOn]);
+
+  // What the Feed shows: the database, or the demo's own sample cases
+  const demoIncidents = useMemo(
+    () =>
+      demoOn
+        ? demo.reports
+            .filter(
+              (r) =>
+                !r.hidden_at &&
+                isOnLiveFeed({ state: r.state, createdAt: r.created_at, claimedAt: r.claimed_at, updatedAt: r.updated_at, type: r.emergency_type })
+            )
+            .map(toIncident)
+            .sort((x, y) => (y.createdAt ?? '').localeCompare(x.createdAt ?? ''))
+        : [],
+    // `now` moves every 30 seconds so "5m ago" and the claim locks keep up
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [demoOn, demo, now]
+  );
+  const emergencies = demoOn ? demoIncidents : fetchedEmergencies;
+  const feedStatus = demoOn ? 'live' : fetchedStatus;
+  const realtimeState = demoOn ? 'live' : fetchedRealtime;
 
   const refreshFeed = () => {
     setRefreshing(true);
@@ -411,8 +441,7 @@ export default function HomePage() {
     args: Record<string, string>
   ): Promise<boolean> => {
     setActionError(null);
-    const supabase = createClient();
-    const { data, error } = await supabase.rpc(fn, args);
+    const { data, error } = await appRpc(fn, args);
     if (error || !data?.success) {
       setActionError(data?.error || error?.message || 'Something went wrong. Please try again.');
       return false;
@@ -496,8 +525,14 @@ export default function HomePage() {
   // Standby, the clinic's reply and clinic names are read apart from the report rows
   const decorate = (incident: IncidentData): IncidentData => ({
     ...incident,
-    standby: isResponder ? (standbyByReport[incident.id] ?? []) : [],
-    headsUpFacilityName: incident.headsUpFacilityId ? (facilityNames[incident.headsUpFacilityId] ?? null) : null,
+    standby: isResponder
+      ? demoOn
+        ? demo.standby.filter((s) => s.report_id === incident.id).map((s) => ({ volunteerId: s.volunteer_id, joinedAt: s.created_at }))
+        : (standbyByReport[incident.id] ?? [])
+      : [],
+    headsUpFacilityName: incident.headsUpFacilityId
+      ? ((demoOn ? demo.clinics.find((c) => c.id === incident.headsUpFacilityId)?.name : facilityNames[incident.headsUpFacilityId]) ?? null)
+      : null,
   });
 
   // Open again but held for the first volunteer on standby: the Claim button stays off for everyone else
@@ -553,11 +588,11 @@ export default function HomePage() {
   };
 
   // The signed-in user's own claimed case, kept until dismissed even after the lock expires
-  const activeCase = profile.user
+  const activeCase = demoOn || profile.user
     ? emergencies.find(
         (incident) =>
           incident.state === 'claimed' &&
-          incident.claimedBy === profile.user?.id &&
+          incident.claimedBy === userId &&
           incident.id !== dismissedCaseId
       ) ?? null
     : null;
@@ -924,7 +959,7 @@ export default function HomePage() {
         incident={selectedLive ? withDistance(selectedLive) : null}
         onClose={() => setSelectedIncident(null)}
         role={profile.role}
-        userId={profile.user?.id ?? null}
+        userId={userId}
         onSignIn={() => router.push('/settings')}
         actionError={actionError}
         triggerElement={activeTriggerEl}

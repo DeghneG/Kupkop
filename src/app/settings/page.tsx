@@ -9,6 +9,7 @@ import RoleApplication from '@/components/RoleApplication';
 import AlertSettings from '@/components/AlertSettings';
 import InlineError from '@/components/InlineError';
 import RoleSwitcher from '@/components/RoleSwitcher';
+import { DemoModeSection } from '@/components/DemoMode';
 import { useProfile } from '@/lib/supabase/useProfile';
 import ScreenHeader from '@/components/ScreenHeader';
 
@@ -97,6 +98,9 @@ export default function SettingsPage() {
           )}
         </nav>
       )}
+
+      {/* 4. Demo mode: sample cases and the whole flow, played locally */}
+      <DemoModeSection />
 
       {/* 4a. Preview a role: shows the screens each role sees. Display only; nothing here grants access. */}
       <section aria-labelledby="settings-preview-heading" className="bg-surface -mx-4 px-4 py-4 border-y border-border space-y-3">

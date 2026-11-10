@@ -7,6 +7,7 @@ import { calculateFacilityInactivity } from '@/lib/sos/escalation';
 import { CARE_STATE_LABELS } from '@/lib/sos/labels';
 import TriageGlyph from '@/components/icons/TriageGlyph';
 import DayWeave from '@/components/DayWeave';
+import { useDemoData, useDemoMode } from '@/lib/demo/demo';
 
 type CareState = keyof typeof CARE_STATE_LABELS;
 type Update = { id: string; notes: string; state: CareState; created_at: string };
@@ -23,8 +24,11 @@ export default function CaseRecovery({ reportId, state, canPost }: CaseRecoveryP
   const [updates, setUpdates] = useState<Update[] | null>(null);
   const [clinicName, setClinicName] = useState<string | null>(null);
   const [awaitingIntake, setAwaitingIntake] = useState(false);
+  const demoOn = useDemoMode();
+  const demo = useDemoData();
 
   useEffect(() => {
+    if (demoOn) return;
     let active = true;
     const supabase = createClient();
     supabase
@@ -48,9 +52,18 @@ export default function CaseRecovery({ reportId, state, canPost }: CaseRecoveryP
     return () => {
       active = false;
     };
-  }, [reportId, state]);
+  }, [reportId, state, demoOn]);
 
-  const clock = calculateFacilityInactivity(updates?.[0]?.created_at ?? null);
+  // Demo mode reads the sample case and its updates instead of the database
+  const demoRow = demoOn ? demo.reports.find((r) => r.id === reportId) : undefined;
+  const demoUpdates: Update[] | null = demoOn
+    ? (demo.updates.filter((u) => u.report_id === reportId).sort((a, b) => b.created_at.localeCompare(a.created_at)) as Update[])
+    : null;
+  const updatesShown = demoOn ? demoUpdates : updates;
+  const clinicShown = demoOn ? (demo.clinics.find((c) => c.id === demoRow?.facility_id)?.name ?? null) : clinicName;
+  const awaitingShown = demoOn ? state === 'admitted' && !!demoRow && !demoRow.intake_confirmed_at : awaitingIntake;
+
+  const clock = calculateFacilityInactivity(updatesShown?.[0]?.created_at ?? null);
   const inCare = state !== 'resolved';
   const tone = !inCare
     ? 'bg-resolved-bg text-resolved-fg'
@@ -66,27 +79,27 @@ export default function CaseRecovery({ reportId, state, canPost }: CaseRecoveryP
           <span>
             {!inCare
               ? 'Recovery complete'
-              : awaitingIntake
-                ? `Waiting for ${clinicName ?? 'the clinic'} to confirm it arrived`
-                : `In care${clinicName ? ` at ${clinicName}` : ''}`}
+              : awaitingShown
+                ? `Waiting for ${clinicShown ?? 'the clinic'} to confirm it arrived`
+                : `In care${clinicShown ? ` at ${clinicShown}` : ''}`}
           </span>
         </div>
-        {inCare && updates && (
+        {inCare && updatesShown && (
           <span className="text-[12px] font-semibold tabular-nums text-right">
             {clock.status === 'alert' ? 'Update overdue' : clock.badgeText}
           </span>
         )}
       </div>
 
-      {inCare && updates && !awaitingIntake && <DayWeave elapsedDays={clock.elapsedDays} />}
+      {inCare && updatesShown && !awaitingShown && <DayWeave elapsedDays={clock.elapsedDays} />}
 
-      {updates == null ? (
+      {updatesShown == null ? (
         <p className="text-[12px]">Loading updates…</p>
-      ) : updates.length === 0 ? (
+      ) : updatesShown.length === 0 ? (
         <p className="text-[12px]">No recovery updates yet.</p>
       ) : (
         <ol className="space-y-2" aria-label="Recovery updates, newest first">
-          {updates.slice(0, 5).map((u) => (
+          {updatesShown.slice(0, 5).map((u) => (
             <li key={u.id} className="text-[12px] leading-snug">
               <span className="font-semibold">
                 {new Date(u.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} ·{' '}

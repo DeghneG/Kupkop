@@ -5,6 +5,7 @@ import { ChevronDown, ChevronUp } from 'lucide-react';
 import RoleSwitcher, { roleLabel } from '@/components/RoleSwitcher';
 import { useViewAs } from '@/lib/storage';
 import { useProfile } from '@/lib/supabase/useProfile';
+import { useDemoMode } from '@/lib/demo/demo';
 
 const MINIMIZED_KEY = 'kupkop-preview-minimized';
 
@@ -14,6 +15,7 @@ const MINIMIZED_KEY = 'kupkop-preview-minimized';
 export default function RolePreviewBanner() {
   const { role, previewRole } = useProfile();
   const [, setViewAs] = useViewAs();
+  const demoOn = useDemoMode();
   const [minimized, setMinimized] = useState<boolean>(() => {
     try {
       return typeof window !== 'undefined' && localStorage.getItem(MINIMIZED_KEY) === '1';
@@ -69,7 +71,15 @@ export default function RolePreviewBanner() {
     <aside aria-label="Role preview" className="w-full border-b border-border bg-surface-muted px-4 py-2 space-y-1">
       <div className="flex items-start gap-2">
         <p className="flex-1 min-w-0 pt-2 text-[12px] text-fg">
-          <strong className="font-bold">Previewing as {roleLabel(role)}.</strong> Display only; saving follows your real account.
+          {demoOn ? (
+            <>
+              <strong className="font-bold">Playing as {roleLabel(role)}.</strong> In demo mode every button works on the sample data.
+            </>
+          ) : (
+            <>
+              <strong className="font-bold">Previewing as {roleLabel(role)}.</strong> Display only; saving follows your real account.
+            </>
+          )}
         </p>
         {toggleButton}
       </div>

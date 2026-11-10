@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Check, X } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { calculateFacilityInactivity } from '@/lib/sos/escalation';
@@ -8,6 +8,8 @@ import { availabilityNote, estimateEtaMinutes, rankClinics } from '@/lib/sos/cli
 import { formatDistance, type LatLng } from '@/lib/sos/geo';
 import { useFocusTrap } from '@/lib/useFocusTrap';
 import { useConfirm } from '@/components/ConfirmSheet';
+import { useDemoData, useDemoMode } from '@/lib/demo/demo';
+import { appRpc } from '@/lib/demo/rpc';
 
 type Clinic = {
   id: string;
@@ -62,10 +64,29 @@ export default function ClinicPicker({
   const closeRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const { ask, sheet } = useConfirm();
+  const demoOn = useDemoMode();
+  const demo = useDemoData();
   useFocusTrap(panelRef, open);
 
+  // Demo mode lists the sample clinics instead of reading the database
+  const demoClinics = useMemo<Clinic[]>(
+    () =>
+      demo.clinics.map((c) => ({
+        id: c.id,
+        name: c.name,
+        address: c.address,
+        phone: c.phone,
+        latitude: c.latitude,
+        longitude: c.longitude,
+        lastActiveAt: c.last_active_at,
+        availability: c.availability,
+        availabilitySetAt: c.availability_set_at,
+      })),
+    [demo]
+  );
+
   useEffect(() => {
-    if (!open) return;
+    if (!open || demoOn) return;
     let active = true;
     const supabase = createClient();
     const basic = 'id,name,address,phone,latitude,longitude,last_active_at';
@@ -112,11 +133,12 @@ export default function ClinicPicker({
       active = false;
       window.removeEventListener('keydown', onKey);
     };
-  }, [open, onClose]);
+  }, [open, demoOn, onClose]);
 
   if (!open) return null;
 
-  const ranked = clinics ? rankClinics(clinics, near) : null;
+  const clinicList = demoOn ? demoClinics : clinics;
+  const ranked = clinicList ? rankClinics(clinicList, near) : null;
   // Nothing tapped yet: the suggested clinic is the starting choice
   const chosenId = selected ?? ranked?.find((r) => r.suggested)?.clinic.id ?? null;
   const chosen = ranked?.find((r) => r.clinic.id === chosenId) ?? null;
@@ -145,7 +167,7 @@ export default function ClinicPicker({
       onConfirm: async () => {
         setSending(true);
         setHeadsUpError(null);
-        const { data, error: rpcError } = await createClient().rpc('send_clinic_heads_up', {
+        const { data, error: rpcError } = await appRpc('send_clinic_heads_up', {
           p_report_id: reportId,
           p_facility_id: chosen.clinic.id,
           p_eta_minutes: eta,

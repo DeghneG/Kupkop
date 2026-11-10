@@ -11,6 +11,7 @@ import ScreenHeader from '@/components/ScreenHeader';
 import StageWeave from '@/components/StageWeave';
 import DayWeave from '@/components/DayWeave';
 import AnimalGlyph, { animalKind } from '@/components/AnimalGlyph';
+import { useDemoData, useDemoMode } from '@/lib/demo/demo';
 
 type State = 'reported' | 'claimed' | 'admitted' | 'healing' | 'resolved';
 
@@ -49,11 +50,13 @@ function formatDay(iso: string): string {
 // Public, like the Feed: it shows what the case already shows, never who reported it.
 export default function AnimalProfile() {
   const { id } = useParams<{ id: string }>();
-  const [report, setReport] = useState<Report | null | undefined>(undefined);
-  const [updates, setUpdates] = useState<Update[]>([]);
+  const [fetchedReport, setReport] = useState<Report | null | undefined>(undefined);
+  const [fetchedUpdates, setUpdates] = useState<Update[]>([]);
+  const demoOn = useDemoMode();
+  const demo = useDemoData();
 
   useEffect(() => {
-    if (!id) return;
+    if (!id || demoOn) return;
     let active = true;
     const supabase = createClient();
     Promise.all([
@@ -67,7 +70,28 @@ export default function AnimalProfile() {
     return () => {
       active = false;
     };
-  }, [id]);
+  }, [id, demoOn]);
+
+  // Demo mode reads the sample case instead of the database
+  const demoRow = demoOn ? demo.reports.find((r) => r.id === id) : undefined;
+  const report: Report | null | undefined = demoOn
+    ? demoRow
+      ? {
+          id: demoRow.id,
+          short_id: demoRow.short_id,
+          animal_type: demoRow.animal_type,
+          emergency_type: demoRow.emergency_type,
+          state: demoRow.state,
+          location_name: demoRow.location_name,
+          created_at: demoRow.created_at,
+          animal_name: demoRow.animal_name,
+          facilities: demo.clinics.find((c) => c.id === demoRow.facility_id) ? { name: demo.clinics.find((c) => c.id === demoRow.facility_id)!.name } : null,
+        }
+      : null
+    : fetchedReport;
+  const updates: Update[] = demoOn
+    ? demo.updates.filter((u) => u.report_id === id).sort((a, b) => a.created_at.localeCompare(b.created_at))
+    : fetchedUpdates;
 
   const header = (title: string, subtitle?: string) => (
     <ScreenHeader title={title} subtitle={subtitle} className="-mx-4 -mt-3" />

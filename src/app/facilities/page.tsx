@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { Phone, MapPin, HeartPulse, AlertCircle } from 'lucide-react';
 import { useUserPosition } from '@/lib/useUserPosition';
 import { distanceKm, formatDistance } from '@/lib/sos/utils';
@@ -8,6 +9,7 @@ import { calculateFacilityInactivity, type FacilityClockStatus } from '@/lib/sos
 import { availabilityNote, effectiveAvailability } from '@/lib/sos/clinics';
 import { createClient } from '@/lib/supabase/client';
 import ScreenHeader from '@/components/ScreenHeader';
+import { useDemoData, useDemoMode } from '@/lib/demo/demo';
 import StageWeave from '@/components/StageWeave';
 
 interface Clinic {
@@ -37,6 +39,8 @@ export default function FacilitiesPage() {
   const [reloadKey, setReloadKey] = useState(0);
   const [notification, setNotification] = useState<string | null>(null);
   const userPosition = useUserPosition();
+  const demoOn = useDemoMode();
+  const demo = useDemoData();
 
   useEffect(() => {
     let active = true;
@@ -60,14 +64,45 @@ export default function FacilitiesPage() {
       if (!withStatus.error) return withStatus;
       return supabase.from('facilities').select('id,name,address,latitude,longitude').eq('status', 'Listed').order('name');
     };
-    Promise.all([
-      loadFacilities(),
-      supabase
-        .from('sos_reports')
-        .select('facility_id,updated_at,recovery_updates(created_at)')
-        .in('state', ['admitted', 'healing'])
-        .not('facility_id', 'is', null),
-    ]).then(([facilities, cases]) => {
+    type Loaded = {
+      facilities: { data: FacilityRow[] | null; error: { message: string } | null };
+      cases: { data: unknown[] | null; error: { message: string } | null };
+    };
+    // Demo mode reads the sample clinics and their animals in care instead of the database
+    const load: Promise<Loaded> = demoOn
+      ? Promise.resolve({
+          facilities: {
+            data: demo.clinics.map((c) => ({
+              id: c.id,
+              name: c.name,
+              address: c.address,
+              latitude: c.latitude,
+              longitude: c.longitude,
+              availability: c.availability,
+              availability_set_at: c.availability_set_at,
+            })),
+            error: null,
+          },
+          cases: {
+            data: demo.reports
+              .filter((r) => (r.state === 'admitted' || r.state === 'healing') && r.facility_id)
+              .map((r) => ({
+                facility_id: r.facility_id,
+                updated_at: r.updated_at,
+                recovery_updates: demo.updates.filter((u) => u.report_id === r.id).map((u) => ({ created_at: u.created_at })),
+              })),
+            error: null,
+          },
+        })
+      : Promise.all([
+          loadFacilities(),
+          supabase
+            .from('sos_reports')
+            .select('facility_id,updated_at,recovery_updates(created_at)')
+            .in('state', ['admitted', 'healing'])
+            .not('facility_id', 'is', null),
+        ]).then(([facilities, cases]) => ({ facilities, cases }));
+    load.then(({ facilities, cases }) => {
       if (!active) return;
       if (facilities.error || cases.error) {
         console.error('Could not load clinics:', facilities.error?.message ?? cases.error?.message);
@@ -107,7 +142,7 @@ export default function FacilitiesPage() {
     return () => {
       active = false;
     };
-  }, [reloadKey]);
+  }, [reloadKey, demoOn, demo]);
 
   const showDisabledCallNotice = (clinicName: string) => {
     setNotification(`Test mode: calls to ${clinicName} disabled.`);
@@ -168,7 +203,11 @@ export default function FacilitiesPage() {
             <article key={clinic.id} className="bg-surface -mx-4 px-4 py-4 border-y border-border space-y-3">
               <div className="flex items-start justify-between gap-2">
                 <div className="space-y-0.5 min-w-0">
-                  <h2 className="text-[16px] font-semibold text-fg">{clinic.name}</h2>
+                  <h2 className="text-[16px] font-semibold text-fg">
+                    <Link href={`/facilities/${clinic.id}`} className="underline-offset-4 hover:underline">
+                      {clinic.name}
+                    </Link>
+                  </h2>
                   <div className="flex items-center gap-1 text-[12px] text-fg-muted">
                     <MapPin className="w-3.5 h-3.5 shrink-0 text-fg-muted" aria-hidden="true" />
                     <span className="font-normal">{clinic.address}</span>
@@ -194,15 +233,23 @@ export default function FacilitiesPage() {
                 )}
               </div>
 
+              <div className="grid grid-cols-2 gap-2">
+              <Link
+                href={`/facilities/${clinic.id}`}
+                className="min-h-[44px] px-4 rounded-xl border border-border bg-surface hover:bg-surface-muted text-fg font-semibold text-[14px] flex items-center justify-center"
+              >
+                View clinic
+              </Link>
               <button
                 type="button"
                 onClick={() => showDisabledCallNotice(clinic.name)}
                 aria-label={`Call ${clinic.name} (disabled in test mode)`}
-                className="w-full min-h-[44px] px-4 rounded-xl border border-border bg-surface hover:bg-surface-muted text-fg font-semibold text-[14px] flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                className="min-h-[44px] px-4 rounded-xl border border-border bg-surface hover:bg-surface-muted text-fg font-semibold text-[14px] flex items-center justify-center gap-2 transition-colors cursor-pointer"
               >
                 <Phone className="w-4 h-4 text-fg-muted" aria-hidden="true" />
                 <span>Call</span>
               </button>
+              </div>
             </article>
           ))}
         </div>
