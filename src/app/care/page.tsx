@@ -143,6 +143,9 @@ export default function CarePage() {
   // The clinic's own status and the animals on their way here (both arrive with the D-042 migration)
   const [availability, setAvailability] = useState<{ status: string | null; setAt: string | null }>({ status: null, setAt: null });
   const [incoming, setIncoming] = useState<Incoming[]>([]);
+  // An admin can set the status of any Listed clinic (clinic staff only see their own)
+  const [adminClinics, setAdminClinics] = useState<{ id: string; name: string; status: string | null; setAt: string | null }[]>([]);
+  const [adminClinicId, setAdminClinicId] = useState('');
 
   // A role preview shows sample cases, read-only; the real clinic data stays behind the real role
   const sample = isPreview;
@@ -208,6 +211,29 @@ export default function CarePage() {
         .maybeSingle()
         .then(({ data }) => {
           if (active && data) setAvailability({ status: data.availability ?? null, setAt: data.availability_set_at ?? null });
+        });
+    }
+
+    if (isAdmin) {
+      const basic = 'id,name';
+      supabase
+        .from('facilities')
+        .select(`${basic},availability,availability_set_at`)
+        .eq('status', 'Listed')
+        .order('name')
+        .then(async (withStatus) => {
+          const rows: Record<string, unknown>[] = withStatus.error
+            ? ((await supabase.from('facilities').select(basic).eq('status', 'Listed').order('name')).data ?? [])
+            : (withStatus.data ?? []);
+          if (!active) return;
+          setAdminClinics(
+            rows.map((f) => ({
+              id: f.id as string,
+              name: f.name as string,
+              status: (f.availability as string | null | undefined) ?? null,
+              setAt: (f.availability_set_at as string | null | undefined) ?? null,
+            }))
+          );
         });
     }
 
@@ -347,6 +373,38 @@ export default function CarePage() {
               ask={ask}
             />
           )}
+
+          {isAdmin && !sample && adminClinics.length > 0 && (() => {
+            const picked = adminClinics.find((c) => c.id === adminClinicId) ?? adminClinics[0];
+            return (
+              <div className="space-y-2">
+                <label className="block space-y-1">
+                  <span className="text-[12px] font-semibold text-fg">Clinic status (admin)</span>
+                  <select
+                    value={picked.id}
+                    onChange={(e) => setAdminClinicId(e.target.value)}
+                    className="w-full min-h-[44px] rounded-xl border border-border bg-surface text-fg text-[14px] px-3 focus:outline-none focus:ring-2 focus:ring-action"
+                  >
+                    {adminClinics.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <AvailabilitySwitch
+                  key={picked.id}
+                  facilityId={picked.id}
+                  clinicName={picked.name}
+                  current={{ status: picked.status, setAt: picked.setAt }}
+                  onChanged={(next) =>
+                    setAdminClinics((list) => list.map((c) => (c.id === picked.id ? { ...c, status: next.status, setAt: next.setAt } : c)))
+                  }
+                  ask={ask}
+                />
+              </div>
+            );
+          })()}
 
           {incoming.length > 0 && (
             <section aria-labelledby="incoming-heading" className="space-y-2">
