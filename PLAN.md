@@ -70,7 +70,7 @@
 - Phase 3: Facility view & 14-day inactivity clock
 - Phase 4: Bystander / admin / AI flag
 - Phase 5: Polish, security audits, and outdoor field test
-- Post-Launch: Lost & Found, donations, adoption, Saludo, Phone OTP
+- Post-Launch: Lost & Found, donations, Saludo, Phone OTP (adoption dropped, 2026-11-10)
 
 ---
 

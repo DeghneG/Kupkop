@@ -4,7 +4,7 @@
  * - Hit-and-Run / Bleeding: Critical at once, widen at 3m, "no responder" at 10m
  * - Fracture / Trapped-Abused: 5m / 15m
  * - Sick / Mange: 15m / 60m
- * - Claim Lock: 60 minutes
+ * - Claim Lock: by severity, 15 / 30 / 60 minutes (D-042). A check-in ("On my way", "Arrived") restarts it.
  * - Facility Inactivity Clock: 14-day inactivity clock (warning at day 11)
  */
 
@@ -13,21 +13,33 @@ export const ESCALATION_CONFIG = {
     types: ['hit_and_run', 'hit-and-run', 'bleeding'],
     widenMinutes: 3,
     alertMinutes: 10,
+    claimLockMinutes: 15,
     label: 'Critical Immediate',
   },
   urgent: {
     types: ['fracture', 'trapped_abused', 'trapped'],
     widenMinutes: 5,
     alertMinutes: 15,
+    claimLockMinutes: 30,
     label: 'Urgent Priority',
   },
   moderate: {
     types: ['sick_mange', 'mange', 'sick', 'other'],
     widenMinutes: 15,
     alertMinutes: 60,
+    claimLockMinutes: 60,
     label: 'Moderate Priority',
   },
+  /** Used when the case type is unknown (sample cases) */
   claimLockDurationMinutes: 60,
+  /** After a lock ends, the first volunteer on standby has this long to claim before everyone can */
+  standbyGraceMinutes: 2,
+  /** A volunteer can be on standby for this many cases at once */
+  maxStandbyCases: 3,
+  /** A clinic's "Full" / "Limited" setting is trusted for this long, then shows as unknown */
+  availabilityExpiryHours: 12,
+  /** How long a case stays on the live Feed (waiting for a rescuer, or resolved) */
+  feedWindowHours: 24,
   facilityInactivityWarningDays: 11,
   facilityInactivityMaxDays: 14,
 } as const;
@@ -74,6 +86,12 @@ export function getEscalationTier(rawType?: string | null): EscalationTier {
     if (normalized.includes(t)) return 'urgent';
   }
   return 'moderate';
+}
+
+/** Claim lock length for a case: shorter for the cases where minutes matter most. */
+export function claimLockMinutes(rawType?: string | null): number {
+  if (!rawType) return ESCALATION_CONFIG.claimLockDurationMinutes;
+  return ESCALATION_CONFIG[getEscalationTier(rawType)].claimLockMinutes;
 }
 
 /**
@@ -238,8 +256,18 @@ export function calculateFacilityInactivity(
  * True when a case is waiting for a rescuer: never claimed, or the 60-minute claim lock ran out.
  * The database keeps an expired claim as 'claimed' until someone claims it again, so screens use this.
  */
-export function needsRescuer(state: string, claimedAt?: string | Date | number | null): boolean {
-  return state === 'reported' || (state === 'claimed' && calculateClaimTimer(claimedAt).isExpired);
+export function needsRescuer(
+  state: string,
+  claimedAt?: string | Date | number | null,
+  rawType?: string | null
+): boolean {
+  return state === 'reported' || (state === 'claimed' && calculateClaimTimer(claimedAt, claimLockMinutes(rawType)).isExpired);
+}
+
+/** The moment a claim lock ends, or null when there is no claim. */
+export function claimLockEndsAt(claimedAt?: string | Date | number | null, rawType?: string | null): number | null {
+  if (!claimedAt) return null;
+  return new Date(claimedAt).getTime() + claimLockMinutes(rawType) * 60_000;
 }
 
 /** How long a case has waited, short enough for a feed row: "7m", "3h", "15d". */
@@ -247,4 +275,29 @@ export function formatWaited(minutes: number): string {
   if (minutes < 60) return `${minutes}m`;
   if (minutes < 1440) return `${Math.floor(minutes / 60)}h`;
   return `${Math.floor(minutes / 1440)}d`;
+}
+
+/**
+ * Whether a case still belongs on the live Feed.
+ * - Waiting for a rescuer (never claimed, or the claim lock ran out): 24 hours from the report.
+ * - Resolved: 24 hours from when it was resolved.
+ * - In care (claimed, admitted, healing): stays while the animal is being looked after, because the
+ *   14-day recovery clock and the recovery updates depend on it being seen.
+ */
+export function isOnLiveFeed(
+  report: {
+    state: string;
+    createdAt?: string | Date | number | null;
+    claimedAt?: string | Date | number | null;
+    updatedAt?: string | Date | number | null;
+    /** Emergency type, so the claim lock is the right length for the case */
+    type?: string | null;
+  },
+  now: number = Date.now()
+): boolean {
+  const windowMs = ESCALATION_CONFIG.feedWindowHours * 60 * 60 * 1000;
+  const within = (time?: string | Date | number | null) => !time || now - new Date(time).getTime() < windowMs;
+  if (report.state === 'resolved') return within(report.updatedAt ?? report.createdAt);
+  if (needsRescuer(report.state, report.claimedAt, report.type)) return within(report.createdAt);
+  return true;
 }

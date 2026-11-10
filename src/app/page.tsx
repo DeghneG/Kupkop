@@ -7,6 +7,8 @@ import DetailSheet from '@/components/DetailSheet';
 import ActiveCaseBar from '@/components/ActiveCaseBar';
 import ClinicPicker from '@/components/ClinicPicker';
 import AuthErrorNotice from '@/components/AuthErrorNotice';
+import { useConfirm } from '@/components/ConfirmSheet';
+import { canClaimNow, claimPhase } from '@/lib/sos/standby';
 import { useProfile } from '@/lib/supabase/useProfile';
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/client';
 import { useLocation } from '@/lib/useUserPosition';
@@ -15,7 +17,8 @@ import { distanceKm, formatDistance, getDirectionalBearing } from '@/lib/sos/uti
 import { KupkopMark } from '@/components/icons/TriageGlyph';
 import Wordmark from '@/components/Wordmark';
 import StageWeave from '@/components/StageWeave';
-import { calculateEscalation, needsRescuer } from '@/lib/sos/escalation';
+import FeaturedCase from '@/components/FeaturedCase';
+import { calculateEscalation, claimLockMinutes, isOnLiveFeed, needsRescuer } from '@/lib/sos/escalation';
 import { animalLabel, emergencyLabel } from '@/lib/sos/labels';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -145,11 +148,22 @@ export default function HomePage() {
   };
   // Case waiting for the rescuer to choose which clinic admitted it
   const [admitTarget, setAdmitTarget] = useState<IncidentData | null>(null);
+  // 'headsup' = tell a clinic you are coming while on the way; 'admit' = the animal is at a clinic
+  const [pickerMode, setPickerMode] = useState<'admit' | 'headsup'>('admit');
   const [admitting, setAdmitting] = useState(false);
   // Clock for relative labels; set from timers and fetches, never read during render
   const [now, setNow] = useState(0);
   const profile = useProfile();
   const router = useRouter();
+  const { ask: askConfirm, sheet: confirmSheet } = useConfirm();
+  // Volunteers on standby per case (responders only can read it), and clinic names for heads-up notes
+  const [standbyByReport, setStandbyByReport] = useState<Record<string, { volunteerId: string; joinedAt: string }[]>>({});
+  const [standbyReload, setStandbyReload] = useState(0);
+  const [facilityNames, setFacilityNames] = useState<Record<string, string>>({});
+  // A short note with Undo for the low-stakes "I'm available" tap
+  const [toast, setToast] = useState<{ message: string; undo?: () => void } | null>(null);
+  const isResponder = profile.role === 'volunteer' || profile.role === 'admin';
+  const userId = profile.user?.id ?? null;
   // A tapped alert opens /?case=<id>; the case opens once, after the first load
   const openedFromLinkRef = React.useRef(false);
 
@@ -170,6 +184,52 @@ export default function HomePage() {
     const interval = setInterval(() => setNow(Date.now()), 30000);
     return () => clearInterval(interval);
   }, []);
+
+  // Who is on standby for which case. Only responders can read the list; before the D-042 migration the
+  // table is missing and this stays empty. Refreshed every 20 seconds and after any standby action.
+  useEffect(() => {
+    if (!isResponder || !userId || !isSupabaseConfigured) return;
+    let active = true;
+    const supabase = createClient();
+    const load = async () => {
+      const { data } = await supabase.from('claim_standby').select('report_id,volunteer_id,created_at');
+      if (!active || !data) return;
+      const grouped: Record<string, { volunteerId: string; joinedAt: string }[]> = {};
+      for (const row of data) {
+        (grouped[row.report_id as string] ??= []).push({ volunteerId: row.volunteer_id as string, joinedAt: row.created_at as string });
+      }
+      setStandbyByReport(grouped);
+    };
+    load();
+    const interval = setInterval(load, 20000);
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, [isResponder, userId, standbyReload]);
+
+  // Clinic names, so a case can say which clinic it is heading to
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+    let active = true;
+    createClient()
+      .from('facilities')
+      .select('id,name')
+      .then(({ data }) => {
+        if (!active || !data) return;
+        setFacilityNames(Object.fromEntries(data.map((f) => [f.id as string, f.name as string])));
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // The undo note goes away by itself
+  useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(() => setToast(null), 7000);
+    return () => clearTimeout(timer);
+  }, [toast]);
 
   useEffect(() => {
     const supabase = createClient();
@@ -205,7 +265,19 @@ export default function HomePage() {
 
         {
           // RLS already hides removed reports from everyone but the reporter and admins
-          const liveIncidents: IncidentData[] = data.filter((r) => !r.hidden_at).map((r) => {
+          const liveIncidents: IncidentData[] = data
+            .filter(
+              (r) =>
+                !r.hidden_at &&
+                isOnLiveFeed({
+                  state: r.state,
+                  createdAt: r.created_at || r.server_timestamp,
+                  claimedAt: r.claimed_at,
+                  updatedAt: r.updated_at,
+                  type: r.emergency_type,
+                })
+            )
+            .map((r) => {
             let locationStr = r.location_name || 'Pinned location';
             let descriptionStr = r.description || '';
 
@@ -231,6 +303,7 @@ export default function HomePage() {
               timeAgo: formatTimeAgo(r.created_at || r.server_timestamp),
               blurred: true,
               photoUrl: r.photo_url || undefined,
+              animalType: (r.animal_type as IncidentData['animalType']) ?? null,
               latitude: r.latitude ?? undefined,
               longitude: r.longitude ?? undefined,
               claimedBy: r.claimed_by || null,
@@ -239,6 +312,15 @@ export default function HomePage() {
               createdAt: r.created_at || r.server_timestamp || null,
               facilityId: r.facility_id || null,
               aiGraphic: r.ai_graphic === true,
+              // These columns arrive with the D-042 migration; before it they are simply missing
+              animalName: r.animal_name ?? null,
+              updatedAt: r.updated_at ?? null,
+              checkinKind: r.checkin_kind ?? null,
+              checkinAt: r.checkin_at ?? null,
+              headsUpFacilityId: r.heads_up_facility_id ?? null,
+              headsUpEtaMinutes: r.heads_up_eta_minutes ?? null,
+              headsUpResponse: r.heads_up_response ?? null,
+              headsUpNote: r.heads_up_note ?? null,
             };
           });
 
@@ -325,7 +407,7 @@ export default function HomePage() {
   const isLiveReport = (incident: IncidentData) => !!incident.id && !incident.id.startsWith('case-');
 
   const callCaseFunction = async (
-    fn: 'claim_sos_report' | 'release_sos_claim' | 'admit_to_facility',
+    fn: 'claim_sos_report' | 'release_sos_claim' | 'admit_to_facility' | 'join_standby' | 'leave_standby' | 'claim_checkin',
     args: Record<string, string>
   ): Promise<boolean> => {
     setActionError(null);
@@ -356,7 +438,79 @@ export default function HomePage() {
 
   const handleReleaseClaim = async (incident: IncidentData) => {
     if (isLiveReport(incident) && !(await callCaseFunction('release_sos_claim', { p_report_id: incident.id! }))) return;
-    applyUpdate({ ...incident, state: 'reported', claimedAt: null, claimedBy: null });
+    applyUpdate({ ...incident, state: 'reported', claimedAt: null, claimedBy: null, updatedAt: new Date().toISOString() });
+  };
+
+  // Serious buttons ask once more, so a stray touch never claims, releases or answers for someone (D-042)
+  const askClaim = (incident: IncidentData) =>
+    askConfirm({
+      title: `Claim case #${incident.shortId}?`,
+      message: `It will be locked to you for ${claimLockMinutes(incident.type)} minutes so two volunteers don't go to the same animal. Tap "On my way" to keep it, or release it if you cannot go.`,
+      confirmLabel: 'Yes, claim it',
+      onConfirm: () => handleQuickClaim(incident),
+    });
+
+  const askRelease = (incident: IncidentData) =>
+    askConfirm({
+      title: `Release case #${incident.shortId}?`,
+      message: 'Other volunteers can claim it right away. Only release it if you cannot go.',
+      confirmLabel: 'Yes, release it',
+      onConfirm: () => handleReleaseClaim(incident),
+    });
+
+  // "I'm available": low stakes, so no extra question. A note with Undo covers a stray touch.
+  const handleLeaveStandby = async (incident: IncidentData, quiet = false) => {
+    if (!(await callCaseFunction('leave_standby', { p_report_id: incident.id! }))) return;
+    setStandbyReload((n) => n + 1);
+    if (!quiet) setToast({ message: `You left standby for #${incident.shortId}.` });
+  };
+
+  const handleJoinStandby = async (incident: IncidentData) => {
+    if (!(await callCaseFunction('join_standby', { p_report_id: incident.id! }))) return;
+    setStandbyReload((n) => n + 1);
+    setToast({
+      message: `You're on standby for #${incident.shortId}. We will tell you if it opens up.`,
+      undo: () => {
+        setToast(null);
+        void handleLeaveStandby(incident, true);
+      },
+    });
+  };
+
+  // "On my way" / "Arrived" restart the claim lock (once each)
+  const handleCheckin = async (incident: IncidentData, kind: 'on_my_way' | 'arrived') => {
+    if (isLiveReport(incident) && !(await callCaseFunction('claim_checkin', { p_report_id: incident.id!, p_kind: kind }))) return;
+    const stamp = new Date().toISOString();
+    applyUpdate({ ...incident, claimedAt: stamp, checkinKind: kind, checkinAt: stamp });
+  };
+
+  // The rescuer tells a clinic they are coming (real cases only: a sample case has nobody to tell)
+  const handleTellClinic = (incident: IncidentData) => {
+    if (!isLiveReport(incident)) return;
+    setActionError(null);
+    setSelectedIncident(null);
+    setPickerMode('headsup');
+    setAdmitTarget(incident);
+  };
+
+  // Standby, the clinic's reply and clinic names are read apart from the report rows
+  const decorate = (incident: IncidentData): IncidentData => ({
+    ...incident,
+    standby: isResponder ? (standbyByReport[incident.id] ?? []) : [],
+    headsUpFacilityName: incident.headsUpFacilityId ? (facilityNames[incident.headsUpFacilityId] ?? null) : null,
+  });
+
+  // Open again but held for the first volunteer on standby: the Claim button stays off for everyone else
+  const claimHeldFor = (incident: IncidentData): boolean => {
+    if (!needsRescuer(incident.state, incident.claimedAt, incident.type)) return false;
+    const phase = claimPhase({
+      state: incident.state,
+      claimedAt: incident.claimedAt,
+      type: incident.type,
+      releasedAt: incident.updatedAt,
+      standby: incident.standby ?? [],
+    });
+    return !canClaimNow(phase, userId);
   };
 
   const closeClinicPicker = useCallback(() => setAdmitTarget(null), []);
@@ -370,6 +524,7 @@ export default function HomePage() {
     if (!facilityId) {
       setActionError(null);
       setSelectedIncident(null);
+      setPickerMode('admit');
       setAdmitTarget(incident);
       return;
     }
@@ -386,7 +541,8 @@ export default function HomePage() {
   const filteredEmergencies = emergencies.filter((incident) => matchesChannel(incident, selectedChannel));
 
   // Distance and direction exist only when the device position is known
-  const withDistance = (incident: IncidentData): IncidentData => {
+  const withDistance = (raw: IncidentData): IncidentData => {
+    const incident = decorate(raw);
     if (!userPosition || incident.latitude == null || incident.longitude == null) return incident;
     const target = { lat: incident.latitude, lng: incident.longitude };
     return {
@@ -408,7 +564,10 @@ export default function HomePage() {
 
   const showCounts = feedStatus === 'live' || feedStatus === 'sample';
   // An expired claim is open again: the database keeps it 'claimed' until someone claims it
-  const isOpen = (incident: IncidentData) => needsRescuer(incident.state, incident.claimedAt);
+  const isOpen = (incident: IncidentData) => needsRescuer(incident.state, incident.claimedAt, incident.type);
+
+  // The open sheet follows the live list, so a clinic's reply or a new standby shows without reopening it
+  const selectedLive = selectedIncident ? (emergencies.find((e) => e.id === selectedIncident.id) ?? selectedIncident) : null;
   const isInProgress = (incident: IncidentData) =>
     !isOpen(incident) && ['claimed', 'admitted', 'healing'].includes(incident.state);
   const openCases = emergencies.filter(isOpen);
@@ -444,6 +603,9 @@ export default function HomePage() {
         .sort((a, b) => createdMs(b) - createdMs(a)),
     },
   ].filter((group) => group.items.length > 0);
+
+  // The case that has waited longest for a rescuer leads the list as a featured card
+  const featured = feedGroups.find((group) => group.id === 'open')?.items[0] ?? null;
 
   // Responders get a Claim button on open rows; the database still decides who may claim.
   // Hidden while the user already holds a case so the bar stays the one place to act on it.
@@ -493,7 +655,8 @@ export default function HomePage() {
         </div>
       )}
 
-      <header className="bg-shell text-shell-fg flex items-center justify-between gap-3 px-4 py-3">
+      <div className="bg-shell text-shell-fg">
+      <header className="flex items-center justify-between gap-3 px-4 pt-3 pb-2">
         <div className="flex items-center gap-3 min-w-0">
           <div className="w-10 h-10 rounded-xl bg-shell-fg flex items-center justify-center shrink-0">
             <KupkopMark size={26} />
@@ -522,57 +685,48 @@ export default function HomePage() {
           <AccountButton />
         </div>
       </header>
-      <div className="selvedge" aria-hidden="true" />
 
-      <AuthErrorNotice />
-
-      {/* Summary: counts across all cases, independent of the filter */}
+      {/* Summary: counts across all cases, independent of the filter. The need is the big number. */}
       {showCounts && (
-        <dl className="mt-3 mx-4 grid grid-cols-3 divide-x divide-border border-y border-border">
-          <div className="py-2 pr-3 flex flex-col gap-0.5">
-            <dt className="text-[12px] text-fg-muted">Need rescuer</dt>
-            <dd
-              className={`text-[16px] font-semibold tabular-nums ${
-                openCases.length > 0 ? 'text-reported-fg' : 'text-fg'
-              }`}
-            >
-              {openCases.length}
-            </dd>
+        <dl className="grid grid-cols-3 gap-3 px-4 pb-4">
+          <div className="flex flex-col-reverse justify-end gap-1">
+            <dt className="text-[12px] text-shell-muted">Need a rescuer</dt>
+            <dd className="text-[32px] font-bold leading-none tabular-nums text-shell-fg">{openCases.length}</dd>
           </div>
-          <div className="py-2 px-3 flex flex-col gap-0.5">
-            <dt className="text-[12px] text-fg-muted">In progress</dt>
-            <dd className="text-[16px] font-semibold tabular-nums text-fg">{inProgressCount}</dd>
+          <div className="flex flex-col-reverse justify-end gap-1">
+            <dt className="text-[12px] text-shell-muted">In progress</dt>
+            <dd className="text-[32px] font-bold leading-none tabular-nums text-shell-fg">{inProgressCount}</dd>
           </div>
-          <div className="py-2 pl-3 flex flex-col gap-0.5">
-            <dt className="text-[12px] text-fg-muted">Nearest open</dt>
-            <dd className="text-[16px] font-semibold tabular-nums text-fg">
+          <div className="flex flex-col-reverse justify-end gap-1">
+            <dt className="text-[12px] text-shell-muted">Nearest open</dt>
+            <dd className="text-[22px] font-bold leading-none tabular-nums text-shell-fg">
               {nearestOpenKm != null ? (
                 formatDistance(nearestOpenKm)
               ) : userPosition ? (
-                <span className="text-[14px] font-normal text-fg-muted">None</span>
+                <span className="text-[14px] font-normal text-shell-muted">None</span>
               ) : locationStatus === 'off' || locationStatus === 'requesting' ? (
                 // Prompts only on this tap; Home never asks for location on its own
                 <button
                   type="button"
                   onClick={requestLocation}
                   disabled={locationStatus === 'requesting'}
-                  className="-my-2 min-h-[44px] text-[14px] font-semibold text-link cursor-pointer hover:underline underline-offset-4 disabled:cursor-wait"
+                  className="-my-2 min-h-[44px] text-[14px] font-bold text-shell-fg underline underline-offset-4 cursor-pointer disabled:cursor-wait"
                 >
                   {locationStatus === 'requesting' ? 'Locating…' : 'Show distances'}
                 </button>
               ) : (
-                <span className="text-[14px] font-normal text-fg-muted">
-                  {locationStatus === 'denied'
-                    ? 'Location blocked'
-                    : locationStatus === 'unsupported'
-                      ? 'Unavailable'
-                      : '…'}
+                <span className="text-[14px] font-normal text-shell-muted">
+                  {locationStatus === 'denied' ? 'Location blocked' : locationStatus === 'unsupported' ? 'Unavailable' : '…'}
                 </span>
               )}
             </dd>
           </div>
         </dl>
       )}
+      </div>
+      <div className="selvedge" aria-hidden="true" />
+
+      <AuthErrorNotice />
 
       <section aria-labelledby="nearby-heading" className="mt-3">
         <h2 id="nearby-heading" className="sr-only">
@@ -662,39 +816,64 @@ export default function HomePage() {
           ) : filteredEmergencies.length === 0 ? (
             <div className="px-4 py-8 text-center space-y-3">
               <StageWeave blank className="w-32 mx-auto" />
-              <p className="text-[14px] font-semibold text-fg">No cases of this type right now</p>
-              <button
+              <p className="text-[14px] font-semibold text-fg">
+                {selectedChannel === 'all' ? 'Nothing needs a rescuer right now' : 'No cases of this type right now'}
+              </p>
+              {selectedChannel === 'all' && (
+                <p className="text-[12px] text-fg-muted max-w-[280px] mx-auto">
+                  A report leaves this list 24 hours after it is filed. New ones appear here as soon as they come in.
+                </p>
+              )}
+              {selectedChannel !== 'all' && (
+                <button
                 type="button"
                 onClick={() => setSelectedChannel('all')}
                 className="min-h-[44px] px-4 rounded-xl border border-border bg-surface hover:bg-surface-muted text-fg font-semibold text-[14px] cursor-pointer"
               >
                 Show all cases
               </button>
+              )}
             </div>
           ) : (
             <>
-              {feedGroups.map((group) => (
+              {featured && (
+                <FeaturedCase
+                  incident={withDistance(featured)}
+                  onOpen={() => handleRowClick(featured)}
+                  onClaim={canQuickClaim ? () => askClaim(featured) : undefined}
+                  claiming={claimingId === featured.id}
+                  claimHeld={claimHeldFor(decorate(featured))}
+                />
+              )}
+
+              {feedGroups.map((group) => {
+                const isOpenGroup = group.id === 'open';
+                const items = isOpenGroup && featured ? group.items.slice(1) : group.items;
+                if (items.length === 0) return null;
+                return (
                 <section key={group.id} aria-labelledby={`group-${group.id}`}>
                   <h3
                     id={`group-${group.id}`}
                     className="px-4 pt-5 pb-2 flex items-baseline gap-2 text-[14px] font-semibold text-fg"
                   >
-                    {group.title}
-                    <span className="text-[12px] font-normal text-fg-muted tabular-nums">{group.items.length}</span>
+                    {isOpenGroup && featured ? 'Also waiting' : group.title}
+                    <span className="text-[12px] font-normal text-fg-muted tabular-nums">{items.length}</span>
                   </h3>
                   <div className="divide-y divide-border border-y border-border">
-                    {group.items.map((incident) => (
+                    {items.map((incident) => (
                       <IncidentCard
                         key={incident.id}
                         incident={withDistance(incident)}
                         onClick={() => handleRowClick(incident)}
-                        onClaim={canQuickClaim ? () => handleQuickClaim(incident) : undefined}
+                        onClaim={canQuickClaim ? () => askClaim(incident) : undefined}
                         claiming={claimingId === incident.id}
+                        claimHeld={claimHeldFor(decorate(incident))}
                       />
                     ))}
                   </div>
                 </section>
-              ))}
+                );
+              })}
 
               {/* End of list: says the list is complete and offers the next useful step */}
               <div className="px-4 pt-8 pb-4 flex flex-col items-center gap-4 text-center">
@@ -729,9 +908,11 @@ export default function HomePage() {
             <ActiveCaseBar
               incident={withDistance(activeCase)}
               error={actionError}
-              onRelease={() => handleReleaseClaim(activeCase)}
+              onRelease={() => askRelease(activeCase)}
               onAdmit={() => handleAdmitIncident(activeCase)}
-              onClaimAgain={() => handleClaimIncident(activeCase)}
+              onClaimAgain={() => askClaim(activeCase)}
+              onCheckin={(kind) => handleCheckin(activeCase, kind)}
+              onTellClinic={isLiveReport(activeCase) ? () => handleTellClinic(activeCase) : undefined}
               onDismiss={() => setDismissedCaseId(activeCase.id ?? null)}
             />
           </div>
@@ -740,27 +921,67 @@ export default function HomePage() {
 
       {/* Detail Bottom Sheet (opens on row tap) */}
       <DetailSheet
-        incident={selectedIncident ? withDistance(selectedIncident) : null}
+        incident={selectedLive ? withDistance(selectedLive) : null}
         onClose={() => setSelectedIncident(null)}
         role={profile.role}
         userId={profile.user?.id ?? null}
         onSignIn={() => router.push('/settings')}
         actionError={actionError}
         triggerElement={activeTriggerEl}
-        onClaim={handleClaimIncident}
-        onReleaseClaim={handleReleaseClaim}
+        onClaim={askClaim}
+        onReleaseClaim={askRelease}
         onAdmit={handleAdmitIncident}
+        onJoinStandby={handleJoinStandby}
+        onLeaveStandby={(incident) => handleLeaveStandby(incident)}
+        onCheckin={handleCheckin}
+        onTellClinic={handleTellClinic}
+        claimHeld={selectedLive ? claimHeldFor(decorate(selectedLive)) : false}
       />
 
       <ClinicPicker
         open={!!admitTarget}
+        mode={pickerMode}
+        reportId={admitTarget && isLiveReport(admitTarget) ? admitTarget.id : undefined}
         caseLabel={admitTarget ? `${admitTarget.animal} · Case #${admitTarget.shortId}` : undefined}
         near={userPosition}
         busy={admitting}
         error={admitTarget ? actionError : null}
         onPick={(facilityId) => admitTarget && handleAdmitIncident(admitTarget, facilityId)}
+        onHeadsUpSent={(facilityId, etaMinutes) =>
+          admitTarget &&
+          applyUpdate({
+            ...admitTarget,
+            headsUpFacilityId: facilityId,
+            headsUpEtaMinutes: etaMinutes,
+            headsUpResponse: null,
+            headsUpNote: null,
+          })
+        }
         onClose={closeClinicPicker}
       />
+
+      {confirmSheet}
+
+      {/* Undo note for "I'm available" */}
+      {toast && (
+        <div
+          role="status"
+          className="fixed left-0 right-0 bottom-[calc(env(safe-area-inset-bottom,0px)+104px)] z-[55] px-4 pointer-events-none"
+        >
+          <div className="max-w-md mx-auto pointer-events-auto flex items-center gap-3 rounded-2xl bg-fg text-bg px-4 py-3 text-[14px]">
+            <span className="flex-1">{toast.message}</span>
+            {toast.undo && (
+              <button
+                type="button"
+                onClick={toast.undo}
+                className="min-h-[44px] px-3 font-bold underline underline-offset-4 cursor-pointer"
+              >
+                Undo
+              </button>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

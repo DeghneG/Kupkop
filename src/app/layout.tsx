@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import type { Metadata, Viewport } from 'next';
 import { Atkinson_Hyperlegible } from 'next/font/google';
 import './globals.css';
@@ -45,7 +46,10 @@ export default function RootLayout({
           <TestModeBanner />
           <RolePreviewBanner />
           <main className="flex-1 flex flex-col">{children}</main>
-          <Navigation />
+          {/* The dock reads the current address, which a dynamic page like /animal/[id] only knows at runtime */}
+          <Suspense fallback={null}>
+            <Navigation />
+          </Suspense>
         </div>
       </body>
     </html>

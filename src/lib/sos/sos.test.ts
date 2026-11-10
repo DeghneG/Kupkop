@@ -6,6 +6,7 @@ import {
   getEscalationTier,
   needsRescuer,
   formatWaited,
+  isOnLiveFeed,
 } from './escalation';
 import { alertRecipients, currentAlertStage, planAlertStages, usersInArea } from './alerts';
 import { distanceKm, generateCaseId } from './geo';
@@ -133,4 +134,28 @@ describe('waiting time labels', () => {
     [1440, '1d'],
     [21874, '15d'],
   ])('%i minutes reads %s', (minutes, label) => expect(formatWaited(minutes)).toBe(label));
+});
+
+describe('live feed window (24 hours)', () => {
+  const hoursAgo = (h: number) => new Date(Date.now() - h * 3_600_000).toISOString();
+
+  it('a case waiting for a rescuer leaves after 24 hours', () => {
+    expect(isOnLiveFeed({ state: 'reported', createdAt: hoursAgo(23) })).toBe(true);
+    expect(isOnLiveFeed({ state: 'reported', createdAt: hoursAgo(25) })).toBe(false);
+  });
+
+  it('an expired claim counts as waiting, so it leaves too', () => {
+    expect(isOnLiveFeed({ state: 'claimed', createdAt: hoursAgo(30), claimedAt: hoursAgo(29) })).toBe(false);
+    expect(isOnLiveFeed({ state: 'claimed', createdAt: hoursAgo(30), claimedAt: hoursAgo(0.2) })).toBe(true);
+  });
+
+  it('a case in care stays however old it is', () => {
+    expect(isOnLiveFeed({ state: 'admitted', createdAt: hoursAgo(24 * 20) })).toBe(true);
+    expect(isOnLiveFeed({ state: 'healing', createdAt: hoursAgo(24 * 20) })).toBe(true);
+  });
+
+  it('a resolved case leaves 24 hours after it was resolved, not after it was reported', () => {
+    expect(isOnLiveFeed({ state: 'resolved', createdAt: hoursAgo(24 * 6), updatedAt: hoursAgo(5) })).toBe(true);
+    expect(isOnLiveFeed({ state: 'resolved', createdAt: hoursAgo(24 * 6), updatedAt: hoursAgo(30) })).toBe(false);
+  });
 });

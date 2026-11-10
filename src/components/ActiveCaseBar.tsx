@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { Lock, LockOpen, Check } from 'lucide-react';
 import { IncidentData } from './ListRow';
-import { calculateClaimTimer, ESCALATION_CONFIG } from '@/lib/sos/escalation';
+import { calculateClaimTimer, claimLockMinutes } from '@/lib/sos/escalation';
 
 interface ActiveCaseBarProps {
   incident: IncidentData;
@@ -11,6 +11,10 @@ interface ActiveCaseBarProps {
   onAdmit: () => void;
   onClaimAgain: () => void;
   onDismiss: () => void;
+  /** "On my way" then "Arrived": each restarts the lock, once */
+  onCheckin?: (kind: 'on_my_way' | 'arrived') => void;
+  /** Tell a clinic you are bringing an animal (real cases only) */
+  onTellClinic?: () => void;
 }
 
 // Under this many minutes the pill switches to m:ss and the note warns
@@ -23,9 +27,12 @@ export default function ActiveCaseBar({
   onAdmit,
   onClaimAgain,
   onDismiss,
+  onCheckin,
+  onTellClinic,
 }: ActiveCaseBarProps) {
   const [, setTicker] = useState(0);
-  const timer = calculateClaimTimer(incident.claimedAt);
+  const lockMinutes = claimLockMinutes(incident.type);
+  const timer = calculateClaimTimer(incident.claimedAt, lockMinutes);
   const expired = timer.isExpired;
   const expiring = !expired && timer.remainingMinutes < EXPIRING_MINUTES;
 
@@ -41,10 +48,22 @@ export default function ActiveCaseBar({
     : `${timer.remainingMinutes + (timer.remainingSeconds > 0 ? 1 : 0)}m left`;
 
   const lockUntil = incident.claimedAt
-    ? new Date(
-        new Date(incident.claimedAt).getTime() + ESCALATION_CONFIG.claimLockDurationMinutes * 60 * 1000
-      ).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+    ? new Date(new Date(incident.claimedAt).getTime() + lockMinutes * 60 * 1000).toLocaleTimeString([], {
+        hour: 'numeric',
+        minute: '2-digit',
+      })
     : '';
+
+  // The next check-in on offer, if any
+  const nextCheckin = !incident.checkinKind ? 'on_my_way' : incident.checkinKind === 'on_my_way' ? 'arrived' : null;
+  const standbyCount = incident.standby?.length ?? 0;
+  const headsUp = incident.headsUpFacilityName
+    ? incident.headsUpResponse === 'expecting'
+      ? `${incident.headsUpFacilityName} is expecting you.`
+      : incident.headsUpResponse === 'cannot'
+        ? `${incident.headsUpFacilityName} cannot take it now${incident.headsUpNote ? `: ${incident.headsUpNote}` : ''}. Choose another clinic.`
+        : `Told ${incident.headsUpFacilityName}. Waiting for their answer.`
+    : null;
 
   return (
     <section
@@ -90,11 +109,43 @@ export default function ActiveCaseBar({
               ? 'Lock ends soon. Admit or release.'
               : `Locked to you until ${lockUntil}`}
         </p>
+        {headsUp && (
+          <p
+            className={`text-[12px] ${incident.headsUpResponse === 'cannot' ? 'font-semibold text-claimed-fg' : 'text-fg-muted'}`}
+            aria-live="polite"
+          >
+            {headsUp}
+          </p>
+        )}
+        {standbyCount > 0 && (
+          <p className="text-[12px] text-fg-muted">
+            {standbyCount === 1 ? '1 volunteer is' : `${standbyCount} volunteers are`} on standby if you cannot go.
+          </p>
+        )}
         {error && (
           <p role="alert" className="text-[12px] font-semibold text-fg">
             {error}
           </p>
         )}
+        {!expired && onCheckin && nextCheckin && (
+          <button
+            type="button"
+            onClick={() => onCheckin(nextCheckin)}
+            className="min-h-[44px] rounded-xl border border-border bg-surface hover:bg-surface-muted text-[14px] font-semibold text-fg cursor-pointer"
+          >
+            {nextCheckin === 'on_my_way' ? `On my way (restarts the ${lockMinutes}-minute lock)` : "I've arrived (restarts the lock)"}
+          </button>
+        )}
+        {!expired && onTellClinic && (
+          <button
+            type="button"
+            onClick={onTellClinic}
+            className="min-h-[44px] rounded-xl border border-border bg-surface hover:bg-surface-muted text-[14px] font-semibold text-fg cursor-pointer"
+          >
+            {incident.headsUpFacilityName ? 'Tell a different clinic' : 'Tell a clinic I’m coming'}
+          </button>
+        )}
+        {incident.checkinKind === 'arrived' && <p className="text-[12px] text-fg-muted">You checked in: arrived.</p>}
       </div>
 
       <div className="flex items-center gap-3">

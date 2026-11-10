@@ -8,7 +8,7 @@ in src/lib/sos/escalation.ts, src/lib/sos/geo.ts, src/types/database.ts: no DOM 
 React Native imports there.
 PILLARS: SOS (live camera only, GPS, server-side timestamp), Feed with claim
 lock, 14-day facility inactivity clock, Rafa (first-aid + rules helper,
-English/Filipino, calm and warm). Later: Lost & Found, donations, adoption, Saludo.
+English/Filipino, calm and warm). Later: Lost & Found, donations, Saludo (adoption dropped, 2026-11-10).
 BUILDER: solo, ~10 hrs/week.
 ROLES: profiles.role = citizen | volunteer | facility | admin. Volunteer and
 facility are applications approved by the admin. Users can never change their
@@ -19,7 +19,10 @@ LOGIN: email + Google first; phone OTP later.
 CASE STATES: reported, claimed, admitted, healing, resolved.
 ESCALATION (config constants, tunable): Hit-and-Run/Bleeding critical at once,
 widen at 3 min, "no responder" at 10. Fracture/Trapped-Abused: 5 / 15.
-Sick/Mange: 15 / 60.
+Sick/Mange: 15 / 60. CLAIM LOCK by severity: 15 / 30 / 60 min (D-042); "On my way"
+and "Arrived" restart it once each; volunteers can stand by ("I'm available") and the
+first in line gets 2 min when the lock ends. Clinics set Open / Emergencies only / Full
+(trusted 12 h, self-reported). Every serious button asks "Are you sure?" (ConfirmSheet).
 MOTION: Web: GSAP via @gsap/react useGSAP, client components only, wrapped in
 gsap.matchMedia() for prefers-reduced-motion. Mobile: Reanimated, respecting
 useReducedMotion(). Both: animate transform/opacity only, clean up on unmount,

@@ -5,6 +5,7 @@ import { Phone, MapPin, HeartPulse, AlertCircle } from 'lucide-react';
 import { useUserPosition } from '@/lib/useUserPosition';
 import { distanceKm, formatDistance } from '@/lib/sos/utils';
 import { calculateFacilityInactivity, type FacilityClockStatus } from '@/lib/sos/escalation';
+import { availabilityNote, effectiveAvailability } from '@/lib/sos/clinics';
 import { createClient } from '@/lib/supabase/client';
 import ScreenHeader from '@/components/ScreenHeader';
 import StageWeave from '@/components/StageWeave';
@@ -15,6 +16,9 @@ interface Clinic {
   address: string;
   latitude: number;
   longitude: number;
+  /** Set by the clinic itself, never verified; missing before the D-042 migration */
+  availability: string | null;
+  availabilitySetAt: string | null;
   /** Animals this clinic is caring for now (admitted or healing) */
   inCare: number;
   /** The most overdue in-care case; null when the clinic has no animals in care */
@@ -37,8 +41,27 @@ export default function FacilitiesPage() {
   useEffect(() => {
     let active = true;
     const supabase = createClient();
+    type FacilityRow = {
+      id: string;
+      name: string;
+      address: string;
+      latitude: number;
+      longitude: number;
+      availability?: string | null;
+      availability_set_at?: string | null;
+    };
+    // The status columns arrive with the D-042 migration; read the plain list before it
+    const loadFacilities = async (): Promise<{ data: FacilityRow[] | null; error: { message: string } | null }> => {
+      const withStatus = await supabase
+        .from('facilities')
+        .select('id,name,address,latitude,longitude,availability,availability_set_at')
+        .eq('status', 'Listed')
+        .order('name');
+      if (!withStatus.error) return withStatus;
+      return supabase.from('facilities').select('id,name,address,latitude,longitude').eq('status', 'Listed').order('name');
+    };
     Promise.all([
-      supabase.from('facilities').select('id,name,address,latitude,longitude').eq('status', 'Listed').order('name'),
+      loadFacilities(),
       supabase
         .from('sos_reports')
         .select('facility_id,updated_at,recovery_updates(created_at)')
@@ -67,7 +90,17 @@ export default function FacilitiesPage() {
           const worst =
             clocks.sort((a, b) => STATUS_RANK[a.status] - STATUS_RANK[b.status] || b.elapsedDays - a.elapsedDays)[0] ??
             null;
-          return { ...f, inCare: clocks.length, worstClock: worst };
+          return {
+            id: f.id,
+            name: f.name,
+            address: f.address,
+            latitude: f.latitude,
+            longitude: f.longitude,
+            availability: f.availability ?? null,
+            availabilitySetAt: f.availability_set_at ?? null,
+            inCare: clocks.length,
+            worstClock: worst,
+          };
         })
       );
     });
@@ -145,6 +178,12 @@ export default function FacilitiesPage() {
                   Listed
                 </span>
               </div>
+
+              <p
+                className={`text-[12px] ${effectiveAvailability(clinic.availability, clinic.availabilitySetAt) === 'full' ? 'font-bold text-fg' : 'text-fg-muted'}`}
+              >
+                {availabilityNote(clinic.availability, clinic.availabilitySetAt)} · reported by the clinic
+              </p>
 
               <div className="pt-3 border-t border-border flex items-center justify-between gap-3">
                 <CareSummary clinic={clinic} />

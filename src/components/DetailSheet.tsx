@@ -18,7 +18,15 @@ import {
 } from 'lucide-react';
 import { IncidentData } from './ListRow';
 import { formatCoordinates } from '@/lib/sos/utils';
-import { calculateClaimTimer, calculateFacilityInactivity, calculateEscalation, needsRescuer, formatWaited } from '@/lib/sos/escalation';
+import {
+  calculateClaimTimer,
+  calculateFacilityInactivity,
+  calculateEscalation,
+  claimLockMinutes,
+  needsRescuer,
+  formatWaited,
+} from '@/lib/sos/escalation';
+import { standbyPosition } from '@/lib/sos/standby';
 import TriageGlyph from '@/components/icons/TriageGlyph';
 import CaseRecovery from '@/components/CaseRecovery';
 import { useFocusTrap } from '@/lib/useFocusTrap';
@@ -40,6 +48,15 @@ interface DetailSheetProps {
   onClaim?: (incident: IncidentData) => Promise<void> | void;
   onReleaseClaim?: (incident: IncidentData) => Promise<void> | void;
   onAdmit?: (incident: IncidentData, facilityId?: string) => Promise<void> | void;
+  /** "I'm available" on a case someone else has claimed (volunteers and admins) */
+  onJoinStandby?: (incident: IncidentData) => Promise<void> | void;
+  onLeaveStandby?: (incident: IncidentData) => Promise<void> | void;
+  /** "On my way" / "Arrived": restarts the claim lock */
+  onCheckin?: (incident: IncidentData, kind: 'on_my_way' | 'arrived') => Promise<void> | void;
+  /** Tell a clinic you are bringing an animal */
+  onTellClinic?: (incident: IncidentData) => void;
+  /** The case is open again but held for the first volunteer on standby */
+  claimHeld?: boolean;
 }
 
 export default function DetailSheet({
@@ -53,6 +70,11 @@ export default function DetailSheet({
   onClaim,
   onReleaseClaim,
   onAdmit,
+  onJoinStandby,
+  onLeaveStandby,
+  onCheckin,
+  onTellClinic,
+  claimHeld = false,
 }: DetailSheetProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const backdropRef = useRef<HTMLDivElement>(null);
@@ -186,8 +208,15 @@ export default function DetailSheet({
   // Sample cases ("case-*") have no database row to read updates from or flag
   const isLive = !!incident.id && !incident.id.startsWith('case-');
   // An expired claim is open again for other volunteers
-  const open = needsRescuer(incident.state, incident.claimedAt);
+  const open = needsRescuer(incident.state, incident.claimedAt, incident.type);
   const isMine = !!userId && incident.claimedBy === userId;
+  // The lock is shorter for the cases where minutes matter most (15 / 30 / 60)
+  const lockMinutes = claimLockMinutes(incident.type);
+  const lockTimer = calculateClaimTimer(incident.claimedAt, lockMinutes);
+  const isResponder = role === 'volunteer' || role === 'admin';
+  const standbyList = incident.standby ?? [];
+  const myStandbyPlace = standbyPosition(standbyList, userId);
+  const nextCheckin = !incident.checkinKind ? 'on_my_way' : incident.checkinKind === 'on_my_way' ? 'arrived' : null;
   const escalation = calculateEscalation(incident.createdAt, incident.type);
 
   const handleCallClick = () => {
@@ -281,7 +310,7 @@ export default function DetailSheet({
           <div className="space-y-1">
             <div className="flex items-center justify-between gap-2">
               <h2 id="detail-sheet-title" className="text-[22px] font-semibold text-fg tracking-tight">
-                {incident.animal}
+                {incident.animalName ? `${incident.animalName} · ${incident.animal}` : incident.animal}
               </h2>
               <span className="font-mono text-[12px] font-semibold text-fg-muted bg-surface-muted px-3 py-1 rounded-full border border-border tabular-nums shrink-0">
                 {incident.shortId}
@@ -366,24 +395,43 @@ export default function DetailSheet({
                     <span>Volunteer Claim Lock</span>
                   </div>
                   <span className="font-mono text-[12px] font-semibold tabular-nums">
-                    {calculateClaimTimer(incident.claimedAt).isExpired
-                      ? 'Lock Expired'
-                      : calculateClaimTimer(incident.claimedAt).formatted}
+                    {lockTimer.isExpired ? 'Lock Expired' : lockTimer.formatted}
                   </span>
                 </div>
                 <div className="w-full bg-claimed-fg/15 h-1.5 rounded-full overflow-hidden">
                   <div
                     className="bg-claimed-fg h-full transition-all duration-1000 rounded-full"
                     style={{
-                      width: `${calculateClaimTimer(incident.claimedAt).percentRemaining}%`,
+                      width: `${lockTimer.percentRemaining}%`,
                     }}
                   />
                 </div>
                 <p className="text-[12px] text-claimed-fg/90 font-normal leading-tight">
-                  {calculateClaimTimer(incident.claimedAt).isExpired
-                    ? 'The 60-minute claim lock has run out. Any volunteer can claim this case now.'
-                    : 'Rescue is locked for 60 minutes to prevent duplicate volunteer dispatches.'}
+                  {lockTimer.isExpired
+                    ? `The ${lockMinutes}-minute claim lock has run out. ${
+                        claimHeld ? 'It is held for the next volunteer in line for a moment.' : 'Any volunteer can claim this case now.'
+                      }`
+                    : `Rescue is locked for ${lockMinutes} minutes to prevent duplicate volunteer dispatches. Checking in restarts the lock.`}
                 </p>
+                {incident.checkinKind && (
+                  <p className="text-[12px] font-semibold text-claimed-fg">
+                    {incident.checkinKind === 'arrived' ? 'The rescuer has arrived.' : 'The rescuer is on the way.'}
+                  </p>
+                )}
+                {incident.headsUpFacilityName && (
+                  <p className="text-[12px] font-semibold text-claimed-fg">
+                    {incident.headsUpResponse === 'expecting'
+                      ? `${incident.headsUpFacilityName} is expecting the animal.`
+                      : incident.headsUpResponse === 'cannot'
+                        ? `${incident.headsUpFacilityName} cannot take it now${incident.headsUpNote ? `: ${incident.headsUpNote}` : ''}.`
+                        : `${incident.headsUpFacilityName} has been told the animal is coming.`}
+                  </p>
+                )}
+                {isResponder && standbyList.length > 0 && (
+                  <p className="text-[12px] text-claimed-fg/90">
+                    {standbyList.length === 1 ? '1 volunteer is' : `${standbyList.length} volunteers are`} on standby if the rescuer cannot go.
+                  </p>
+                )}
               </div>
             )}
 
@@ -395,6 +443,15 @@ export default function DetailSheet({
                 state={incident.state}
                 canPost={role === 'facility' || role === 'admin'}
               />
+            )}
+            {isLive && (incident.state === 'admitted' || incident.state === 'healing' || incident.state === 'resolved') && (
+              <Link
+                href={`/animal/${incident.id}`}
+                className="w-full min-h-[44px] rounded-xl border border-border bg-surface hover:bg-surface-muted text-fg font-semibold text-[14px] flex items-center justify-center gap-2"
+              >
+                <HeartPulse className="w-4 h-4 text-fg-muted" aria-hidden="true" />
+                <span>{incident.animalName ? `Open ${incident.animalName}'s page` : "Open this animal's page"}</span>
+              </Link>
             )}
             {!isLive && (incident.state === 'admitted' || incident.state === 'healing') && (
               <div className="bg-healing-bg text-healing-fg border border-healing-fg/20 rounded-2xl p-4 space-y-2">
@@ -441,19 +498,46 @@ export default function DetailSheet({
                     <button
                       type="button"
                       onClick={() => onClaim?.(incident)}
-                      className="w-full min-h-[48px] bg-accent hover:opacity-90 active:scale-[0.98] text-accent-fg font-semibold text-[16px] rounded-xl flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer border-none"
+                      disabled={claimHeld}
+                      className="w-full min-h-[48px] bg-accent hover:opacity-90 active:scale-[0.98] text-accent-fg font-semibold text-[16px] rounded-xl flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer border-none disabled:opacity-60 disabled:cursor-not-allowed"
                     >
                       <HeartHandshake className="w-5 h-5" aria-hidden="true" />
-                      <span>{incident.state === 'claimed' ? 'Claim this rescue (lock expired)' : 'Claim Rescue (60m Lock)'}</span>
+                      <span>
+                        {claimHeld
+                          ? 'Held for the next volunteer in line'
+                          : incident.state === 'claimed'
+                            ? 'Claim this rescue (lock expired)'
+                            : `Claim Rescue (${lockMinutes}m Lock)`}
+                      </span>
                     </button>
                     <p className="text-[12px] text-fg-muted text-center font-normal">
-                      Locks the case to you for 60 minutes so two volunteers don&apos;t go to the same animal.
+                      {claimHeld
+                        ? 'A volunteer who said they were available gets two minutes to claim first. Then anyone can.'
+                        : `Locks the case to you for ${lockMinutes} minutes so two volunteers don't go to the same animal.`}
                     </p>
                   </div>
                 )
               ) : incident.state === 'claimed' ? (
                 isMine || role === 'admin' ? (
                   <div className="space-y-2">
+                    {isMine && isLive && nextCheckin && !lockTimer.isExpired && (
+                      <button
+                        type="button"
+                        onClick={() => onCheckin?.(incident, nextCheckin)}
+                        className="w-full min-h-[44px] rounded-xl border border-border bg-surface hover:bg-surface-muted text-fg font-semibold text-[14px] cursor-pointer"
+                      >
+                        {nextCheckin === 'on_my_way' ? `On my way (restarts the ${lockMinutes}-minute lock)` : "I've arrived (restarts the lock)"}
+                      </button>
+                    )}
+                    {isMine && isLive && !lockTimer.isExpired && (
+                      <button
+                        type="button"
+                        onClick={() => onTellClinic?.(incident)}
+                        className="w-full min-h-[44px] rounded-xl border border-border bg-surface hover:bg-surface-muted text-fg font-semibold text-[14px] cursor-pointer"
+                      >
+                        {incident.headsUpFacilityName ? 'Tell a different clinic' : 'Tell a clinic I’m coming'}
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => onAdmit?.(incident)}
@@ -472,12 +556,39 @@ export default function DetailSheet({
                     </button>
                   </div>
                 ) : (
-                  <div className="w-full min-h-[48px] rounded-xl bg-surface-muted border border-border flex items-center justify-center gap-2 text-[14px] text-fg-muted font-normal">
-                    <TriageGlyph state="claimed" size={14} className="text-claimed-fg shrink-0" />
-                    <span>
-                      {claimerName ? `${claimerName} is on the way` : 'A rescuer is on the way'} (
-                      {calculateClaimTimer(incident.claimedAt).remainingMinutes}m lock left)
-                    </span>
+                  <div className="space-y-2">
+                    <div className="w-full min-h-[48px] rounded-xl bg-surface-muted border border-border flex items-center justify-center gap-2 text-[14px] text-fg-muted font-normal">
+                      <TriageGlyph state="claimed" size={14} className="text-claimed-fg shrink-0" />
+                      <span>
+                        {claimerName ? `${claimerName} is on the way` : 'A rescuer is on the way'} ({lockTimer.remainingMinutes}m lock
+                        left)
+                      </span>
+                    </div>
+                    {isLive && isResponder && userId && (
+                      myStandbyPlace ? (
+                        <div className="space-y-1">
+                          <p className="text-[12px] text-fg-muted text-center">
+                            You are {myStandbyPlace === 1 ? 'first' : `number ${myStandbyPlace}`} in line. If the lock ends you are told, and
+                            {myStandbyPlace === 1 ? ' you get two minutes to claim first.' : ' the first volunteer gets two minutes before you.'}
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => onLeaveStandby?.(incident)}
+                            className="w-full min-h-[44px] rounded-xl border border-border bg-surface hover:bg-surface-muted text-fg font-semibold text-[14px] cursor-pointer"
+                          >
+                            Leave standby
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => onJoinStandby?.(incident)}
+                          className="w-full min-h-[44px] rounded-xl border-2 border-action bg-surface hover:bg-surface-muted text-action font-bold text-[14px] cursor-pointer"
+                        >
+                          I&apos;m available if the lock ends
+                        </button>
+                      )
+                    )}
                   </div>
                 )
               ) : (

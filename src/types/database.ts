@@ -33,8 +33,11 @@ export interface Facility {
   latitude: number;
   longitude: number;
   // Prototype rule: labeled "Listed", NEVER "Verified"
-  status: 'Listed' | 'Pending';
+  status: 'Listed' | 'Pending' | 'Paused';
   last_active_at: string; // for 14-day inactivity clock
+  // Set by the clinic itself; trusted for 12 hours (see src/lib/sos/clinics.ts), never verified
+  availability: 'open' | 'limited' | 'full' | null;
+  availability_set_at: string | null;
   created_at: string;
 }
 
@@ -54,6 +57,19 @@ export interface SOSReport {
   facility_id: string | null;
   // Set when an admin hides a fake report; hidden reports leave the public feed
   hidden_at: string | null;
+  // Named by the rescuer, the clinic or an admin
+  animal_name: string | null;
+  // The rescuer's last check-in on this claim; each one restarts the claim lock
+  checkin_kind: 'on_my_way' | 'arrived' | null;
+  checkin_at: string | null;
+  // The rescuer told a clinic they are coming, and the clinic's answer
+  heads_up_facility_id: string | null;
+  heads_up_eta_minutes: number | null;
+  heads_up_at: string | null;
+  heads_up_response: 'expecting' | 'cannot' | null;
+  heads_up_response_at: string | null;
+  heads_up_note: string | null;
+  admin_assigned_at: string | null;
   server_timestamp: string; // server-side default now()
   created_at: string;
   updated_at: string;

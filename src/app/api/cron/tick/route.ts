@@ -4,8 +4,18 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { sendWebPush, webPushReady } from '@/lib/push/webPush';
 import { checkReportPhoto } from '@/lib/gemini/photoCheck';
-import { alertMessage, alertRecipients, currentAlertStage, planAlertStages, type AlertArea, type AlertStage } from '@/lib/sos/alerts';
-import { ESCALATION_CONFIG } from '@/lib/sos/escalation';
+import {
+  alertMessage,
+  alertRecipients,
+  currentAlertStage,
+  planAlertStages,
+  reporterNoResponderMessage,
+  type AlertArea,
+  type AlertStage,
+} from '@/lib/sos/alerts';
+import { ESCALATION_CONFIG, claimLockEndsAt } from '@/lib/sos/escalation';
+import { headsUpMessage, rankClinics } from '@/lib/sos/clinics';
+import { claimPhase, standbyQueue } from '@/lib/sos/standby';
 import { animalLabel, emergencyLabel } from '@/lib/sos/labels';
 
 // Called every minute by the Supabase scheduler (pg_cron + pg_net), see supabase/setup/cron_tick.sql.
@@ -38,6 +48,10 @@ export async function POST(request: Request) {
     ['escalation', escalate],
     ['care', overdueCare],
     ['declines', declinedAdmissions],
+    ['clinicHeadsUps', clinicHeadsUps],
+    ['headsUpAnswers', headsUpAnswers],
+    ['standby', standbyTurns],
+    ['assignments', adminAssignments],
     ['photos', photoChecks],
   ] as const) {
     try {
@@ -105,6 +119,186 @@ async function escalate(db: SupabaseClient, pushReady: boolean) {
       });
       sent += await sendWebPush(db, recipients, { ...msg, url: `/?case=${r.id}`, tag: `case-${r.id}` });
     }
+
+    // Nobody has responded: the person standing next to the animal gets something to do and a clinic to call
+    if (plan.send === 'no_responder' && pushReady && r.reporter_id) {
+      const clinic = await nearestOpenClinic(db, { lat: r.latitude, lng: r.longitude });
+      const msg = reporterNoResponderMessage({ shortId: r.short_id, clinicName: clinic?.name ?? null, clinicPhone: clinic?.phone ?? null });
+      sent += await sendWebPush(db, [r.reporter_id], { ...msg, url: '/rafa', tag: `noresponder-${r.id}` });
+    }
+  }
+  return { sent };
+}
+
+/** The nearest Listed clinic that has not reported itself full. The status columns arrive with the D-042 migration. */
+async function nearestOpenClinic(db: SupabaseClient, near: { lat: number; lng: number }) {
+  const basic = 'id,name,phone,latitude,longitude';
+  const full = await db.from('facilities').select(`${basic},availability,availability_set_at`).eq('status', 'Listed');
+  const rows: Record<string, unknown>[] = full.error
+    ? ((await db.from('facilities').select(basic).eq('status', 'Listed')).data ?? [])
+    : (full.data ?? []);
+  const clinics = rows.map((f) => ({
+    id: f.id as string,
+    name: f.name as string,
+    phone: (f.phone as string | null) ?? null,
+    latitude: f.latitude as number,
+    longitude: f.longitude as number,
+    availability: (f as { availability?: string | null }).availability ?? null,
+    availabilitySetAt: (f as { availability_set_at?: string | null }).availability_set_at ?? null,
+  }));
+  return rankClinics(clinics, near).find((r) => r.suggested)?.clinic ?? null;
+}
+
+/** Everyone who works at a clinic, so a heads-up reaches whoever is on duty. */
+async function clinicStaffIds(db: SupabaseClient, facilityId: string): Promise<string[]> {
+  const { data } = await db.from('profiles').select('id').eq('role', 'facility').eq('facility_id', facilityId);
+  return (data ?? []).map((s) => s.id as string);
+}
+
+/** A rescuer told a clinic they are coming: the clinic's staff are notified once per heads-up. */
+async function clinicHeadsUps(db: SupabaseClient, pushReady: boolean) {
+  if (!pushReady) return { sent: 0 };
+  const since = new Date(Date.now() - 30 * 60_000).toISOString();
+  const { data: reports, error } = await db
+    .from('sos_reports')
+    .select('id,short_id,animal_type,emergency_type,heads_up_facility_id,heads_up_eta_minutes,heads_up_at')
+    .eq('state', 'claimed')
+    .not('heads_up_facility_id', 'is', null)
+    .is('heads_up_response', null)
+    .gte('heads_up_at', since);
+  if (error) return { sent: 0, skipped: 'D-042 migration not run yet' };
+
+  let sent = 0;
+  for (const r of reports ?? []) {
+    const { error: logError } = await db.from('push_event_log').insert({ key: `headsup:${r.id}:${r.heads_up_at}` });
+    if (logError) continue;
+    const msg = headsUpMessage({
+      animal: animalLabel(r.animal_type),
+      type: emergencyLabel(r.emergency_type),
+      etaMinutes: r.heads_up_eta_minutes ?? null,
+      shortId: r.short_id,
+    });
+    sent += await sendWebPush(db, await clinicStaffIds(db, r.heads_up_facility_id as string), { ...msg, url: '/care', tag: `headsup-${r.id}` });
+  }
+  return { sent };
+}
+
+/** The clinic answered: the rescuer hears "expecting you" or "choose another clinic" right away. */
+async function headsUpAnswers(db: SupabaseClient, pushReady: boolean) {
+  if (!pushReady) return { sent: 0 };
+  const since = new Date(Date.now() - 30 * 60_000).toISOString();
+  const { data: reports, error } = await db
+    .from('sos_reports')
+    .select('id,short_id,claimed_by,heads_up_facility_id,heads_up_response,heads_up_response_at,heads_up_note')
+    .eq('state', 'claimed')
+    .not('heads_up_response', 'is', null)
+    .gte('heads_up_response_at', since);
+  if (error) return { sent: 0, skipped: 'D-042 migration not run yet' };
+
+  let sent = 0;
+  for (const r of reports ?? []) {
+    if (!r.claimed_by) continue;
+    const { error: logError } = await db.from('push_event_log').insert({ key: `headsupanswer:${r.id}:${r.heads_up_response_at}` });
+    if (logError) continue;
+    const { data: clinic } = await db.from('facilities').select('name').eq('id', r.heads_up_facility_id).maybeSingle();
+    const name = clinic?.name ?? 'The clinic';
+    const expecting = r.heads_up_response === 'expecting';
+    sent += await sendWebPush(db, [r.claimed_by as string], {
+      title: expecting ? `${name} is expecting you · #${r.short_id}` : `Choose another clinic · #${r.short_id}`,
+      body: expecting
+        ? 'Keep going. They will confirm when the animal arrives.'
+        : `${name} cannot take the animal now${r.heads_up_note ? `: ${r.heads_up_note}` : ''}. Pick another clinic.`,
+      url: `/?case=${r.id}`,
+      tag: `case-${r.id}`,
+    });
+  }
+  return { sent };
+}
+
+/**
+ * Standby: when a lock ends (or a rescuer releases), the first volunteer in line is told they have a head start.
+ * If they do not claim within the grace window, the rest of the line is told the case is open.
+ */
+async function standbyTurns(db: SupabaseClient, pushReady: boolean) {
+  if (!pushReady) return { sent: 0 };
+  const { data: rows, error } = await db
+    .from('claim_standby')
+    .select('report_id,volunteer_id,created_at,sos_reports(id,short_id,state,claimed_at,updated_at,emergency_type,hidden_at)');
+  if (error) return { sent: 0, skipped: 'D-042 migration not run yet' };
+
+  type Report = { id: string; short_id: string; state: string; claimed_at: string | null; updated_at: string; emergency_type: string; hidden_at: string | null };
+  const byReport = new Map<string, { report: Report; entries: { volunteerId: string; joinedAt: string }[] }>();
+  for (const row of rows ?? []) {
+    const report = row.sos_reports as unknown as Report | null;
+    if (!report || report.hidden_at) continue;
+    const group = byReport.get(report.id) ?? { report, entries: [] };
+    group.entries.push({ volunteerId: row.volunteer_id as string, joinedAt: row.created_at as string });
+    byReport.set(report.id, group);
+  }
+
+  let sent = 0;
+  for (const { report, entries } of byReport.values()) {
+    // Only a case that is open again: released, or its lock ran out
+    const open =
+      report.state === 'reported' ||
+      (report.state === 'claimed' && (claimLockEndsAt(report.claimed_at, report.emergency_type) ?? Infinity) <= Date.now());
+    if (!open) continue;
+    const marker = report.state === 'claimed' ? report.claimed_at : report.updated_at;
+    const queue = standbyQueue(entries);
+    const phase = claimPhase({
+      state: report.state,
+      claimedAt: report.claimed_at,
+      type: report.emergency_type,
+      releasedAt: report.updated_at,
+      standby: entries,
+    });
+
+    if (phase.phase === 'reserved') {
+      const { error: logError } = await db.from('push_event_log').insert({ key: `standby:${report.id}:${marker}` });
+      if (logError) continue;
+      sent += await sendWebPush(db, [queue[0].volunteerId], {
+        title: `It’s open, you’re next · #${report.short_id}`,
+        body: 'The rescuer’s lock ended. You have two minutes to claim it before everyone else can.',
+        url: `/?case=${report.id}`,
+        tag: `case-${report.id}`,
+      });
+    } else if (phase.phase === 'open' && queue.length > 1) {
+      const { error: logError } = await db.from('push_event_log').insert({ key: `standbyopen:${report.id}:${marker}` });
+      if (logError) continue;
+      sent += await sendWebPush(db, queue.slice(1).map((e) => e.volunteerId), {
+        title: `Still open · #${report.short_id}`,
+        body: 'Nobody has claimed it yet. You said you were available.',
+        url: `/?case=${report.id}`,
+        tag: `case-${report.id}`,
+      });
+    }
+  }
+  return { sent };
+}
+
+/** An admin assigned a volunteer to a case nobody had taken: tell the volunteer. */
+async function adminAssignments(db: SupabaseClient, pushReady: boolean) {
+  if (!pushReady) return { sent: 0 };
+  const since = new Date(Date.now() - 15 * 60_000).toISOString();
+  const { data: reports, error } = await db
+    .from('sos_reports')
+    .select('id,short_id,claimed_by,admin_assigned_at,location_name')
+    .eq('state', 'claimed')
+    .not('claimed_by', 'is', null)
+    .not('admin_assigned_at', 'is', null)
+    .gte('admin_assigned_at', since);
+  if (error) return { sent: 0, skipped: 'D-042 migration not run yet' };
+
+  let sent = 0;
+  for (const r of reports ?? []) {
+    const { error: logError } = await db.from('push_event_log').insert({ key: `assigned:${r.id}:${r.admin_assigned_at}` });
+    if (logError) continue;
+    sent += await sendWebPush(db, [r.claimed_by as string], {
+      title: `An admin assigned you · #${r.short_id}`,
+      body: `${(r.location_name || 'Pinned location').split(' — ')[0]}. Open it, then tap “On my way”.`,
+      url: `/?case=${r.id}`,
+      tag: `case-${r.id}`,
+    });
   }
   return { sent };
 }

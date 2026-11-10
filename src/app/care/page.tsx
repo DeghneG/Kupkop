@@ -9,9 +9,24 @@ import StageWeave from '@/components/StageWeave';
 import { useProfile } from '@/lib/supabase/useProfile';
 import { calculateFacilityInactivity, type FacilityClockStatus } from '@/lib/sos/escalation';
 import { animalLabel, emergencyLabel, CARE_STATE_LABELS } from '@/lib/sos/labels';
+import { availabilityNote, CLINIC_STATUS_LABELS, effectiveAvailability, type ClinicStatus } from '@/lib/sos/clinics';
+import { useConfirm, type ConfirmOptions } from '@/components/ConfirmSheet';
 import ScreenHeader from '@/components/ScreenHeader';
 
 type CareState = keyof typeof CARE_STATE_LABELS;
+type Ask = (options: ConfirmOptions) => void;
+
+/** A rescuer who has told this clinic they are bringing an animal */
+interface Incoming {
+  id: string;
+  shortId: string;
+  animal: string;
+  type: string;
+  etaMinutes: number | null;
+  headsUpAt: string | null;
+  response: 'expecting' | 'cannot' | null;
+  clinicName: string;
+}
 
 interface CareUpdate {
   notes: string;
@@ -26,6 +41,8 @@ interface CareCase {
   type: string;
   state: CareState;
   clinicName: string;
+  /** Named by the clinic, the rescuer or an admin; missing before the D-042 migration */
+  animalName: string | null;
   /** Brought in by a rescuer, not yet confirmed by the clinic */
   awaitingIntake: boolean;
   /** Newest first */
@@ -41,6 +58,7 @@ type Row = {
   updated_at: string;
   /** Missing before the intake migration runs */
   intake_confirmed_at?: string | null;
+  animal_name?: string | null;
   facilities: { name: string } | null;
   recovery_updates: { notes: string; state: CareState; created_at: string }[] | null;
 };
@@ -57,7 +75,7 @@ const SAMPLE_CLINIC = 'Test Clinic A (Katipunan)';
 
 // Shown only while previewing the Clinic staff or Admin role: made-up cases that show each state of the page
 function sampleCases(): CareCase[] {
-  const base = { clinicName: SAMPLE_CLINIC };
+  const base = { clinicName: SAMPLE_CLINIC, animalName: null };
   return [
     {
       ...base,
@@ -121,6 +139,10 @@ export default function CarePage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const { ask, sheet: confirmSheet } = useConfirm();
+  // The clinic's own status and the animals on their way here (both arrive with the D-042 migration)
+  const [availability, setAvailability] = useState<{ status: string | null; setAt: string | null }>({ status: null, setAt: null });
+  const [incoming, setIncoming] = useState<Incoming[]>([]);
 
   // A role preview shows sample cases, read-only; the real clinic data stays behind the real role
   const sample = isPreview;
@@ -162,6 +184,7 @@ export default function CarePage() {
           type: emergencyLabel(r.emergency_type),
           state: r.state,
           clinicName: r.facilities?.name ?? 'Listed clinic',
+          animalName: r.animal_name ?? null,
           awaitingIntake: r.state === 'admitted' && 'intake_confirmed_at' in r && !r.intake_confirmed_at,
           updates: (r.recovery_updates ?? [])
             .map((u) => ({ notes: u.notes, state: u.state, createdAt: u.created_at }))
@@ -177,12 +200,55 @@ export default function CarePage() {
         .eq('id', facilityId)
         .maybeSingle()
         .then(({ data }) => active && setClinicName(data?.name ?? null));
+      // Missing columns (before the migration) just leave the status unset
+      supabase
+        .from('facilities')
+        .select('availability,availability_set_at')
+        .eq('id', facilityId)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (active && data) setAvailability({ status: data.availability ?? null, setAt: data.availability_set_at ?? null });
+        });
     }
+
+    // Rescuers who told a clinic they are coming, waiting for an answer or already answered "expecting"
+    let incomingQuery = supabase
+      .from('sos_reports')
+      .select('id,short_id,animal_type,emergency_type,heads_up_facility_id,heads_up_eta_minutes,heads_up_at,heads_up_response')
+      .eq('state', 'claimed')
+      .not('heads_up_facility_id', 'is', null)
+      .order('heads_up_at', { ascending: false });
+    if (!isAdmin && facilityId) incomingQuery = incomingQuery.eq('heads_up_facility_id', facilityId);
+    Promise.all([incomingQuery, supabase.from('facilities').select('id,name')]).then(([cases, names]) => {
+      if (!active || cases.error) return;
+      const nameById = new Map((names.data ?? []).map((f) => [f.id as string, f.name as string]));
+      setIncoming(
+        (cases.data ?? [])
+          .filter((r) => r.heads_up_response !== 'cannot')
+          .map((r) => ({
+            id: r.id,
+            shortId: r.short_id,
+            animal: animalLabel(r.animal_type),
+            type: emergencyLabel(r.emergency_type),
+            etaMinutes: r.heads_up_eta_minutes ?? null,
+            headsUpAt: r.heads_up_at ?? null,
+            response: (r.heads_up_response as Incoming['response']) ?? null,
+            clinicName: nameById.get(r.heads_up_facility_id as string) ?? 'Listed clinic',
+          }))
+      );
+    });
 
     return () => {
       active = false;
     };
   }, [canView, sample, isAdmin, facilityId, reloadKey]);
+
+  // A rescuer's heads-up should show up without reloading the page
+  useEffect(() => {
+    if (!canView || sample) return;
+    const timer = setInterval(() => setReloadKey((k) => k + 1), 30_000);
+    return () => clearInterval(timer);
+  }, [canView, sample]);
 
   const reload = useCallback(() => {
     setOpenId(null);
@@ -272,6 +338,34 @@ export default function CarePage() {
             </div>
           </dl>
 
+          {isStaff && !sample && facilityId && (
+            <AvailabilitySwitch
+              facilityId={facilityId}
+              clinicName={shownClinic ?? 'Your clinic'}
+              current={availability}
+              onChanged={setAvailability}
+              ask={ask}
+            />
+          )}
+
+          {incoming.length > 0 && (
+            <section aria-labelledby="incoming-heading" className="space-y-2">
+              <h2 id="incoming-heading" className="text-[16px] font-semibold text-fg">
+                On their way to you
+              </h2>
+              <p className="text-[12px] text-fg-muted">
+                A rescuer told {isAdmin ? 'a clinic' : 'your clinic'} they are bringing an animal. Answer so they know whether to come.
+              </p>
+              <ul className="divide-y divide-border border-y border-border">
+                {incoming.map((i) => (
+                  <li key={i.id} className="py-3">
+                    <IncomingCard item={i} showClinic={isAdmin} onDone={reload} ask={ask} />
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
           {awaiting.length > 0 && (
             <section aria-labelledby="intake-heading" className="space-y-2">
               <h2 id="intake-heading" className="text-[16px] font-semibold text-fg">
@@ -292,7 +386,7 @@ export default function CarePage() {
                       {isAdmin ? ` · ${c.clinicName}` : ''}
                       {c.updates[0] ? ` · brought ${formatDate(c.updates[0].createdAt)}` : ''}
                     </p>
-                    <IntakeActions c={c} onDone={reload} />
+                    <IntakeActions c={c} onDone={reload} ask={ask} />
                   </li>
                 ))}
               </ul>
@@ -316,6 +410,7 @@ export default function CarePage() {
                 {inCare.map(({ c, clock }) => (
                   <li key={c.id} className="py-3 space-y-2">
                     <CaseSummary c={c} clock={clock} showClinic={isAdmin} />
+                    <AnimalLinks c={c} onSaved={reload} />
                     {openId === c.id ? (
                       <UpdateForm c={c} onCancel={() => setOpenId(null)} onPosted={reload} />
                     ) : (
@@ -357,6 +452,7 @@ export default function CarePage() {
         </>
       )}
       </fieldset>
+      {confirmSheet}
     </div>
   );
 }
@@ -376,7 +472,8 @@ function CaseSummary({ c, clock, showClinic }: { c: CareCase; clock: FacilityClo
     <div className="space-y-1.5">
       <div className="min-w-0">
         <p className="text-[14px] font-semibold text-fg">
-          {c.animal} <span className="font-mono text-[12px] text-fg-muted">#{c.shortId}</span>
+          {c.animalName ? `${c.animalName} · ${c.animal}` : c.animal}{' '}
+          <span className="font-mono text-[12px] text-fg-muted">#{c.shortId}</span>
         </p>
         <p className="text-[12px] text-fg-muted">
           {CARE_STATE_LABELS[c.state]} · {c.type}
@@ -396,7 +493,220 @@ function CaseSummary({ c, clock, showClinic }: { c: CareCase; clock: FacilityClo
   );
 }
 
-function IntakeActions({ c, onDone }: { c: CareCase; onDone: () => void }) {
+// The clinic sets Open / Emergencies only / Full. Rescuers see it when choosing where to go; it expires after
+// 12 hours so a forgotten "Full" never blocks the clinic for long. Self-reported, never verified.
+function AvailabilitySwitch({
+  facilityId,
+  clinicName,
+  current,
+  onChanged,
+  ask,
+}: {
+  facilityId: string;
+  clinicName: string;
+  current: { status: string | null; setAt: string | null };
+  onChanged: (next: { status: string | null; setAt: string | null }) => void;
+  ask: Ask;
+}) {
+  const [error, setError] = useState<string | null>(null);
+  const effective = effectiveAvailability(current.status, current.setAt);
+  const options: { value: ClinicStatus; label: string; effect: string }[] = [
+    { value: 'open', label: 'Open', effect: 'Rescuers see your clinic as open and may bring animals here.' },
+    { value: 'limited', label: 'Emergencies only', effect: 'Rescuers see your clinic as taking emergencies only.' },
+    {
+      value: 'full',
+      label: 'Full',
+      effect:
+        'Rescuers are sent to other clinics for the next 12 hours, or until you change it. An animal already on its way can still be admitted.',
+    },
+  ];
+
+  const choose = (option: (typeof options)[number]) =>
+    ask({
+      title: `Set ${clinicName} to “${option.label}”?`,
+      message: option.effect,
+      confirmLabel: `Yes, set to ${option.label}`,
+      onConfirm: async () => {
+        setError(null);
+        const { data, error: rpcError } = await createClient().rpc('set_clinic_availability', {
+          p_facility_id: facilityId,
+          p_status: option.value,
+        });
+        if (rpcError || !data?.success) {
+          setError(data?.error || rpcError?.message || 'Could not change the status. Please try again.');
+          return;
+        }
+        onChanged({ status: option.value, setAt: new Date().toISOString() });
+      },
+    });
+
+  return (
+    <section aria-labelledby="availability-heading" className="space-y-2">
+      <h2 id="availability-heading" className="text-[16px] font-semibold text-fg">
+        Can you take animals right now?
+      </h2>
+      <div role="radiogroup" aria-labelledby="availability-heading" className="grid grid-cols-3 gap-2">
+        {options.map((o) => (
+          <button
+            key={o.value}
+            type="button"
+            role="radio"
+            aria-checked={effective === o.value}
+            onClick={() => effective !== o.value && choose(o)}
+            className={`min-h-[48px] px-2 rounded-xl border text-[14px] cursor-pointer ${
+              effective === o.value ? 'border-fg bg-surface-muted font-semibold text-fg' : 'border-border bg-surface text-fg-muted'
+            }`}
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
+      <p className="text-[12px] text-fg-muted">
+        {availabilityNote(current.status, current.setAt)}. A status expires after 12 hours; confirm it again if it still applies.
+        Shown to rescuers as reported by you, not verified. Currently: {CLINIC_STATUS_LABELS[effective].toLowerCase()}.
+      </p>
+      {error && <InlineError>{error}</InlineError>}
+    </section>
+  );
+}
+
+// A rescuer says they are bringing an animal. The clinic answers; the rescuer is told right away.
+function IncomingCard({ item, showClinic, onDone, ask }: { item: Incoming; showClinic: boolean; onDone: () => void; ask: Ask }) {
+  const [note, setNote] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  const respond = (response: 'expecting' | 'cannot') =>
+    ask({
+      title: response === 'expecting' ? `Expecting ${item.animal.toLowerCase()} #${item.shortId}?` : `Can’t take #${item.shortId} now?`,
+      message:
+        response === 'expecting'
+          ? 'The rescuer is told your clinic is expecting them, and keeps coming.'
+          : 'The rescuer is told right away and picks another clinic. Use this only if you truly cannot take the animal.',
+      confirmLabel: response === 'expecting' ? 'Yes, we are expecting it' : 'Yes, we cannot take it',
+      onConfirm: async () => {
+        setError(null);
+        const { data, error: rpcError } = await createClient().rpc('respond_to_heads_up', {
+          p_report_id: item.id,
+          p_response: response,
+          p_note: response === 'cannot' ? note.trim() || null : null,
+        });
+        if (rpcError || !data?.success) {
+          setError(data?.error || rpcError?.message || 'Something went wrong. Please try again.');
+          return;
+        }
+        onDone();
+      },
+    });
+
+  const secondary =
+    'min-h-[44px] px-4 rounded-xl border border-border bg-surface hover:bg-surface-muted text-fg font-semibold text-[14px] cursor-pointer';
+
+  return (
+    <div className="space-y-2">
+      <p className="text-[14px] font-semibold text-fg">
+        {item.animal} <span className="font-mono text-[12px] text-fg-muted">#{item.shortId}</span>
+      </p>
+      <p className="text-[12px] text-fg-muted">
+        {item.type}
+        {showClinic ? ` · ${item.clinicName}` : ''}
+        {item.etaMinutes ? ` · about ${item.etaMinutes} min away` : ''}
+        {item.headsUpAt ? ` · told ${formatDate(item.headsUpAt)}` : ''}
+      </p>
+      {item.response === 'expecting' ? (
+        <p className="text-[12px] font-semibold text-healing-fg">You told the rescuer you are expecting it.</p>
+      ) : (
+        <div className="space-y-2">
+          <label className="block space-y-1">
+            <span className="text-[12px] text-fg-muted">If you cannot take it, say why (optional, shown to the rescuer)</span>
+            <input
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              maxLength={300}
+              className="w-full min-h-[44px] rounded-xl border border-border bg-surface text-fg text-[14px] px-3 focus:outline-none focus:ring-2 focus:ring-action"
+            />
+          </label>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => respond('expecting')}
+              className="flex-1 min-h-[48px] rounded-xl bg-action text-action-fg font-semibold text-[14px] cursor-pointer"
+            >
+              Expecting it
+            </button>
+            <button type="button" onClick={() => respond('cannot')} className={secondary}>
+              Can&apos;t take it now
+            </button>
+          </div>
+        </div>
+      )}
+      {error && <InlineError>{error}</InlineError>}
+    </div>
+  );
+}
+
+// Open the animal's own page, and give it a name ("Bob") once the clinic knows it
+function AnimalLinks({ c, onSaved }: { c: CareCase; onSaved: () => void }) {
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(c.animalName ?? '');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const save = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    const { data, error: rpcError } = await createClient().rpc('set_animal_name', { p_report_id: c.id, p_name: name.trim() });
+    setBusy(false);
+    if (rpcError || !data?.success) {
+      setError(data?.error || rpcError?.message || 'Could not save the name. Please try again.');
+      return;
+    }
+    setEditing(false);
+    onSaved();
+  };
+
+  const link =
+    'min-h-[44px] px-4 inline-flex items-center rounded-xl border border-border bg-surface hover:bg-surface-muted text-fg font-semibold text-[14px] cursor-pointer';
+
+  return (
+    <div className="space-y-2">
+      {editing ? (
+        <form onSubmit={save} className="flex gap-2 items-end">
+          <label className="flex-1 space-y-1">
+            <span className="text-[12px] font-semibold text-fg">Animal&apos;s name</span>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              maxLength={40}
+              className="w-full min-h-[44px] rounded-xl border border-border bg-surface text-fg text-[14px] px-3 focus:outline-none focus:ring-2 focus:ring-action"
+            />
+          </label>
+          <button type="button" onClick={() => setEditing(false)} className={link}>
+            Cancel
+          </button>
+          <button type="submit" disabled={busy} className={`${link} disabled:opacity-50`}>
+            {busy ? 'Saving…' : 'Save'}
+          </button>
+        </form>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          {/* Sample cases in a role preview have no page to open */}
+          {!c.id.startsWith('sample-') && (
+            <Link href={`/animal/${c.id}`} className={link}>
+              Open {c.animalName ? `${c.animalName}’s` : 'the animal’s'} page
+            </Link>
+          )}
+          <button type="button" onClick={() => setEditing(true)} className={link}>
+            {c.animalName ? 'Change name' : 'Give it a name'}
+          </button>
+        </div>
+      )}
+      {error && <InlineError>{error}</InlineError>}
+    </div>
+  );
+}
+
+function IntakeActions({ c, onDone, ask }: { c: CareCase; onDone: () => void; ask: Ask }) {
   const [declining, setDeclining] = useState(false);
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
@@ -424,7 +734,12 @@ function IntakeActions({ c, onDone }: { c: CareCase; onDone: () => void }) {
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            run('decline_admission');
+            ask({
+              title: `Send #${c.shortId} back to the rescuer?`,
+              message: 'The rescuer is told right away and picks another clinic. Use this only if the clinic truly cannot take the animal.',
+              confirmLabel: 'Yes, send it back',
+              onConfirm: () => run('decline_admission'),
+            });
           }}
           className="space-y-2 rounded-xl bg-surface-muted p-3"
         >
@@ -452,7 +767,14 @@ function IntakeActions({ c, onDone }: { c: CareCase; onDone: () => void }) {
         <div className="flex gap-2">
           <button
             type="button"
-            onClick={() => run('confirm_intake')}
+            onClick={() =>
+              ask({
+                title: `Confirm that #${c.shortId} arrived?`,
+                message: 'The case moves into your care. The recovery timeline starts and you owe an update within 14 days.',
+                confirmLabel: 'Yes, it arrived',
+                onConfirm: () => run('confirm_intake'),
+              })
+            }
             disabled={busy}
             className="flex-1 min-h-[48px] rounded-xl bg-action text-action-fg font-semibold text-[14px] cursor-pointer disabled:opacity-50"
           >

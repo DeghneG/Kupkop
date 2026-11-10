@@ -19,6 +19,7 @@ import { useRouter } from 'next/navigation';
 import AuthModal from '@/components/AuthModal';
 import InlineError from '@/components/InlineError';
 import StageWeave from '@/components/StageWeave';
+import { useConfirm } from '@/components/ConfirmSheet';
 import { useProfile } from '@/lib/supabase/useProfile';
 import { createClient } from '@/lib/supabase/client';
 import { generateCaseId, formatCoordinates, compressVideoFrame, createSimulatedFrame } from '@/lib/sos/utils';
@@ -78,6 +79,7 @@ export default function SOSCameraPage() {
   const [dispatchError, setDispatchError] = useState<string | null>(null);
   const [dispatchedData, setDispatchedData] = useState<DispatchedReport | null>(null);
   const [selfClaim, setSelfClaim] = useState<{ busy: boolean; error: string | null }>({ busy: false, error: null });
+  const { ask: askConfirm, sheet: confirmSheet } = useConfirm();
   const profile = useProfile();
   const router = useRouter();
 
@@ -837,17 +839,24 @@ export default function SOSCameraPage() {
                 <button
                   type="button"
                   disabled={selfClaim.busy}
-                  onClick={async () => {
-                    setSelfClaim({ busy: true, error: null });
-                    const { data, error } = await createClient().rpc('claim_sos_report', {
-                      p_report_id: dispatchedData.reportId,
-                    });
-                    if (error || !data?.success) {
-                      setSelfClaim({ busy: false, error: data?.error || error?.message || 'Could not claim this case.' });
-                      return;
-                    }
-                    router.push(`/?case=${dispatchedData.reportId}`);
-                  }}
+                  onClick={() =>
+                    askConfirm({
+                      title: 'Take this rescue yourself?',
+                      message: 'The case is locked to you so other volunteers do not come too. You can release it if you cannot go.',
+                      confirmLabel: 'Yes, I will take it',
+                      onConfirm: async () => {
+                        setSelfClaim({ busy: true, error: null });
+                        const { data, error } = await createClient().rpc('claim_sos_report', {
+                          p_report_id: dispatchedData.reportId,
+                        });
+                        if (error || !data?.success) {
+                          setSelfClaim({ busy: false, error: data?.error || error?.message || 'Could not claim this case.' });
+                          return;
+                        }
+                        router.push(`/?case=${dispatchedData.reportId}`);
+                      },
+                    })
+                  }
                   className="w-full min-h-[48px] rounded-xl border border-border bg-surface text-fg font-semibold text-[14px] flex items-center justify-center gap-2 hover:bg-surface-muted cursor-pointer disabled:opacity-60"
                 >
                   {selfClaim.busy ? 'Claiming…' : "I'll take it myself"}
@@ -894,6 +903,7 @@ export default function SOSCameraPage() {
             </div>
           </div>
         </div>
+        {confirmSheet}
       </div>
     );
   }

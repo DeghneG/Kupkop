@@ -67,6 +67,24 @@ export function alertRecipients(stage: AlertStage, report: LatLng, t: AlertTarge
   return [...new Set(ids)].filter((id) => id !== t.reporterId);
 }
 
+/**
+ * What the person who reported hears when nobody has taken the case: they are the one standing next to the animal,
+ * so they get something to do (first aid from Rafa) and the nearest clinic that is not full.
+ */
+export function reporterNoResponderMessage(r: {
+  shortId: string;
+  clinicName: string | null;
+  clinicPhone: string | null;
+}): { title: string; body: string } {
+  const clinic = r.clinicName
+    ? ` The nearest clinic that is accepting animals is ${r.clinicName}${r.clinicPhone ? ` (${r.clinicPhone})` : ''}.`
+    : '';
+  return {
+    title: `No one has taken your report yet · #${r.shortId}`,
+    body: `We are still looking for a rescuer.${clinic} Open Rafa for first-aid steps while you wait.`,
+  };
+}
+
 export function alertMessage(
   stage: AlertStage,
   r: { animal: string; type: string; place: string; shortId: string; minutes: number }

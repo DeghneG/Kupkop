@@ -1,10 +1,17 @@
 'use client';
 
 import React from 'react';
-import { ArrowUp, Camera } from 'lucide-react';
-import { calculateEscalation, calculateClaimTimer, getEscalationTier, needsRescuer as isWaiting } from '@/lib/sos/escalation';
+import { ArrowUp } from 'lucide-react';
+import {
+  calculateEscalation,
+  calculateClaimTimer,
+  claimLockMinutes,
+  getEscalationTier,
+  needsRescuer as isWaiting,
+} from '@/lib/sos/escalation';
 import TriageGlyph from '@/components/icons/TriageGlyph';
 import StageWeave from '@/components/StageWeave';
+import AnimalGlyph, { animalKind } from '@/components/AnimalGlyph';
 
 export interface IncidentData {
   id: string;
@@ -24,6 +31,8 @@ export interface IncidentData {
   description?: string;
   claimedBy?: string | null;
   reporterId?: string | null;
+  /** dog, cat or other, from the report; sample cases fall back to the label */
+  animalType?: 'dog' | 'cat' | 'other' | null;
   claimedAt?: string | null;
   createdAt?: string | null;
   facilityId?: string | null;
@@ -32,6 +41,21 @@ export interface IncidentData {
   alertWidened?: boolean;
   /** The AI photo check found graphic injuries; the photo stays blurred until revealed */
   aiGraphic?: boolean;
+  /** Named by the rescuer, the clinic or an admin ("Bob") */
+  animalName?: string | null;
+  /** When the case last changed; a released case reads this as the moment it opened again */
+  updatedAt?: string | null;
+  /** The rescuer's last check-in on this claim */
+  checkinKind?: 'on_my_way' | 'arrived' | null;
+  checkinAt?: string | null;
+  /** The clinic the rescuer told they are coming, and its answer */
+  headsUpFacilityId?: string | null;
+  headsUpFacilityName?: string | null;
+  headsUpEtaMinutes?: number | null;
+  headsUpResponse?: 'expecting' | 'cannot' | null;
+  headsUpNote?: string | null;
+  /** Volunteers who said "I'm available" on a claimed case. Only responders can read this list. */
+  standby?: { volunteerId: string; joinedAt: string }[];
 }
 
 export interface IncidentCardProps {
@@ -41,17 +65,20 @@ export interface IncidentCardProps {
   /** Shown only for responders on open cases; claims without opening the sheet. */
   onClaim?: () => void;
   claiming?: boolean;
+  /** The case is open again but held for the first volunteer on standby; the button is off for everyone else. */
+  claimHeld?: boolean;
 }
 
 // Status reads as colored text, not a filled pill, so a full feed stays inside the color budget
 function getStatus(incident: IncidentData): { label: string; tone: string } {
   switch (incident.state) {
     case 'claimed': {
-      const timer = calculateClaimTimer(incident.claimedAt);
+      const timer = calculateClaimTimer(incident.claimedAt, claimLockMinutes(incident.type));
       if (timer.isExpired) return { label: 'Claim expired · needs a rescuer', tone: 'text-reported-fg' };
       if (!timer.isClaimed) return { label: 'Claimed', tone: 'text-claimed-fg' };
       const left = timer.remainingMinutes > 0 ? `${timer.remainingMinutes}m` : `${timer.remainingSeconds}s`;
-      return { label: `Claimed · ${left} lock`, tone: 'text-claimed-fg' };
+      const standby = incident.standby?.length ? ` · ${incident.standby.length} on standby` : '';
+      return { label: `Claimed · ${left} lock${standby}`, tone: 'text-claimed-fg' };
     }
     case 'admitted':
       return { label: 'Admitted', tone: 'text-healing-fg' };
@@ -87,9 +114,9 @@ const BEARING_ARROWS = ['↑', '↗', '→', '↘', '↓', '↙', '←', '↖'];
 // Drop the "· Critical" suffix; the status line already carries urgency
 const formatTriageTag = (type: string) => type.replace(/\s*[·•]\s*Critical/i, '').trim();
 
-export function IncidentCard({ incident, onClick, onClaim, claiming }: IncidentCardProps) {
+export function IncidentCard({ incident, onClick, onClaim, claiming, claimHeld }: IncidentCardProps) {
   const status = getStatus(incident);
-  const needsRescuer = isWaiting(incident.state, incident.claimedAt);
+  const needsRescuer = isWaiting(incident.state, incident.claimedAt, incident.type);
   const tier = getEscalationTier(incident.type);
 
   const showClaim = !!onClaim && needsRescuer;
@@ -114,30 +141,18 @@ export function IncidentCard({ incident, onClick, onClaim, claiming }: IncidentC
       aria-label={`${status.label}: ${incident.animal}, ${incident.type}, ${incident.location}`}
       className={`flex-1 min-w-0 flex items-center gap-3 py-3 pl-4 ${showClaim ? '' : 'pr-4'} cursor-pointer text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-action`}
     >
-      {/* Thumbnail is blurred so graphic injuries are not shown until the case is opened */}
-      <div className="w-16 h-16 rounded-xl overflow-hidden bg-surface-muted shrink-0 flex items-center justify-center">
-        {incident.photoUrl ? (
-          /* eslint-disable-next-line @next/next/no-img-element */
-          <img src={incident.photoUrl} alt="" className="w-full h-full object-cover blur-md scale-110" />
-        ) : (
-          <Camera className="w-5 h-5 text-fg-muted" aria-hidden="true" />
-        )}
+      {/* A drawn animal, not a photo: the evidence photo stays in the case sheet, behind its reveal */}
+      <div className="w-16 h-16 rounded-xl bg-surface border border-border shrink-0 flex items-center justify-center">
+        <AnimalGlyph kind={animalKind(incident.animalType, incident.animal)} size={44} />
       </div>
 
       <div className="flex-1 min-w-0 flex flex-col gap-1">
         <div className="flex items-baseline justify-between gap-3">
           <div className="flex items-baseline gap-2 min-w-0">
-            <h3 className="text-[16px] font-bold text-fg tracking-tight leading-snug truncate">{incident.animal}</h3>
-            {needsRescuer && tier !== 'moderate' && (
-              <span
-                className={`shrink-0 text-[12px] font-bold uppercase tracking-wide ${
-                  tier === 'critical' ? 'text-reported-fg' : 'text-claimed-fg'
-                }`}
-              >
-                {tier === 'critical' ? 'Critical' : 'Urgent'}
-              </span>
-            )}
-          </div>
+            <h3 className="text-[16px] font-bold text-fg tracking-tight leading-snug truncate">
+              {incident.animalName ? `${incident.animalName} · ${incident.animal}` : incident.animal}
+            </h3>
+                      </div>
           {/* How long it has waited is the most urgent fact: strong while a rescuer is needed, quiet after */}
           <span className={`text-[12px] tabular-nums shrink-0 ${needsRescuer ? 'font-bold text-fg' : 'text-fg-muted'}`}>
             {incident.timeAgo}
@@ -146,6 +161,15 @@ export function IncidentCard({ incident, onClick, onClaim, claiming }: IncidentC
 
         <p className="flex gap-1 text-[14px] leading-snug min-w-0">
           <span className="font-semibold text-fg shrink-0">{formatTriageTag(incident.type)}</span>
+          {needsRescuer && tier !== 'moderate' && (
+            <span
+              className={`shrink-0 text-[12px] font-bold uppercase tracking-wide self-center ${
+                tier === 'critical' ? 'text-reported-fg' : 'text-claimed-fg'
+              }`}
+            >
+              {tier === 'critical' ? 'Critical' : 'Urgent'}
+            </span>
+          )}
           <span className="text-fg-muted truncate">· {incident.location}</span>
         </p>
 
@@ -179,12 +203,12 @@ export function IncidentCard({ incident, onClick, onClaim, claiming }: IncidentC
       {showClaim && (
         <button
           type="button"
-          disabled={claiming}
+          disabled={claiming || claimHeld}
           onClick={onClaim}
-          aria-label={`Claim case #${incident.shortId}`}
-          className="shrink-0 h-11 px-4 rounded-xl border border-border bg-surface text-[14px] font-semibold text-fg cursor-pointer hover:bg-surface-muted disabled:opacity-60 disabled:cursor-wait"
+          aria-label={claimHeld ? `Case #${incident.shortId} is held for the next volunteer in line` : `Claim case #${incident.shortId}`}
+          className="shrink-0 h-11 px-4 rounded-xl border border-border bg-surface text-[14px] font-semibold text-fg cursor-pointer hover:bg-surface-muted disabled:opacity-60 disabled:cursor-not-allowed"
         >
-          {claiming ? 'Claiming…' : 'Claim'}
+          {claiming ? 'Claiming…' : claimHeld ? 'Held' : 'Claim'}
         </button>
       )}
     </div>
