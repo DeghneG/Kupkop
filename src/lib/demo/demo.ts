@@ -177,9 +177,9 @@ export function setDemoOn(on: boolean) {
   }
 }
 
-/** Start the demo over with fresh sample cases, or with the clinics only (empty = true) so a new report is the first case. */
-export function resetDemo(empty = false) {
-  save(seedDemo(empty));
+/** Start the demo over: the three clinics and no cases, so the first report anyone files is the first case. */
+export function resetDemo(withSamples = false) {
+  save(seedDemo(withSamples));
 }
 
 function mutate<T>(change: (data: DemoData) => T): T {
@@ -223,7 +223,11 @@ function baseReport(over: Partial<DemoReport> & Pick<DemoReport, 'id' | 'short_i
   };
 }
 
-export function seedDemo(empty = false): DemoData {
+/**
+ * The demo starts with the three clinics and no cases. The made-up sample cases (an animal in every stage) are kept
+ * only for the unit tests, which ask for them with withSamples = true; the app never does.
+ */
+export function seedDemo(withSamples = false): DemoData {
   const clinics: DemoClinic[] = [
     { id: DEMO_CLINIC_ID, name: 'Sample Animal Clinic (Marikina)', address: 'Marcos Highway, Marikina City', phone: '0000-100-0001', latitude: 14.633, longitude: 121.102, status: 'Listed', last_active_at: ago(60), availability: 'open', availability_set_at: ago(10) },
     { id: 'demo-clinic-makati', name: 'Sample Vet Hospital (Makati)', address: 'Pasong Tamo Extension, Makati City', phone: '0000-100-0002', latitude: 14.5547, longitude: 121.0244, status: 'Listed', last_active_at: ago(60 * 24 * 3), availability: 'open', availability_set_at: ago(10) },
@@ -261,7 +265,7 @@ export function seedDemo(empty = false): DemoData {
     u('3d', 'demo-c03', 'Healthy and friendly. Adopted by a family nearby.', 'resolved', 60 * 10),
   ];
 
-  return { reports: empty ? [] : reports, updates: empty ? [] : updates, clinics, standby: [] };
+  return { reports: withSamples ? reports : [], updates: withSamples ? updates : [], clinics, standby: [] };
 }
 
 // ---- the rules, played locally ----------------------------------------------------------------------------

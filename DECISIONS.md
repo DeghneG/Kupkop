@@ -415,3 +415,9 @@
 - **Checks:** `tsc`, eslint on the changed files, 83 unit tests (new: create_report, empty start, pane role), production build. **Not run:** the three screens in a real browser (no browser tool in the session), so the live sync between screens and the iframe layout still need a look.
 - **Not built:** a demo notification strip for the citizen; a screen for the admin.
 
+### D-046: Demo mode starts with no sample cases
+- **Date:** 2026-11-11
+- **Decision (builder):** remove the sample cases from demo mode. It starts with the three clinics and an empty Feed, and the first case is the one the citizen files. The "Start with an empty Feed" button is gone because that is now the default; Start over clears every case.
+- **How:** `seedDemo()` returns no cases unless a test asks for them (`withSamples = true`); the sample cases stay in `demo.ts` only as fixtures for the unit tests. Browsers that already hold the old sample data keep it until Start over.
+- **Lost:** standby (needs a second volunteer holding a claim) and the ready-made animals in every stage; Admin > No responder needs a case to age 10 minutes first.
+- **Checks:** `tsc`, eslint, 83 unit tests.

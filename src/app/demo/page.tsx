@@ -52,28 +52,14 @@ export default function DemoPage() {
                 className={button}
                 onClick={() =>
                   ask({
-                    title: 'Start over with sample cases?',
-                    message: 'All three screens go back to the sample cases and clinics. Whatever you did so far is cleared.',
+                    title: 'Start the demo over?',
+                    message: 'All three screens go back to the start: the clinics stay and every case is cleared.',
                     confirmLabel: 'Yes, start over',
-                    onConfirm: () => resetDemo(false),
+                    onConfirm: () => resetDemo(),
                   })
                 }
               >
                 Start over
-              </button>
-              <button
-                type="button"
-                className={button}
-                onClick={() =>
-                  ask({
-                    title: 'Start with an empty Feed?',
-                    message: 'The sample cases are removed and only the clinics stay, so the citizen’s report is the first case anyone sees.',
-                    confirmLabel: 'Yes, start empty',
-                    onConfirm: () => resetDemo(true),
-                  })
-                }
-              >
-                Start with an empty Feed
               </button>
               <button
                 type="button"
@@ -88,7 +74,7 @@ export default function DemoPage() {
             </div>
           </div>
           <p className="text-[12px] text-fg-muted">
-            Made-up cases and clinics, played in this browser. Nothing is saved to the database, and the camera and location are faked. An
+            Made-up clinics and cases, played in this browser, starting with an empty Feed. Nothing is saved to the database, and the camera and location are faked. An
             action in one screen shows up in the others.
           </p>
           <ol className="text-[12px] text-fg-muted list-decimal pl-5 space-y-0.5 max-w-3xl">

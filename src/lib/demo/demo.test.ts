@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { DEMO_CLINIC_ID, demoRpc, seedDemo, setDemoOn } from './demo';
+import { DEMO_CLINIC_ID, demoRpc, resetDemo, seedDemo, setDemoOn } from './demo';
 
 // A tiny in-memory browser, so the demo engine runs under Node
 function installBrowser() {
@@ -21,9 +21,19 @@ describe('demo mode plays the whole flow', () => {
   beforeEach(() => {
     installBrowser();
     setDemoOn(true);
+    // The flow tests below play on the sample cases (an animal in every stage); the app itself starts empty
+    resetDemo(true);
   });
 
-  it('seeds fresh cases, three clinics and an animal in every stage', () => {
+  it('the app starts with the three clinics and no cases', () => {
+    resetDemo();
+    const d = read();
+    expect(d.clinics).toHaveLength(3);
+    expect(d.reports).toHaveLength(0);
+    expect(d.updates).toHaveLength(0);
+  });
+
+  it('the sample cases cover three clinics and an animal in every stage', () => {
     const d = read();
     expect(d.clinics).toHaveLength(3);
     expect(d.reports.filter((r) => r.state === 'reported')).toHaveLength(7);
@@ -125,13 +135,6 @@ describe('demo mode plays the whole flow', () => {
     expect(created.urgency).toBe('critical');
     expect(created.reporter_id).toBe('demo-citizen');
     expect(demoRpc('claim_sos_report', { p_report_id: created.id }).data?.success).toBe(true);
-  });
-
-  it('an empty start keeps the clinics but has no cases', () => {
-    const empty = seedDemo(true);
-    expect(empty.reports).toHaveLength(0);
-    expect(empty.updates).toHaveLength(0);
-    expect(empty.clinics.length).toBeGreaterThan(0);
   });
 
   it('clinic staff can edit the details; bad input is refused', () => {

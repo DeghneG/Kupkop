@@ -7,7 +7,7 @@ import { resetDemo, setDemoOn, useDemoMode } from '@/lib/demo/demo';
 import { useConfirm } from '@/components/ConfirmSheet';
 import { usePaneFrame } from '@/lib/storage';
 
-// A strip under the Test mode notice while demo mode is on, so nobody mistakes sample cases for real ones.
+// A strip under the Test mode notice while demo mode is on, so nobody mistakes demo cases for real ones.
 export function DemoBanner() {
   const on = useDemoMode();
   const paneFrame = usePaneFrame();
@@ -18,7 +18,7 @@ export function DemoBanner() {
       <p className="flex items-start gap-2 text-[12px] leading-snug">
         <FlaskConical className="w-4 h-4 shrink-0 mt-px" aria-hidden="true" />
         <span className="flex-1">
-          <strong className="font-semibold">Demo mode.</strong> Sample cases and clinics, played in this browser. Nothing is saved to the
+          <strong className="font-semibold">Demo mode.</strong> Made-up clinics and cases, played in this browser. Nothing is saved to the
           database. Switch roles in the bar below to play the volunteer, the clinic and the admin.
         </span>
       </p>
@@ -28,7 +28,7 @@ export function DemoBanner() {
           onClick={() =>
             ask({
               title: 'Start the demo over?',
-              message: 'The sample cases and clinics go back to the start. Whatever you did so far in the demo is cleared.',
+              message: 'The demo goes back to the start: the clinics stay and every case is cleared.',
               confirmLabel: 'Yes, start over',
               onConfirm: () => resetDemo(),
             })
@@ -76,7 +76,7 @@ export function DemoModeSection() {
             onClick={() =>
               ask({
                 title: 'Start the demo over?',
-                message: 'The sample cases and clinics go back to the start. Whatever you did so far in the demo is cleared.',
+                message: 'The demo goes back to the start: the clinics stay and every case is cleared.',
                 confirmLabel: 'Yes, start over',
                 onConfirm: () => resetDemo(),
               })

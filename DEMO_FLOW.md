@@ -1,18 +1,18 @@
 # Play the whole KupKop flow yourself
 
-This script walks one animal from "reported" to "resolved". Every case, clinic and name is made up.
+This script walks one animal from "reported" to "resolved". Every clinic and name is made up, and the demo starts with
+**no cases**: you file the first one yourself.
 
 ## Start (30 seconds, no database, no SQL)
 
-1. Open **Settings** and tap **Turn on demo mode**.
-2. Go back to the **Feed**. Sample cases appear in every stage.
+1. Open **Settings** and tap **Open the three-screen demo** (or **Turn on demo mode** to play one role at a time).
+2. The Feed is empty: "Nothing needs a rescuer right now". The three clinics are there.
 
-That is all. Demo mode runs in your browser only: nothing is read from or written to the database, so it cannot
-break anything real. A banner at the top reminds you it is on. **Start over** puts the samples back to the
-beginning; **Turn off** returns to the real app.
+Demo mode runs in your browser only: nothing is read from or written to the database, so it cannot break anything real. **Start over**
+clears every case and keeps the clinics; **Turn off** returns to the real app.
 
-One person plays every role. Use the grey bar under the banner to switch between **Volunteer**, **Clinic staff**
-and **Admin**. Clinic care and Admin are under **Settings**, not on the bottom bar.
+In single-screen mode one person plays every role: use the grey bar under the banner to switch between **Volunteer**,
+**Clinic staff** and **Admin**. Clinic care and Admin are under **Settings**, not on the bottom bar.
 
 ## Three screens at once (no role switching)
 
@@ -24,27 +24,15 @@ side by side. Each screen is locked to its role and they share the same demo dat
 3. **Clinic staff:** answer the heads-up, tap Animal arrived, post a recovery update (with a photo and details if you like).
 4. **Citizen:** tap Follow this case to watch every step appear.
 
-Use **Start with an empty Feed** to make the citizen's report the first case anyone sees. **Start over** brings back the sample cases.
 On a narrow window one screen shows at a time (tabs), and all three keep in step.
 
-## What you get
-
-| Case | What it is | Use it for |
-|---|---|---|
-| KK-F01 | Critical dog, reported 1 min ago | The main walkthrough |
-| KK-F02 | Urgent cat, reported 6 min ago | "Can't take it now" and picking another clinic |
-| KK-F03 | Moderate dog, reported 20 min ago | The 60-minute lock |
-| KK-F04 | Critical cat, reported 12 min ago | Admin > No responder |
-| KK-F06 / F07 / F08 | Three more injured dogs: trapped in a pipe (urgent), a deep cut (critical), a broken leg (urgent) | Extra cases to claim, route and rescue |
-| KK-F05 | Critical dog, claimed by another volunteer | Standby (its 15-minute lock ends about a minute after you start) |
-| KK-C01 / C02 | Max (healing) and a cat waiting for the clinic | Clinic care |
-| KK-C03 | Daisy, resolved 10 hours ago | A finished story |
-
-Clinics: **Marikina** is Open, **Makati** is Open, **Pasig** is Full.
+Clinics: **Marikina** is Open, **Makati** is Open, **Pasig** is Full. File a second report if you want to try "Can't take it now".
 
 ## The flow
 
-**1. Find a case (Volunteer).** On the **Feed**, open cases are at the top. The oldest one leads in a large card.
+**1. Report a case (Citizen).** In the three-screen demo, use the Citizen screen: choose the animal and emergency, tap the shutter, then Dispatch. In single-screen mode open **SOS**; the camera and location are faked in the demo. The case appears on the **Feed**.
+
+**1b. Find it (Volunteer).** On the **Feed**, open cases are at the top.
 
 **2. Claim.** Tap **Claim**. A sheet asks "Claim case #…?". The confirm button stays off for a moment, then turns
 on. Confirm. The **active case bar** appears with a **15 minute** lock (critical). A fractured case locks for 30,
@@ -58,7 +46,7 @@ is marked, and **Pasig** is greyed out as Full. Pick **Marikina**, choose how fa
 
 **5. The clinic answers (switch to Clinic staff).** Open **Settings**, then **Clinic care**. Under **On their way to
 you** the case shows. Tap **Expecting it** and confirm. Switch back to **Volunteer**: the bar now says "Marikina is
-expecting you." For the other answer, claim **KK-F02**, tell **Makati**, then as Clinic staff tap **Can't take it
+expecting you." For the other answer, file and claim a second case, tell **Makati**, then as Clinic staff tap **Can't take it
 now**. The volunteer sees "Choose another clinic".
 
 **6. Admit (Volunteer).** On the bar tap **Admit**, pick the clinic, **Confirm admission**, confirm again. The
@@ -72,13 +60,11 @@ arrived** and confirm. The 14-day clock starts.
 - Tap **Post recovery update**, write a note, keep **Healing**. Post another and choose **Resolved** to finish.
 - Resolved cases stay on the Feed for 24 hours, then leave.
 
-**9. Standby (Volunteer).** Open **KK-F05** quickly after starting (or after **Start over**) and tap **I'm available
-if the lock ends**. A note with **Undo** appears. When the lock ends, the Claim button for everyone else becomes
-**Held** for two minutes while you, first in line, can claim.
+**9. Admin: no responder.** Switch to **Admin**, then **Settings > Admin > No responder**. A case nobody has taken for long enough
+(10 minutes for a critical one) is listed with the nearest clinics that are not full and their phone numbers. Tap **Assign** (you are
+the demo volunteer) or **Close as false report**, and confirm.
 
-**10. Admin: no responder.** Switch to **Admin**, then **Settings > Admin > No responder**. Old open cases are
-listed with the nearest clinics that are not full and their phone numbers. Tap **Assign** (you are the demo
-volunteer) or **Close as false report**, and confirm.
+**10. Standby.** Not playable in the demo now: it needs a second volunteer holding a claim. It works against the real database.
 
 **11. Clinic status.** As **Clinic staff**, in **Clinic care**, under **Can you take animals right now?** set the
 clinic to **Full** and confirm. Back as Volunteer, that clinic is greyed out and cannot be told.
@@ -92,9 +78,9 @@ clinic to **Full** and confirm. Back as Volunteer, that clinic is greyed out and
 
 ## What demo mode does not do
 
-- It does not send notifications or use the camera: **SOS** still goes to the real app.
+- It does not send notifications. The camera and location are faked; the real **SOS** (live camera, real GPS) is unchanged.
 - Admin tabs other than **No responder** stay a read-only preview.
-- The sample data lives in this browser. Clearing site data or **Start over** resets it.
+- The demo data lives in this browser. Clearing site data or **Start over** resets it. If you used an older version, **Start over** once to clear the old sample cases.
 
 ## Using the real database instead
 
