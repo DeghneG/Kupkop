@@ -38,6 +38,9 @@ export interface Facility {
   // Set by the clinic itself; trusted for 12 hours (see src/lib/sos/clinics.ts), never verified
   availability: 'open' | 'limited' | 'full' | null;
   availability_set_at: string | null;
+  // Written by the clinic's own staff (update_clinic_details)
+  hours: string | null;
+  about: string | null;
   created_at: string;
 }
 

@@ -22,6 +22,8 @@ import StageWeave from '@/components/StageWeave';
 import { useConfirm } from '@/components/ConfirmSheet';
 import { useProfile } from '@/lib/supabase/useProfile';
 import { createClient } from '@/lib/supabase/client';
+import { appRpc } from '@/lib/demo/rpc';
+import { DEMO_PLACE, isDemoOn } from '@/lib/demo/demo';
 import { generateCaseId, formatCoordinates, compressVideoFrame, createSimulatedFrame } from '@/lib/sos/utils';
 
 type AnimalType = 'dog' | 'cat' | 'other';
@@ -134,6 +136,12 @@ export default function SOSCameraPage() {
 
   // 2. Initialize Camera Stream (with IR camera avoidance and multi-device selection)
   const startCamera = useCallback(async (explicitDeviceId?: string) => {
+    // Demo mode only: a labelled fake lens, so the whole flow can be played without a camera
+    if (isDemoOn()) {
+      setCameraStatus('simulated');
+      setCameraError(null);
+      return;
+    }
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       setCameraStatus('unsupported');
       setCameraError('Camera API not accessible on this browser.');
@@ -224,6 +232,16 @@ export default function SOSCameraPage() {
   // 3. GPS: a quick rough fix first (Wi-Fi/cell, recent positions allowed), then a GPS watch that
   // keeps refining with no time limit. Precise-only with no cached fix often failed indoors.
   const requestLocation = useCallback(() => {
+    // Demo mode only: a fixed made-up spot, so no frame asks for location
+    if (isDemoOn()) {
+      hasFixRef.current = true;
+      setCoords({ lat: DEMO_PLACE.lat, lng: DEMO_PLACE.lng, accuracy: 5 });
+      setResolvedAddress(DEMO_PLACE.name);
+      setLocationText(DEMO_PLACE.name);
+      setGpsStatus('locked');
+      setGpsError(null);
+      return;
+    }
     if (typeof window === 'undefined' || !navigator.geolocation) {
       setGpsStatus('unsupported');
       setGpsError("This browser can't share location. Open KupKop in Chrome or Safari, not an in-app browser.");
@@ -338,6 +356,45 @@ export default function SOSCameraPage() {
 
       setDispatchStep('uploading');
       setDispatchError(null);
+
+      // Demo mode: the report goes into the local demo, with the fake frame as its photo
+      if (isDemoOn()) {
+        const selected = EMERGENCY_TIERS.find((t) => t.id === emergency) || EMERGENCY_TIERS[0];
+        const photo = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = () => reject(reader.error);
+          reader.readAsDataURL(imageBlob);
+        });
+        const { data, error: demoError } = await appRpc('create_report', {
+          p_animal_type: animal,
+          p_emergency_type: emergency,
+          p_latitude: coords.lat,
+          p_longitude: coords.lng,
+          p_location_name: locationText.trim() || resolvedAddress || DEMO_PLACE.name,
+          p_description: description.trim(),
+          p_photo: photo,
+        });
+        if (demoError || !data?.success) {
+          setDispatchError(data?.error || demoError?.message || 'Could not send the demo report.');
+          setDispatchStep('review');
+          return;
+        }
+        setDispatchedData({
+          reportId: data.report_id as string,
+          shortId: data.short_id as string,
+          animalType: animal,
+          emergencyTier: emergency,
+          urgencyLabel: selected.urgencyLabel,
+          previewUrl,
+          coords: { lat: coords.lat, lng: coords.lng },
+          timestamp: new Date(data.server_timestamp as string).toLocaleTimeString('en-US', { hour12: true }),
+        });
+        setStagedBlob(null);
+        setStagedPreview(null);
+        setDispatchStep('success');
+        return;
+      }
 
       const supabase = createClient();
       const {
@@ -846,7 +903,7 @@ export default function SOSCameraPage() {
                       confirmLabel: 'Yes, I will take it',
                       onConfirm: async () => {
                         setSelfClaim({ busy: true, error: null });
-                        const { data, error } = await createClient().rpc('claim_sos_report', {
+                        const { data, error } = await appRpc('claim_sos_report', {
                           p_report_id: dispatchedData.reportId,
                         });
                         if (error || !data?.success) {
@@ -866,6 +923,14 @@ export default function SOSCameraPage() {
                 </p>
                 {selfClaim.error && <InlineError>{selfClaim.error}</InlineError>}
               </div>
+            )}
+            {dispatchedData.reportId && (
+              <Link
+                href={`/animal/${dispatchedData.reportId}`}
+                className="w-full min-h-[48px] rounded-xl border border-border bg-surface text-fg font-semibold text-[14px] flex items-center justify-center gap-2 hover:bg-surface-muted"
+              >
+                Follow this case
+              </Link>
             )}
             <Link
               href="/rafa"

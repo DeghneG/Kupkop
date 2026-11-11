@@ -14,6 +14,19 @@ beginning; **Turn off** returns to the real app.
 One person plays every role. Use the grey bar under the banner to switch between **Volunteer**, **Clinic staff**
 and **Admin**. Clinic care and Admin are under **Settings**, not on the bottom bar.
 
+## Three screens at once (no role switching)
+
+Open **Settings > Open the three-screen demo** (or go to `/demo`). You get the Citizen, the Volunteer and the Clinic staff
+side by side. Each screen is locked to its role and they share the same demo data, so an action in one shows up in the others.
+
+1. **Citizen:** choose the animal and emergency, tap the shutter, then Send. The camera and location are faked in the demo.
+2. **Volunteer:** the new case is at the top of the Feed. Claim it, tap On my way, tell a clinic, then Admit.
+3. **Clinic staff:** answer the heads-up, tap Animal arrived, post a recovery update (with a photo and details if you like).
+4. **Citizen:** tap Follow this case to watch every step appear.
+
+Use **Start with an empty Feed** to make the citizen's report the first case anyone sees. **Start over** brings back the sample cases.
+On a narrow window one screen shows at a time (tabs), and all three keep in step.
+
 ## What you get
 
 | Case | What it is | Use it for |

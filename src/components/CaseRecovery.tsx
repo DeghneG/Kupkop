@@ -8,9 +8,10 @@ import { CARE_STATE_LABELS } from '@/lib/sos/labels';
 import TriageGlyph from '@/components/icons/TriageGlyph';
 import DayWeave from '@/components/DayWeave';
 import { useDemoData, useDemoMode } from '@/lib/demo/demo';
+import UpdateDetails, { type DocumentedUpdate } from '@/components/UpdateDetails';
 
 type CareState = keyof typeof CARE_STATE_LABELS;
-type Update = { id: string; notes: string; state: CareState; created_at: string };
+type Update = DocumentedUpdate & { id: string; notes: string; state: CareState; created_at: string };
 
 interface CaseRecoveryProps {
   reportId: string;
@@ -31,12 +32,13 @@ export default function CaseRecovery({ reportId, state, canPost }: CaseRecoveryP
     if (demoOn) return;
     let active = true;
     const supabase = createClient();
-    supabase
-      .from('recovery_updates')
-      .select('id,notes,state,created_at')
-      .eq('report_id', reportId)
-      .order('created_at', { ascending: false })
-      .then(({ data }) => active && setUpdates((data ?? []) as Update[]));
+    (async () => {
+      const cols = 'id,notes,state,created_at';
+      const full = await supabase.from('recovery_updates').select(`${cols},photo_url,treatment,medication,weight_kg,next_checkup_on`).eq('report_id', reportId).order('created_at', { ascending: false });
+      // Before the documentation migration runs the new columns are absent: show the plain updates
+      const res = full.error ? await supabase.from('recovery_updates').select(cols).eq('report_id', reportId).order('created_at', { ascending: false }) : full;
+      if (active) setUpdates((res.data ?? []) as Update[]);
+    })();
     supabase
       .from('sos_reports')
       .select('*,facilities(name)')
@@ -106,6 +108,7 @@ export default function CaseRecovery({ reportId, state, canPost }: CaseRecoveryP
                 {CARE_STATE_LABELS[u.state] ?? u.state}
               </span>
               <span className="block">{u.notes}</span>
+              <UpdateDetails update={u} alt={`Recovery photo, ${new Date(u.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`} />
             </li>
           ))}
         </ol>

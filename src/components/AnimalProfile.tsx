@@ -12,6 +12,7 @@ import StageWeave from '@/components/StageWeave';
 import DayWeave from '@/components/DayWeave';
 import AnimalGlyph, { animalKind } from '@/components/AnimalGlyph';
 import { useDemoData, useDemoMode } from '@/lib/demo/demo';
+import UpdateDetails, { type DocumentedUpdate } from '@/components/UpdateDetails';
 
 type State = 'reported' | 'claimed' | 'admitted' | 'healing' | 'resolved';
 
@@ -27,7 +28,7 @@ interface Report {
   facilities: { name: string } | null;
 }
 
-interface Update {
+interface Update extends DocumentedUpdate {
   id: string;
   notes: string;
   state: State;
@@ -61,7 +62,13 @@ export default function AnimalProfile() {
     const supabase = createClient();
     Promise.all([
       supabase.from('sos_reports').select('*,facilities(name)').eq('id', id).maybeSingle(),
-      supabase.from('recovery_updates').select('id,notes,state,created_at').eq('report_id', id).order('created_at', { ascending: true }),
+      (async () => {
+        const cols = 'id,notes,state,created_at';
+        const order = { ascending: true };
+        const full = await supabase.from('recovery_updates').select(`${cols},photo_url,treatment,medication,weight_kg,next_checkup_on`).eq('report_id', id).order('created_at', order);
+        // Before the documentation migration runs the new columns are absent: show the plain updates
+        return full.error ? supabase.from('recovery_updates').select(cols).eq('report_id', id).order('created_at', order) : full;
+      })(),
     ]).then(([r, u]) => {
       if (!active) return;
       setReport(r.error ? null : ((r.data as Report | null) ?? null));
@@ -133,14 +140,14 @@ export default function AnimalProfile() {
   const clinic = report.facilities?.name ?? null;
 
   // The story, oldest first: the report itself, then every update
-  const story: { key: string; when: string; title: string; notes?: string }[] = [
+  const story: { key: string; when: string; title: string; notes?: string; update?: Update }[] = [
     {
       key: 'reported',
       when: report.created_at,
       title: 'Reported',
       notes: `${emergencyLabel(report.emergency_type)}${report.location_name ? ` · ${report.location_name.split(' — ')[0]}` : ''}`,
     },
-    ...updates.map((u) => ({ key: u.id, when: u.created_at, title: STATE_WORDS[u.state] ?? u.state, notes: u.notes })),
+    ...updates.map((u) => ({ key: u.id, when: u.created_at, title: STATE_WORDS[u.state] ?? u.state, notes: u.notes, update: u })),
   ];
 
   return (
@@ -189,6 +196,7 @@ export default function AnimalProfile() {
               <p className="text-[14px] font-semibold text-fg">{item.title}</p>
               <p className="text-[12px] text-fg-muted tabular-nums">{formatDay(item.when)}</p>
               {item.notes && <p className="text-[14px] text-fg leading-snug">{item.notes}</p>}
+              {item.update && <UpdateDetails update={item.update} alt={`${STATE_WORDS[item.update.state] ?? 'Update'} photo, ${formatDay(item.when)}`} />}
             </li>
           ))}
         </ol>

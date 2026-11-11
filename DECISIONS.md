@@ -405,3 +405,13 @@
 - **Decision (builder: "why can't I open a page for this clinic"):** each clinic on the Clinics list now has its own page, `/facilities/[id]`, reached from its name or a "View clinic" button. It shows the address, phone, the clinic's reported status (never "verified"), Directions, three counts (in care, update due, released), the animals in its care with their 14-day clocks (each opens that animal's page), and recently released animals. Public, like the list: no reporter or rescuer details. It also works in demo mode.
 - **Not built:** staff editing the clinic's details or hours from this page; opening hours; photos. Calls stay disabled in test mode.
 - **Checks:** `tsc`, eslint (no new warnings), 75 unit tests. In a browser (demo mode): the list links to each clinic, and the Marikina page shows status, counts and its two animals. Not run: a production build, and the page against a real database.
+
+### D-045: Three-screen demo (Citizen, Volunteer, Clinic staff)
+- **Date:** 2026-11-11
+- **Decision (builder):** a `/demo` page that shows three phone-sized screens side by side, one per role, so the whole story can be played from the start without switching roles. The screens are iframes of the real app, each locked to a role with `?pane=`.
+- **How:** each frame keeps its role in `sessionStorage` (private to the frame), read before the shared preview role (`resolveViewAs()` in `src/lib/storage.ts`). Demo data stays in `localStorage`, so the browser's `storage` event keeps the three screens in step. Inside a frame the demo and role-preview banners are hidden. `X-Frame-Options` changed from DENY to SAMEORIGIN, plus `frame-ancestors 'self'`, so only our own pages can embed the app.
+- **SOS in the demo:** in demo mode only, SOS uses the labelled fake lens and a fixed made-up location, skips sign-in, and files the report into the local demo through a new `create_report` rule (reporter is a separate demo citizen). The real SOS path is unchanged: live camera, real GPS, server timestamp. The success screen gained a "Follow this case" link.
+- **Also:** "Start with an empty Feed" (clinics only); the Feed no longer shows "not connected to its database" while demo mode is on.
+- **Checks:** `tsc`, eslint on the changed files, 83 unit tests (new: create_report, empty start, pane role), production build. **Not run:** the three screens in a real browser (no browser tool in the session), so the live sync between screens and the iframe layout still need a look.
+- **Not built:** a demo notification strip for the citizen; a screen for the admin.
+

@@ -267,6 +267,11 @@ BEGIN
   total := total + 1;
   IF (res ->> 'success')::boolean THEN passed := passed + 1; ELSE failures := failures || ' | FAIL an admin could not assign a volunteer: ' || COALESCE(res ->> 'error', ''); END IF;
 
+  PERFORM set_config('request.jwt.claims', json_build_object('sub', vol3, 'role', 'authenticated')::text, true);
+  res := update_clinic_details((SELECT id FROM public.facilities LIMIT 1), 'Somewhere 123', '0000', '', '');
+  total := total + 1;
+  IF NOT (res ->> 'success')::boolean THEN passed := passed + 1; ELSE failures := failures || ' | FAIL a volunteer edited a clinic'; END IF;
+
   EXECUTE 'RESET ROLE';
   RAISE EXCEPTION 'KUPKOP TESTS: %/% passed%  (rolled back, nothing was saved)', passed, total, failures;
 END $$;

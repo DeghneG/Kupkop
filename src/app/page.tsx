@@ -824,7 +824,7 @@ export default function HomePage() {
         )}
 
         <div className="flex flex-col">
-          {!isSupabaseConfigured ? (
+          {!isSupabaseConfigured && !demoOn ? (
             <div role="alert" className="mx-4 my-4 rounded-2xl p-6 border border-border text-center space-y-2">
               <p className="text-[14px] font-semibold text-fg">KupKop is not connected to its database</p>
               <p className="text-[12px] text-fg-muted">

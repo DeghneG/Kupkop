@@ -72,6 +72,29 @@ describe('demo mode plays the whole flow', () => {
     expect(report('demo-f01').state).toBe('resolved');
   });
 
+  it('a recovery update can carry a photo and details; bad details are refused', () => {
+    demoRpc('claim_sos_report', { p_report_id: 'demo-f01' });
+    demoRpc('admit_to_facility', { p_report_id: 'demo-f01', p_facility_id: DEMO_CLINIC_ID });
+    const base = { p_report_id: 'demo-f01', p_notes: 'X-ray shows a clean break', p_state: 'healing' };
+    expect(demoRpc('post_recovery_update', { ...base, p_weight_kg: 500 }).data?.success).toBe(false);
+    expect(demoRpc('post_recovery_update', { ...base, p_treatment: '<b>x</b>' }).data?.success).toBe(false);
+    expect(demoRpc('post_recovery_update', { ...base, p_photo_path: 'someone-elses/photo.jpg' }).data?.success).toBe(false);
+    expect(report('demo-f01').state).toBe('admitted');
+    const ok = demoRpc('post_recovery_update', {
+      ...base,
+      p_photo_path: 'data:image/jpeg;base64,AAAA',
+      p_treatment: 'Cast on left leg',
+      p_medication: 'Amoxicillin',
+      p_weight_kg: 7.5,
+      p_next_checkup_on: null,
+    });
+    expect(ok.data?.success).toBe(true);
+    const posted = read().updates.filter((u) => u.report_id === 'demo-f01').at(-1);
+    expect(posted?.treatment).toBe('Cast on left leg');
+    expect(posted?.weight_kg).toBe(7.5);
+    expect(posted?.photo_url).toBe('data:image/jpeg;base64,AAAA');
+  });
+
   it('a clinic that cannot take the animal sends it back to the rescuer', () => {
     demoRpc('claim_sos_report', { p_report_id: 'demo-f02' });
     demoRpc('admit_to_facility', { p_report_id: 'demo-f02', p_facility_id: DEMO_CLINIC_ID });
@@ -86,6 +109,39 @@ describe('demo mode plays the whole flow', () => {
     demoRpc('claim_sos_report', { p_report_id: 'demo-f01' });
     expect(demoRpc('set_clinic_availability', { p_facility_id: DEMO_CLINIC_ID, p_status: 'full' }).data?.success).toBe(true);
     expect(demoRpc('send_clinic_heads_up', { p_report_id: 'demo-f01', p_facility_id: DEMO_CLINIC_ID, p_eta_minutes: 5 }).data?.success).toBe(false);
+  });
+
+  it('a citizen report starts the flow: it lands at the top, as the citizen’s own, and can be claimed', () => {
+    const args = { p_animal_type: 'dog', p_emergency_type: 'hit_and_run', p_latitude: 14.6335, p_longitude: 121.1015, p_location_name: 'Marcos Highway', p_description: 'Dog hit by a motorbike', p_photo: 'data:image/webp;base64,AAAA' };
+    expect(demoRpc('create_report', { ...args, p_animal_type: 'horse' }).data?.success).toBe(false);
+    expect(demoRpc('create_report', { ...args, p_latitude: NaN }).data?.success).toBe(false);
+    expect(demoRpc('create_report', { ...args, p_description: '<b>' }).data?.success).toBe(false);
+    expect(demoRpc('create_report', { ...args, p_photo: 'https://example.com/x.jpg' }).data?.success).toBe(false);
+    const made = demoRpc('create_report', args);
+    expect(made.data?.success).toBe(true);
+    const created = read().reports[0];
+    expect(created.id).toBe(made.data?.report_id);
+    expect(created.state).toBe('reported');
+    expect(created.urgency).toBe('critical');
+    expect(created.reporter_id).toBe('demo-citizen');
+    expect(demoRpc('claim_sos_report', { p_report_id: created.id }).data?.success).toBe(true);
+  });
+
+  it('an empty start keeps the clinics but has no cases', () => {
+    const empty = seedDemo(true);
+    expect(empty.reports).toHaveLength(0);
+    expect(empty.updates).toHaveLength(0);
+    expect(empty.clinics.length).toBeGreaterThan(0);
+  });
+
+  it('clinic staff can edit the details; bad input is refused', () => {
+    const args = { p_facility_id: DEMO_CLINIC_ID, p_address: '1 New Street, Marikina', p_phone: '0917 000 0000', p_hours: 'Mon to Sat, 8am to 6pm', p_about: 'Bring a carrier.' };
+    expect(demoRpc('update_clinic_details', args).data?.success).toBe(true);
+    const clinic = read().clinics.find((c) => c.id === DEMO_CLINIC_ID);
+    expect(clinic?.address).toBe('1 New Street, Marikina');
+    expect(clinic?.hours).toBe('Mon to Sat, 8am to 6pm');
+    expect(demoRpc('update_clinic_details', { ...args, p_about: '<script>' }).data?.success).toBe(false);
+    expect(demoRpc('update_clinic_details', { ...args, p_address: 'x' }).data?.success).toBe(false);
   });
 
   it('standby: join someone else’s claim, never your own, and leave again', () => {

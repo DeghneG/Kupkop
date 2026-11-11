@@ -9,8 +9,14 @@ import { useSyncExternalStore } from 'react';
 import { claimLockEndsAt, claimLockMinutes, ESCALATION_CONFIG } from '@/lib/sos/escalation';
 import { effectiveAvailability } from '@/lib/sos/clinics';
 import { claimPhase, canClaimNow } from '@/lib/sos/standby';
+import { detailsError } from '@/lib/sos/recovery';
+import { readViewAs } from '@/lib/storage';
 
 export const DEMO_USER = 'demo-user';
+/** Reports made through SOS in the demo belong to this citizen, so the volunteer is a different person */
+export const DEMO_CITIZEN = 'demo-citizen';
+/** The made-up spot every demo SOS report comes from (no frame asks for real location) */
+export const DEMO_PLACE = { lat: 14.6335, lng: 121.1015, name: 'Marcos Highway, Marikina City (demo location)' };
 const OTHER_USER = 'demo-other';
 export const DEMO_CLINIC_ID = 'demo-clinic-marikina';
 const KEY_ON = 'kupkop-demo-on';
@@ -58,6 +64,12 @@ export interface DemoUpdate {
   notes: string;
   state: CaseState;
   created_at: string;
+  /** A small data URL in the demo (the real app stores a path in the recovery-photos bucket) */
+  photo_url?: string | null;
+  treatment?: string | null;
+  medication?: string | null;
+  weight_kg?: number | null;
+  next_checkup_on?: string | null;
 }
 
 export interface DemoClinic {
@@ -71,6 +83,8 @@ export interface DemoClinic {
   last_active_at: string;
   availability: 'open' | 'limited' | 'full' | null;
   availability_set_at: string | null;
+  hours?: string | null;
+  about?: string | null;
 }
 
 export interface DemoStandby {
@@ -163,9 +177,9 @@ export function setDemoOn(on: boolean) {
   }
 }
 
-/** Start the demo over with fresh sample cases. */
-export function resetDemo() {
-  save(seedDemo());
+/** Start the demo over with fresh sample cases, or with the clinics only (empty = true) so a new report is the first case. */
+export function resetDemo(empty = false) {
+  save(seedDemo(empty));
 }
 
 function mutate<T>(change: (data: DemoData) => T): T {
@@ -209,7 +223,7 @@ function baseReport(over: Partial<DemoReport> & Pick<DemoReport, 'id' | 'short_i
   };
 }
 
-export function seedDemo(): DemoData {
+export function seedDemo(empty = false): DemoData {
   const clinics: DemoClinic[] = [
     { id: DEMO_CLINIC_ID, name: 'Sample Animal Clinic (Marikina)', address: 'Marcos Highway, Marikina City', phone: '0000-100-0001', latitude: 14.633, longitude: 121.102, status: 'Listed', last_active_at: ago(60), availability: 'open', availability_set_at: ago(10) },
     { id: 'demo-clinic-makati', name: 'Sample Vet Hospital (Makati)', address: 'Pasong Tamo Extension, Makati City', phone: '0000-100-0002', latitude: 14.5547, longitude: 121.0244, status: 'Listed', last_active_at: ago(60 * 24 * 3), availability: 'open', availability_set_at: ago(10) },
@@ -247,7 +261,7 @@ export function seedDemo(): DemoData {
     u('3d', 'demo-c03', 'Healthy and friendly. Adopted by a family nearby.', 'resolved', 60 * 10),
   ];
 
-  return { reports, updates, clinics, standby: [] };
+  return { reports: empty ? [] : reports, updates: empty ? [] : updates, clinics, standby: [] };
 }
 
 // ---- the rules, played locally ----------------------------------------------------------------------------
@@ -260,7 +274,7 @@ export interface DemoRpcResult {
 const ok = (extra: Record<string, unknown> = {}): DemoRpcResult => ({ data: { success: true, ...extra }, error: null });
 const fail = (message: string): DemoRpcResult => ({ data: { success: false, error: message }, error: null });
 
-const viewingAsAdmin = () => readRaw('kupkop-view-as') === 'admin';
+const viewingAsAdmin = () => readViewAs() === 'admin';
 
 /** Anything that leaves the "on the way" stage clears the check-in and the heads-up, like the database trigger. */
 function clearExtras(r: DemoReport) {
@@ -288,6 +302,34 @@ export function demoRpc(fn: string, args: Record<string, unknown>): DemoRpcResul
     const clinicName = (id: string | null) => d.clinics.find((c) => c.id === id)?.name ?? 'the clinic';
 
     switch (fn) {
+      case 'create_report': {
+        const animal = args.p_animal_type as string;
+        const emergency = args.p_emergency_type as string;
+        if (!['dog', 'cat', 'other'].includes(animal)) return fail('Choose the animal');
+        if (!['hit_and_run', 'bleeding', 'fracture', 'trapped_abused', 'sick_mange'].includes(emergency)) return fail('Choose the emergency');
+        const lat = Number(args.p_latitude);
+        const lng = Number(args.p_longitude);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return fail('A real location is needed to send a report');
+        const text = (v: unknown) => ((v as string | null | undefined) ?? '').trim();
+        const description = text(args.p_description).slice(0, 500);
+        if (/[<>]/.test(description)) return fail('Use plain words in the description (no < or >)');
+        const photo = text(args.p_photo);
+        if (photo && !photo.startsWith('data:image/')) return fail('The demo photo must be the fake frame');
+        let shortId = '';
+        do {
+          shortId = 'KK-' + Math.random().toString(36).slice(2, 6).toUpperCase();
+        } while (d.reports.some((x) => x.short_id === shortId));
+        const report = baseReport(
+          { id: nextId('demo-r'), short_id: shortId, animal_type: animal as DemoReport['animal_type'], emergency_type: emergency, latitude: lat, longitude: lng, location_name: text(args.p_location_name) || DEMO_PLACE.name, description, reporter_id: DEMO_CITIZEN, photo_url: photo },
+          0
+        );
+        report.created_at = now;
+        report.updated_at = now;
+        report.server_timestamp = now;
+        d.reports.unshift(report);
+        return ok({ report_id: report.id, short_id: shortId, server_timestamp: now });
+      }
+
       case 'claim_sos_report': {
         if (needReport()) return needReport()!;
         const report = r!;
@@ -436,7 +478,14 @@ export function demoRpc(fn: string, args: Record<string, unknown>): DemoRpcResul
         if (r!.state !== 'admitted' && r!.state !== 'healing') return fail('Updates can only be posted while the animal is in care');
         if (!['admitted', 'healing', 'resolved'].includes(state) || (r!.state === 'healing' && state === 'admitted')) return fail('That status change is not allowed');
         if (notes.length < 5) return fail('Write a short note on how the animal is doing (5+ characters)');
-        d.updates.push({ id: nextId('demo-u'), report_id: r!.id, notes: notes.slice(0, 500), state, created_at: now });
+        const clean = (v: unknown) => ((v as string | null | undefined) ?? '').trim() || null;
+        const weight = args.p_weight_kg == null || args.p_weight_kg === '' ? null : Number(args.p_weight_kg);
+        const details = { treatment: clean(args.p_treatment), medication: clean(args.p_medication), weight_kg: weight, next_checkup_on: clean(args.p_next_checkup_on) };
+        const detailProblem = detailsError(details);
+        if (detailProblem) return fail(detailProblem);
+        const photo = clean(args.p_photo_path);
+        if (photo && !photo.startsWith('data:image/')) return fail('That photo does not belong to this case');
+        d.updates.push({ id: nextId('demo-u'), report_id: r!.id, notes: notes.slice(0, 500), state, created_at: now, photo_url: photo, ...details });
         r!.state = state;
         r!.intake_confirmed_at = r!.intake_confirmed_at ?? now;
         r!.updated_at = now;
@@ -462,6 +511,25 @@ export function demoRpc(fn: string, args: Record<string, unknown>): DemoRpcResul
         clinic.availability = status;
         clinic.availability_set_at = now;
         return ok({ availability: status });
+      }
+
+      case 'update_clinic_details': {
+        const clinic = d.clinics.find((c) => c.id === args.p_facility_id);
+        if (!clinic) return fail('Clinic not found');
+        const text = (v: unknown) => ((v as string | null | undefined) ?? '').trim();
+        const address = text(args.p_address);
+        const phone = text(args.p_phone);
+        const hours = text(args.p_hours);
+        const about = text(args.p_about);
+        if (address.length < 3 || address.length > 200) return fail('Address must be 3 to 200 characters');
+        if (phone.length > 30 || /[<>]/.test(phone)) return fail('Phone number is too long');
+        if (hours.length > 200 || /[<>]/.test(hours)) return fail('Hours must be up to 200 characters, no < or >');
+        if (about.length > 500 || /[<>]/.test(about)) return fail('The note must be up to 500 characters, no < or >');
+        clinic.address = address;
+        clinic.phone = phone;
+        clinic.hours = hours || null;
+        clinic.about = about || null;
+        return ok({});
       }
 
       case 'admin_assign_claim': {

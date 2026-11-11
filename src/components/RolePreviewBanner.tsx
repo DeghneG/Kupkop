@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import RoleSwitcher, { roleLabel } from '@/components/RoleSwitcher';
-import { useViewAs } from '@/lib/storage';
+import { useViewAs, usePaneFrame } from '@/lib/storage';
 import { useProfile } from '@/lib/supabase/useProfile';
 import { useDemoMode } from '@/lib/demo/demo';
 
@@ -24,7 +24,8 @@ export default function RolePreviewBanner() {
     }
   });
 
-  if (previewRole === null) return null;
+  const paneFrame = usePaneFrame();
+  if (previewRole === null || paneFrame) return null;
 
   const toggle = () => {
     const next = !minimized;

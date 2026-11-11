@@ -5,10 +5,12 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { ChevronLeft, MapPin, Navigation, Phone } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { appRpc } from '@/lib/demo/rpc';
+import { useProfile } from '@/lib/supabase/useProfile';
 import { animalLabel, emergencyLabel, CARE_STATE_LABELS } from '@/lib/sos/labels';
 import { calculateFacilityInactivity } from '@/lib/sos/escalation';
 import { availabilityNote, effectiveAvailability } from '@/lib/sos/clinics';
-import { useDemoData, useDemoMode } from '@/lib/demo/demo';
+import { DEMO_CLINIC_ID, useDemoData, useDemoMode } from '@/lib/demo/demo';
 import ScreenHeader from '@/components/ScreenHeader';
 import DayWeave from '@/components/DayWeave';
 
@@ -24,6 +26,8 @@ interface Clinic {
   status: string;
   availability: string | null;
   availabilitySetAt: string | null;
+  hours: string | null;
+  about: string | null;
 }
 
 interface ClinicCase {
@@ -59,6 +63,15 @@ export default function ClinicProfile() {
   const [fetchedClinic, setClinic] = useState<Clinic | null | undefined>(undefined);
   const [fetchedCases, setCases] = useState<ClinicCase[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+  const [editing, setEditing] = useState(false);
+  const { realRole, role, isPreview, facilityId } = useProfile();
+  // Display-only; the database function checks again that the signed-in user works at this clinic
+  const canEdit = demoOn
+    ? role === 'facility' && id === DEMO_CLINIC_ID
+    : isPreview
+      ? false
+      : (realRole === 'facility' && !!facilityId && facilityId === id) || realRole === 'admin';
 
   useEffect(() => {
     if (!id || demoOn) return;
@@ -66,7 +79,7 @@ export default function ClinicProfile() {
     const supabase = createClient();
     (async () => {
       const basic = 'id,name,address,phone,latitude,longitude,status';
-      const withStatus = await supabase.from('facilities').select(`${basic},availability,availability_set_at`).eq('id', id).maybeSingle();
+      const withStatus = await supabase.from('facilities').select(`${basic},availability,availability_set_at,hours,about`).eq('id', id).maybeSingle();
       const row: Record<string, unknown> | null = withStatus.error
         ? ((await supabase.from('facilities').select(basic).eq('id', id).maybeSingle()).data as Record<string, unknown> | null)
         : (withStatus.data as Record<string, unknown> | null);
@@ -105,6 +118,8 @@ export default function ClinicProfile() {
               status: row.status as string,
               availability: (row.availability as string | null | undefined) ?? null,
               availabilitySetAt: (row.availability_set_at as string | null | undefined) ?? null,
+              hours: (row.hours as string | null | undefined) ?? null,
+              about: (row.about as string | null | undefined) ?? null,
             }
           : null
       );
@@ -123,7 +138,7 @@ export default function ClinicProfile() {
     return () => {
       active = false;
     };
-  }, [id, demoOn]);
+  }, [id, demoOn, reloadKey]);
 
   // Demo mode reads the sample clinic and its animals instead of the database
   const demoClinic = demoOn ? demo.clinics.find((c) => c.id === id) : undefined;
@@ -139,6 +154,8 @@ export default function ClinicProfile() {
           status: demoClinic.status,
           availability: demoClinic.availability,
           availabilitySetAt: demoClinic.availability_set_at,
+          hours: demoClinic.hours ?? null,
+          about: demoClinic.about ?? null,
         }
       : null
     : fetchedClinic;
@@ -215,6 +232,13 @@ export default function ClinicProfile() {
           <span>{clinic.address}</span>
         </p>
         {clinic.phone && <p className="text-[14px] text-fg tabular-nums pl-6">{clinic.phone}</p>}
+        {clinic.hours && (
+          <p className="text-[14px] text-fg pl-6">
+            <span className="text-fg-muted">Hours: </span>
+            {clinic.hours}
+          </p>
+        )}
+        {clinic.about && <p className="text-[14px] text-fg pl-6 whitespace-pre-line">{clinic.about}</p>}
         <p className={`text-[14px] pl-6 ${effective === 'full' ? 'font-bold text-fg' : 'text-fg'}`}>
           {availabilityNote(clinic.availability, clinic.availabilitySetAt)}
         </p>
@@ -242,6 +266,28 @@ export default function ClinicProfile() {
             <span>Directions</span>
           </a>
         </div>
+
+        {canEdit &&
+          (editing ? (
+            <ClinicDetailsForm
+              clinic={clinic}
+              onCancel={() => setEditing(false)}
+              onSaved={() => {
+                setEditing(false);
+                setReloadKey((k) => k + 1);
+                setNotice('Clinic details saved.');
+                setTimeout(() => setNotice(null), 3000);
+              }}
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={() => setEditing(true)}
+              className="min-h-[44px] px-4 rounded-xl border border-border bg-surface hover:bg-surface-muted text-fg font-semibold text-[14px] cursor-pointer"
+            >
+              Edit clinic details
+            </button>
+          ))}
       </section>
 
       <dl className="grid grid-cols-3 divide-x divide-border border-y border-border">
@@ -313,5 +359,80 @@ export default function ClinicProfile() {
 
       {back}
     </div>
+  );
+}
+
+// Staff edit what the public sees. Name, map position and "Listed" stay with the admin.
+function ClinicDetailsForm({ clinic, onCancel, onSaved }: { clinic: Clinic; onCancel: () => void; onSaved: () => void }) {
+  const [address, setAddress] = useState(clinic.address);
+  const [phone, setPhone] = useState(clinic.phone);
+  const [hours, setHours] = useState(clinic.hours ?? '');
+  const [about, setAbout] = useState(clinic.about ?? '');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const field = 'w-full min-h-[44px] px-3 rounded-xl border border-border bg-surface text-fg text-[14px]';
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    if (saving) return;
+    setSaving(true);
+    setError(null);
+    const { data, error: rpcError } = await appRpc('update_clinic_details', {
+      p_facility_id: clinic.id,
+      p_address: address,
+      p_phone: phone,
+      p_hours: hours,
+      p_about: about,
+    });
+    setSaving(false);
+    const result = data as { success?: boolean; error?: string } | null;
+    if (rpcError || !result?.success) {
+      setError(result?.error ?? 'Could not save. Check your connection and try again.');
+      return;
+    }
+    onSaved();
+  }
+
+  return (
+    <form onSubmit={save} className="space-y-3 pt-2" aria-label="Edit clinic details">
+      <label className="block space-y-1">
+        <span className="text-[12px] font-semibold text-fg">Address</span>
+        <input value={address} onChange={(e) => setAddress(e.target.value)} maxLength={200} required className={field} />
+      </label>
+      <label className="block space-y-1">
+        <span className="text-[12px] font-semibold text-fg">Phone</span>
+        <input value={phone} onChange={(e) => setPhone(e.target.value)} maxLength={30} inputMode="tel" className={field} />
+      </label>
+      <label className="block space-y-1">
+        <span className="text-[12px] font-semibold text-fg">Opening hours</span>
+        <input value={hours} onChange={(e) => setHours(e.target.value)} maxLength={200} placeholder="Mon to Sat, 8am to 6pm" className={field} />
+      </label>
+      <label className="block space-y-1">
+        <span className="text-[12px] font-semibold text-fg">Note for rescuers</span>
+        <textarea
+          value={about}
+          onChange={(e) => setAbout(e.target.value)}
+          maxLength={500}
+          rows={3}
+          placeholder="What you can treat, what to bring, where to enter"
+          className={`${field} py-2`}
+        />
+      </label>
+      {error && (
+        <p role="alert" className="text-[12px] font-semibold text-fg">
+          {error}
+        </p>
+      )}
+      <div className="grid grid-cols-2 gap-2">
+        <button type="button" onClick={onCancel} className="min-h-[44px] rounded-xl border border-border bg-surface text-fg font-semibold text-[14px] cursor-pointer">
+          Cancel
+        </button>
+        <button type="submit" disabled={saving} className="min-h-[44px] rounded-xl bg-fg text-page font-semibold text-[14px] cursor-pointer disabled:opacity-60">
+          {saving ? 'Saving…' : 'Save'}
+        </button>
+      </div>
+      <p className="text-[12px] text-fg-muted">Photos are not supported yet. To change the clinic’s name or map position, ask the admin.</p>
+    </form>
   );
 }

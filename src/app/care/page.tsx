@@ -13,6 +13,8 @@ import { availabilityNote, CLINIC_STATUS_LABELS, effectiveAvailability, type Cli
 import { useConfirm, type ConfirmOptions } from '@/components/ConfirmSheet';
 import { DEMO_CLINIC_ID, useDemoData, useDemoMode } from '@/lib/demo/demo';
 import { appRpc } from '@/lib/demo/rpc';
+import { prepareRecoveryPhoto } from '@/lib/recoveryPhoto';
+import { detailsError } from '@/lib/sos/recovery';
 import ScreenHeader from '@/components/ScreenHeader';
 
 type CareState = keyof typeof CARE_STATE_LABELS;
@@ -901,17 +903,44 @@ function UpdateForm({ c, onCancel, onPosted }: { c: CareCase; onCancel: () => vo
   const options: CareState[] = c.state === 'healing' ? ['healing', 'resolved'] : ['admitted', 'healing', 'resolved'];
   const [state, setState] = useState<CareState>(c.state);
   const [notes, setNotes] = useState('');
+  const [treatment, setTreatment] = useState('');
+  const [medication, setMedication] = useState('');
+  const [weight, setWeight] = useState('');
+  const [nextCheckup, setNextCheckup] = useState('');
+  const [photo, setPhoto] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const field = 'w-full min-h-[44px] rounded-xl border border-border bg-surface text-fg text-[14px] px-3 focus:outline-none focus:ring-2 focus:ring-action';
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const details = { treatment, medication, weight_kg: weight, next_checkup_on: nextCheckup || null };
+    const problem = detailsError(details);
+    if (problem) {
+      setError(problem);
+      return;
+    }
     setBusy(true);
     setError(null);
+    let photoPath: string | null = null;
+    if (photo) {
+      try {
+        photoPath = await prepareRecoveryPhoto(c.id, photo);
+      } catch (err) {
+        setBusy(false);
+        setError(err instanceof Error ? err.message : 'Could not prepare the photo.');
+        return;
+      }
+    }
     const { data, error: rpcError } = await appRpc('post_recovery_update', {
       p_report_id: c.id,
       p_notes: notes.trim(),
       p_state: state,
+      p_photo_path: photoPath,
+      p_treatment: treatment.trim() || null,
+      p_medication: medication.trim() || null,
+      p_weight_kg: weight.trim() === '' ? null : Number(weight),
+      p_next_checkup_on: nextCheckup || null,
     });
     setBusy(false);
     if (rpcError || !data?.success) {
@@ -958,6 +987,34 @@ function UpdateForm({ c, onCancel, onPosted }: { c: CareCase; onCancel: () => vo
           className="w-full rounded-xl border border-border bg-surface text-fg text-[14px] p-3 focus:outline-none focus:ring-2 focus:ring-action"
         />
       </label>
+      <details className="rounded-xl border border-border bg-surface">
+        <summary className="min-h-[44px] px-3 flex items-center text-[14px] font-semibold text-fg cursor-pointer">Document this update (optional)</summary>
+        <div className="space-y-3 p-3 pt-1">
+          <label className="block space-y-1">
+            <span className="text-[12px] font-semibold text-fg">Photo</span>
+            <input type="file" accept="image/*" onChange={(e) => setPhoto(e.target.files?.[0] ?? null)} className="w-full text-[14px] text-fg" />
+          </label>
+          <label className="block space-y-1">
+            <span className="text-[12px] font-semibold text-fg">Treatment given</span>
+            <input value={treatment} onChange={(e) => setTreatment(e.target.value)} maxLength={200} placeholder="Cast on left front leg" className={field} />
+          </label>
+          <label className="block space-y-1">
+            <span className="text-[12px] font-semibold text-fg">Medication</span>
+            <input value={medication} onChange={(e) => setMedication(e.target.value)} maxLength={200} placeholder="Amoxicillin, twice a day" className={field} />
+          </label>
+          <div className="grid grid-cols-2 gap-2">
+            <label className="block space-y-1">
+              <span className="text-[12px] font-semibold text-fg">Weight (kg)</span>
+              <input value={weight} onChange={(e) => setWeight(e.target.value)} inputMode="decimal" placeholder="7.5" className={field} />
+            </label>
+            <label className="block space-y-1">
+              <span className="text-[12px] font-semibold text-fg">Next check-up</span>
+              <input type="date" value={nextCheckup} onChange={(e) => setNextCheckup(e.target.value)} className={field} />
+            </label>
+          </div>
+          <p className="text-[12px] text-fg-muted">Shown on the animal’s public story. Do not include names or phone numbers of people. Posted updates cannot be edited.</p>
+        </div>
+      </details>
       {state === 'resolved' && (
         <p className="text-[12px] text-fg-muted">Marks the case resolved: released, adopted, or returned. This closes it.</p>
       )}

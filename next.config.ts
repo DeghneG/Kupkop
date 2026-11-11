@@ -18,8 +18,13 @@ const nextConfig: NextConfig = {
         source: "/(.*)",
         headers: [
           {
+            // Our own pages may embed the app (the three-screen demo); nobody else may
             key: "X-Frame-Options",
-            value: "DENY",
+            value: "SAMEORIGIN",
+          },
+          {
+            key: "Content-Security-Policy",
+            value: "frame-ancestors 'self'",
           },
           {
             key: "X-Content-Type-Options",

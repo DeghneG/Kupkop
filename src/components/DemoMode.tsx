@@ -1,15 +1,18 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import { FlaskConical } from 'lucide-react';
 import { resetDemo, setDemoOn, useDemoMode } from '@/lib/demo/demo';
 import { useConfirm } from '@/components/ConfirmSheet';
+import { usePaneFrame } from '@/lib/storage';
 
 // A strip under the Test mode notice while demo mode is on, so nobody mistakes sample cases for real ones.
 export function DemoBanner() {
   const on = useDemoMode();
+  const paneFrame = usePaneFrame();
   const { ask, sheet } = useConfirm();
-  if (!on) return null;
+  if (!on || paneFrame) return null;
   return (
     <aside aria-label="Demo mode notice" className="w-full bg-surface-muted text-fg border-b border-border px-4 py-2">
       <p className="flex items-start gap-2 text-[12px] leading-snug">
@@ -60,6 +63,12 @@ export function DemoModeSection() {
         resolve. It runs in this browser only and never touches the database. Use the role bar to be the volunteer, the clinic or the
         admin.
       </p>
+      <Link
+        href="/demo"
+        className="w-full min-h-[48px] rounded-xl bg-action text-action-fg font-semibold text-[14px] flex items-center justify-center"
+      >
+        Open the three-screen demo
+      </Link>
       {on ? (
         <div className="flex flex-wrap gap-2">
           <button
