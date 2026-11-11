@@ -103,19 +103,21 @@ export function claimLockMinutes(rawType?: string | null): number {
 
 /**
  * How long a claim holds right now. Before the volunteer checks in (checkinKind === null) it is the short confirm window; after
- * "On my way" or "Arrived" it is the severity lock. Once a clinic is expecting the volunteer it is the expected drive to that
- * clinic (heads_up_eta_minutes, worked out by the database from distance and Manila traffic) plus a handover buffer, counted
- * from the moment the clinic was told. A caller that does not know (undefined) gets the severity lock.
+ * "On my way" or "Arrived" it is the severity lock. Once a clinic has been told (and has not said it cannot take the animal),
+ * it is the expected drive to that clinic (heads_up_eta_minutes, worked out by the database from distance and Manila traffic)
+ * plus a handover buffer, counted from the moment the clinic was told (D-060). clinicHolding = told and not refused. A caller that does not know (undefined) gets the severity lock.
  * Mirrors public.claim_window() in SQL.
  */
 export function claimWindowMinutes(
   rawType?: string | null,
   checkinKind?: 'on_my_way' | 'arrived' | null,
-  clinicExpecting?: boolean,
+  clinicHolding?: boolean,
   etaMinutes?: number | null
 ): number {
   if (checkinKind === null) return ESCALATION_CONFIG.claimConfirmMinutes;
-  if (clinicExpecting) return (etaMinutes ?? claimLockMinutes(rawType)) + ESCALATION_CONFIG.arrivalBufferMinutes;
+  // From the moment a clinic is told (until it says it cannot take the animal): the expected drive plus the handover buffer.
+  // etaMinutes is only set once a clinic was told, so an untold case keeps the severity lock.
+  if (clinicHolding && etaMinutes != null) return etaMinutes + ESCALATION_CONFIG.arrivalBufferMinutes;
   return claimLockMinutes(rawType);
 }
 
@@ -286,12 +288,12 @@ export function needsRescuer(
   claimedAt?: string | Date | number | null,
   rawType?: string | null,
   checkinKind?: 'on_my_way' | 'arrived' | null,
-  clinicExpecting?: boolean,
+  clinicHolding?: boolean,
   etaMinutes?: number | null
 ): boolean {
   return (
     state === 'reported' ||
-    (state === 'claimed' && calculateClaimTimer(claimedAt, claimWindowMinutes(rawType, checkinKind, clinicExpecting, etaMinutes)).isExpired)
+    (state === 'claimed' && calculateClaimTimer(claimedAt, claimWindowMinutes(rawType, checkinKind, clinicHolding, etaMinutes)).isExpired)
   );
 }
 
@@ -300,11 +302,11 @@ export function claimLockEndsAt(
   claimedAt?: string | Date | number | null,
   rawType?: string | null,
   checkinKind?: 'on_my_way' | 'arrived' | null,
-  clinicExpecting?: boolean,
+  clinicHolding?: boolean,
   etaMinutes?: number | null
 ): number | null {
   if (!claimedAt) return null;
-  return new Date(claimedAt).getTime() + claimWindowMinutes(rawType, checkinKind, clinicExpecting, etaMinutes) * 60_000;
+  return new Date(claimedAt).getTime() + claimWindowMinutes(rawType, checkinKind, clinicHolding, etaMinutes) * 60_000;
 }
 
 /** How long a case has waited, short enough for a feed row: "7m", "3h", "15d". */
@@ -331,8 +333,8 @@ export function isOnLiveFeed(
     type?: string | null;
     /** The rescuer's check-in (null = none yet), so the claim window matches every other screen */
     checkinKind?: 'on_my_way' | 'arrived' | null;
-    /** A clinic is expecting the rescuer: the claim holds for the expected drive there */
-    clinicExpecting?: boolean;
+    /** A clinic was told and has not refused: the claim holds for the expected drive there */
+    clinicHolding?: boolean;
     /** Expected minutes to that clinic */
     etaMinutes?: number | null;
   },
@@ -341,6 +343,6 @@ export function isOnLiveFeed(
   const windowMs = ESCALATION_CONFIG.feedWindowHours * 60 * 60 * 1000;
   const within = (time?: string | Date | number | null) => !time || now - new Date(time).getTime() < windowMs;
   if (report.state === 'resolved') return within(report.updatedAt ?? report.createdAt);
-  if (needsRescuer(report.state, report.claimedAt, report.type, report.checkinKind, report.clinicExpecting, report.etaMinutes)) return within(report.createdAt);
+  if (needsRescuer(report.state, report.claimedAt, report.type, report.checkinKind, report.clinicHolding, report.etaMinutes)) return within(report.createdAt);
   return true;
 }

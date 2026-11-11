@@ -212,13 +212,14 @@ export default function DetailSheet({
   // Sample cases ("case-*") have no database row to read updates from or flag
   const isLive = !!incident.id && !incident.id.startsWith('case-');
   // An expired claim is open again for other volunteers
-  const clinicExpecting = incident.headsUpResponse === 'expecting';
-  const open = needsRescuer(incident.state, incident.claimedAt, incident.type, incident.checkinKind ?? null, clinicExpecting, incident.headsUpEtaMinutes);
+  // Told a clinic that has not said no: the hold is the expected drive there (D-060)
+  const clinicHolding = !!incident.headsUpFacilityId && incident.headsUpResponse !== 'cannot';
+  const open = needsRescuer(incident.state, incident.claimedAt, incident.type, incident.checkinKind ?? null, clinicHolding, incident.headsUpEtaMinutes);
   const isMine = !!userId && incident.claimedBy === userId;
   // The lock is shorter for the cases where minutes matter most (15 / 30 / 60)
   const lockMinutes = claimLockMinutes(incident.type);
   // Before the volunteer checks in only the short confirm window holds the claim
-  const lockTimer = calculateClaimTimer(incident.claimedAt, claimWindowMinutes(incident.type, incident.checkinKind ?? null, clinicExpecting, incident.headsUpEtaMinutes));
+  const lockTimer = calculateClaimTimer(incident.claimedAt, claimWindowMinutes(incident.type, incident.checkinKind ?? null, clinicHolding, incident.headsUpEtaMinutes));
   const isResponder = role === 'volunteer' || role === 'admin';
   const standbyList = incident.standby ?? [];
   const myStandbyPlace = standbyPosition(standbyList, userId);
@@ -551,7 +552,7 @@ export default function DetailSheet({
                       <TriageGlyph state="claimed" size={14} className="text-claimed-fg shrink-0" />
                       <span>
                         {claimerName ? `${claimerName} is on the way` : 'A rescuer is on the way'}{' '}
-                        {clinicExpecting ? `(due at the clinic in ${lockTimer.remainingMinutes}m)` : `(${lockTimer.remainingMinutes}m lock left)`}
+                        {clinicHolding ? `(due at the clinic in ${lockTimer.remainingMinutes}m)` : `(${lockTimer.remainingMinutes}m lock left)`}
                       </span>
                     </div>
                     {isLive && isResponder && userId && (

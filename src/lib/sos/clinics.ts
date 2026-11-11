@@ -150,7 +150,7 @@ export function clinicAnswerMessage(r: { event: ClinicAnswerEvent; clinicName: s
         body: `${r.clinicName} cannot take the animal now${r.note ? `: ${r.note}` : ''}. Pick another clinic.`,
       };
     case 'received':
-      return { title: `${r.clinicName} has the animal · ${code}`, body: 'They confirmed it arrived. You can mark it admitted now.' };
+      return { title: `Handed over to ${r.clinicName} · ${code}`, body: 'They confirmed the animal arrived and it is in their care now. Thank you for the rescue!' };
   }
 }
 

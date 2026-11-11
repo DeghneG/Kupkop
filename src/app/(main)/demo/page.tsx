@@ -19,7 +19,7 @@ const PANES = [
 const STEPS = [
   'Citizen: tap Report an animal in trouble, pick the animal and emergency, tap the shutter, then Send.',
   'Volunteer: the case appears at the top of the Feed. Claim it, then follow the steps one at a time: On my way, Arrived, Tell a clinic.',
-  'Clinic staff: tap Animal arrived when the animal is there. That unlocks the volunteer’s Admit button.',
+  'Clinic staff: tap Animal arrived when the animal is there. That hands the case over to the clinic.',
   'Volunteer: Admit. Clinic staff: post a recovery update (camera photo, treatment, medication, weight are required).',
   'Citizen: your report stays on the citizen home. It tells you at every step: on the way, arrived, clinic told, admitted.',
 ];

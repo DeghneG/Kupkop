@@ -20,12 +20,11 @@ const report = (id: string) => read().reports.find((r) => r.id === id)!;
 // A full set of documentation for a recovery update: a camera photo, treatment, medication and weight
 const DOCS = { p_photo_path: 'data:image/jpeg;base64,AAAA', p_treatment: 'Cast on left leg', p_medication: 'None', p_weight_kg: 7.5 };
 
-// Claim, tell the clinic, the clinic confirms the animal is there, then the volunteer admits (the only way to admit)
+// Claim, tell the clinic, then the clinic confirms the animal is there: that admits the case (D-060)
 function admitViaClinic(id: string, clinic = DEMO_CLINIC_ID) {
   demoRpc('claim_sos_report', { p_report_id: id });
   demoRpc('send_clinic_heads_up', { p_report_id: id, p_facility_id: clinic, p_eta_minutes: 10 });
-  demoRpc('clinic_confirm_received', { p_report_id: id });
-  return demoRpc('admit_to_facility', { p_report_id: id, p_facility_id: clinic });
+  return demoRpc('clinic_confirm_received', { p_report_id: id });
 }
 
 describe('demo mode plays the whole flow', () => {
@@ -77,19 +76,20 @@ describe('demo mode plays the whole flow', () => {
     const early = demoRpc('admit_to_facility', { p_report_id: 'demo-f01', p_facility_id: DEMO_CLINIC_ID });
     expect(early.data?.success).toBe(false);
     expect(report('demo-f01').state).toBe('claimed');
-    // Only the clinic that was told can confirm, and only once
+    // The clinic that was told confirms the animal is there: that is the handover, admitted to that clinic at once (D-060)
     expect(demoRpc('clinic_confirm_received', { p_report_id: 'demo-f01' }).data?.success).toBe(true);
-    expect(demoRpc('clinic_confirm_received', { p_report_id: 'demo-f01' }).data?.success).toBe(false);
-    // ...and the volunteer can only admit to that clinic
+    expect(demoRpc('clinic_confirm_received', { p_report_id: 'demo-f01' }).data?.success).toBe(false); // already handed over
+    // Nothing is left for the volunteer to do: it cannot be admitted again, to this clinic or another, or released
     expect(demoRpc('admit_to_facility', { p_report_id: 'demo-f01', p_facility_id: 'demo-clinic-makati' }).data?.success).toBe(false);
+    expect(demoRpc('release_sos_claim', { p_report_id: 'demo-f01' }).data?.success).toBe(false);
 
-    // Admit: the heads-up and check-in clear, the first update is recorded, intake is already confirmed
-    expect(demoRpc('admit_to_facility', { p_report_id: 'demo-f01', p_facility_id: DEMO_CLINIC_ID }).data?.success).toBe(true);
+    // The heads-up and check-in clear, the handover time is kept, intake is confirmed, the first update is recorded
     const admitted = report('demo-f01');
     expect(admitted.state).toBe('admitted');
+    expect(admitted.facility_id).toBe(DEMO_CLINIC_ID);
     expect(admitted.heads_up_facility_id).toBeNull();
     expect(admitted.checkin_kind).toBeNull();
-    expect(admitted.clinic_received_at).toBeNull();
+    expect(admitted.clinic_received_at).not.toBeNull();
     expect(admitted.intake_confirmed_at).not.toBeNull();
     expect(read().updates.filter((u) => u.report_id === 'demo-f01')).toHaveLength(1);
     expect(demoRpc('confirm_intake', { p_report_id: 'demo-f01' }).data?.success).toBe(false); // nothing left to confirm
@@ -174,8 +174,10 @@ describe('demo mode plays the whole flow', () => {
     expect(tracking?.claimed).toBe(true);
     expect(tracking?.arrived).toBe(false);
     expect((tracking?.location as { latitude: number } | undefined)?.latitude).toBeDefined();
+    // Once the clinic confirms, the case is handed over and admitted, and tracking the volunteer stops
     demoRpc('clinic_confirm_received', { p_report_id: 'demo-f01' });
-    expect(demoRpc('get_incoming_volunteer', { p_report_id: 'demo-f01' }).data?.arrived).toBe(true);
+    expect(report('demo-f01').state).toBe('admitted');
+    expect(demoRpc('get_incoming_volunteer', { p_report_id: 'demo-f01' }).data?.claimed).toBeFalsy();
   });
 
   it('a rescuer who goes silent after the clinic said it is expecting them does not hold the case forever', () => {

@@ -41,13 +41,15 @@ export default function ActiveCaseBar({
   // The severity lock (15 / 30 / 60) once the volunteer checks in; before that only the short confirm window holds the claim
   const lockMinutes = claimLockMinutes(incident.type);
   const clinicExpecting = incident.headsUpResponse === 'expecting';
-  const windowMinutes = claimWindowMinutes(incident.type, incident.checkinKind ?? null, clinicExpecting, incident.headsUpEtaMinutes);
+  // Told a clinic that has not said no: the hold is the expected drive there (D-060)
+  const clinicHolding = !!incident.headsUpFacilityId && incident.headsUpResponse !== 'cannot';
+  const windowMinutes = claimWindowMinutes(incident.type, incident.checkinKind ?? null, clinicHolding, incident.headsUpEtaMinutes);
   const timer = calculateClaimTimer(incident.claimedAt, windowMinutes);
   const expired = timer.isExpired;
   const expiring = !expired && timer.remainingMinutes < EXPIRING_MINUTES;
   // Step 2 ("Arrived"): the rescuer is on the way, so the countdown is not shown. The lock still runs underneath.
   // Not when a clinic is expecting them: then the time is when they are due at the clinic, which they need to see
-  const hideTimer = !expired && incident.checkinKind === 'on_my_way' && !clinicExpecting;
+  const hideTimer = !expired && incident.checkinKind === 'on_my_way' && !clinicHolding;
 
   // Live tick until the lock runs out
   useEffect(() => {
@@ -68,13 +70,6 @@ export default function ActiveCaseBar({
     : '';
 
   const standbyCount = incident.standby?.length ?? 0;
-  const headsUp = incident.headsUpFacilityName
-    ? incident.headsUpResponse === 'expecting'
-      ? `${incident.headsUpFacilityName} is expecting you.`
-      : incident.headsUpResponse === 'cannot'
-        ? `${incident.headsUpFacilityName} cannot take it now${incident.headsUpNote ? `: ${incident.headsUpNote}` : ''}. Choose another clinic.`
-        : `Told ${incident.headsUpFacilityName}. Waiting for their answer.`
-    : null;
 
   return (
     <section
@@ -122,7 +117,9 @@ export default function ActiveCaseBar({
             ? incident.checkinKind
               ? 'Others can claim this case now.'
               : 'You did not tap On my way in time. Others can claim this case now.'
-            : clinicExpecting
+            : clinicHolding && !clinicExpecting
+              ? `Told ${incident.headsUpFacilityName ?? 'the clinic'}. The case is held for you until ${lockUntil} (the usual drive in this traffic, plus time to hand over) while they answer.`
+              : clinicExpecting
               ? `${incident.headsUpFacilityName ?? 'The clinic'} is expecting you by ${lockUntil} (the usual drive in this traffic, plus time to hand over). If you are not there by then, the case opens to other volunteers.`
               : !incident.checkinKind
                 ? 'Tap On my way, or I’m already here, before the time runs out, or the case opens for others.'
@@ -130,11 +127,6 @@ export default function ActiveCaseBar({
                 ? 'Lock ends soon. Keep going or release it.'
                 : `Locked to you until ${lockUntil}`}
         </p>
-        )}
-        {headsUp && incident.headsUpResponse !== 'cannot' && (
-          <p className="text-[12px] text-fg-muted" aria-live="polite">
-            {headsUp}
-          </p>
         )}
         {!expired && locationShare === 'sharing' && (
           <p className="text-[12px] text-fg-muted">

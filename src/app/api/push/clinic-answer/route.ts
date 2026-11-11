@@ -30,14 +30,17 @@ export async function POST(request: Request) {
   // Read with the caller's own rights: the case, and who the caller is
   const { data: report } = await supabase
     .from('sos_reports')
-    .select('id,short_id,state,claimed_by,heads_up_facility_id,heads_up_response,heads_up_response_at,heads_up_note,clinic_received_at')
+    .select('id,short_id,state,claimed_by,facility_id,heads_up_facility_id,heads_up_response,heads_up_response_at,heads_up_note,clinic_received_at')
     .eq('id', reportId)
     .maybeSingle();
-  if (!report || report.state !== 'claimed' || !report.claimed_by || !report.heads_up_facility_id) {
+  // On the way (an answer), or just handed over (the clinic confirmed it arrived, which admits the case: D-060)
+  const handedOver = report?.state === 'admitted' && !!report.clinic_received_at;
+  const clinicId = handedOver ? report?.facility_id : report?.heads_up_facility_id;
+  if (!report || (report.state !== 'claimed' && !handedOver) || !report.claimed_by || !clinicId) {
     return NextResponse.json({ error: 'Nothing to report on this case.' }, { status: 409 });
   }
   const { data: me } = await supabase.from('profiles').select('role,facility_id').eq('id', user.id).maybeSingle();
-  const staffOfThatClinic = me?.role === 'admin' || (me?.role === 'facility' && me.facility_id === report.heads_up_facility_id);
+  const staffOfThatClinic = me?.role === 'admin' || (me?.role === 'facility' && me.facility_id === clinicId);
   if (!staffOfThatClinic) return NextResponse.json({ error: 'Only staff of the clinic that was told can send this.' }, { status: 403 });
 
   // The newest thing the clinic did: confirming arrival beats answering
@@ -53,7 +56,7 @@ export async function POST(request: Request) {
   const { error: logError } = await db.from('push_event_log').insert({ key });
   if (logError) return NextResponse.json({ delivered: 0, duplicate: true });
 
-  const { data: clinic } = await db.from('facilities').select('name').eq('id', report.heads_up_facility_id).maybeSingle();
+  const { data: clinic } = await db.from('facilities').select('name').eq('id', clinicId).maybeSingle();
   const message = clinicAnswerMessage({
     event,
     clinicName: clinic?.name ?? 'The clinic',

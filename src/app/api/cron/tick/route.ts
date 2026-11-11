@@ -95,7 +95,7 @@ async function escalate(db: SupabaseClient, pushReady: boolean) {
   // A claim that lapsed (no "On my way" within the minute, or the lock ran out) stays 'claimed' in the row but is open again,
   // so it keeps escalating like any open case. A claim that is still held does not.
   const reports = (rows ?? []).filter((r) =>
-    needsRescuer(r.state, r.claimed_at, r.emergency_type, r.checkin_kind ?? null, r.heads_up_response === 'expecting', r.heads_up_eta_minutes ?? null)
+    needsRescuer(r.state, r.claimed_at, r.emergency_type, r.checkin_kind ?? null, r.heads_up_response !== 'cannot', r.heads_up_eta_minutes ?? null)
   );
   if (!reports.length) return { sent: 0 };
 
@@ -248,7 +248,7 @@ async function standbyTurns(db: SupabaseClient, pushReady: boolean) {
     // Only a case that is open again: released, or its lock ran out
     const open =
       report.state === 'reported' ||
-      (report.state === 'claimed' && (claimLockEndsAt(report.claimed_at, report.emergency_type, report.checkin_kind ?? null, report.heads_up_response === 'expecting', report.heads_up_eta_minutes ?? null) ?? Infinity) <= Date.now());
+      (report.state === 'claimed' && (claimLockEndsAt(report.claimed_at, report.emergency_type, report.checkin_kind ?? null, report.heads_up_response !== 'cannot', report.heads_up_eta_minutes ?? null) ?? Infinity) <= Date.now());
     if (!open) continue;
     const marker = report.state === 'claimed' ? report.claimed_at : report.updated_at;
     const queue = standbyQueue(entries);
@@ -257,7 +257,7 @@ async function standbyTurns(db: SupabaseClient, pushReady: boolean) {
       claimedAt: report.claimed_at,
       type: report.emergency_type,
       checkinKind: report.checkin_kind ?? null,
-      clinicExpecting: report.heads_up_response === 'expecting',
+      clinicHolding: report.heads_up_response !== 'cannot',
       etaMinutes: report.heads_up_eta_minutes ?? null,
       releasedAt: report.updated_at,
       standby: entries,

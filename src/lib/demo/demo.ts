@@ -413,17 +413,17 @@ export function demoRpc(fn: string, args: Record<string, unknown>): DemoRpcResul
         if (report.state !== 'reported' && report.state !== 'claimed') return fail('This case is already past the claim stage');
         if (!viewingAsAdmin()) {
           const holding = d.reports.find(
-            (x) => x.id !== report.id && x.state === 'claimed' && x.claimed_by === DEMO_USER && (claimLockEndsAt(x.claimed_at, x.emergency_type, x.checkin_kind, x.heads_up_response === 'expecting', x.heads_up_eta_minutes) ?? 0) > nowMs
+            (x) => x.id !== report.id && x.state === 'claimed' && x.claimed_by === DEMO_USER && (claimLockEndsAt(x.claimed_at, x.emergency_type, x.checkin_kind, x.heads_up_response !== 'cannot', x.heads_up_eta_minutes) ?? 0) > nowMs
           );
           if (holding) return fail('You already have an active rescue. Admit or release it first.');
         }
         const lock = claimLockMinutes(report.emergency_type);
-        if (report.state === 'claimed' && report.claimed_by && report.claimed_by !== DEMO_USER && (claimLockEndsAt(report.claimed_at, report.emergency_type, report.checkin_kind, report.heads_up_response === 'expecting', report.heads_up_eta_minutes) ?? 0) > nowMs) {
+        if (report.state === 'claimed' && report.claimed_by && report.claimed_by !== DEMO_USER && (claimLockEndsAt(report.claimed_at, report.emergency_type, report.checkin_kind, report.heads_up_response !== 'cannot', report.heads_up_eta_minutes) ?? 0) > nowMs) {
           return fail('Already claimed by another rescuer');
         }
         const standby = d.standby.filter((s) => s.report_id === report.id).map((s) => ({ volunteerId: s.volunteer_id, joinedAt: s.created_at }));
         if (report.claimed_by !== DEMO_USER) {
-          const phase = claimPhase({ state: report.state, claimedAt: report.claimed_at, type: report.emergency_type, checkinKind: report.checkin_kind, clinicExpecting: report.heads_up_response === 'expecting', etaMinutes: report.heads_up_eta_minutes, releasedAt: report.updated_at, standby });
+          const phase = claimPhase({ state: report.state, claimedAt: report.claimed_at, type: report.emergency_type, checkinKind: report.checkin_kind, clinicHolding: report.heads_up_response !== 'cannot', etaMinutes: report.heads_up_eta_minutes, releasedAt: report.updated_at, standby });
           if (!canClaimNow(phase, DEMO_USER)) return fail('This case is held for the next volunteer in line for a moment.');
         }
         if (report.claimed_by !== DEMO_USER) clearExtras(report);
@@ -456,7 +456,7 @@ export function demoRpc(fn: string, args: Record<string, unknown>): DemoRpcResul
         if (r!.state !== 'claimed' || r!.claimed_by !== DEMO_USER) return fail('Only the rescuer who claimed this case can check in');
         if (r!.checkin_kind === 'arrived' || r!.checkin_kind === kind) return fail('You already checked in for this step');
         // The confirm window already ran out: the case is open again
-        if ((claimLockEndsAt(r!.claimed_at, r!.emergency_type, r!.checkin_kind, r!.heads_up_response === 'expecting', r!.heads_up_eta_minutes) ?? 0) <= nowMs) return fail('Your time to check in ran out, so the case is open again. Claim it again if you can still go.');
+        if ((claimLockEndsAt(r!.claimed_at, r!.emergency_type, r!.checkin_kind, r!.heads_up_response !== 'cannot', r!.heads_up_eta_minutes) ?? 0) <= nowMs) return fail('Your time to check in ran out, so the case is open again. Claim it again if you can still go.');
         r!.claimed_at = now;
         r!.checkin_kind = kind;
         r!.checkin_at = now;
@@ -468,7 +468,7 @@ export function demoRpc(fn: string, args: Record<string, unknown>): DemoRpcResul
         if (needReport()) return needReport()!;
         if (r!.state !== 'claimed') return fail('Only a claimed case has a standby list');
         if (r!.claimed_by === DEMO_USER) return fail('This is your own rescue');
-        if ((claimLockEndsAt(r!.claimed_at, r!.emergency_type, r!.checkin_kind, r!.heads_up_response === 'expecting', r!.heads_up_eta_minutes) ?? 0) <= nowMs) return fail('The lock has ended. You can claim this case now.');
+        if ((claimLockEndsAt(r!.claimed_at, r!.emergency_type, r!.checkin_kind, r!.heads_up_response !== 'cannot', r!.heads_up_eta_minutes) ?? 0) <= nowMs) return fail('The lock has ended. You can claim this case now.');
         const mine = d.standby.filter((s) => s.volunteer_id === DEMO_USER && s.report_id !== r!.id && d.reports.find((x) => x.id === s.report_id)?.state === 'claimed');
         if (mine.length >= ESCALATION_CONFIG.maxStandbyCases) return fail('You are already on standby for 3 cases. Leave one first.');
         if (!d.standby.some((s) => s.report_id === r!.id && s.volunteer_id === DEMO_USER)) {
@@ -485,7 +485,7 @@ export function demoRpc(fn: string, args: Record<string, unknown>): DemoRpcResul
       case 'send_clinic_heads_up': {
         if (needReport()) return needReport()!;
         if (r!.state !== 'claimed') return fail('Only a claimed case can send a heads-up');
-        if (r!.clinic_received_at) return fail('A clinic already confirmed it has the animal. You can mark it admitted now.');
+        if (r!.clinic_received_at) return fail('A clinic already confirmed it has the animal.');
         const clinic = d.clinics.find((c) => c.id === args.p_facility_id);
         if (!clinic || clinic.status !== 'Listed') return fail('This clinic is not accepting animals right now');
         if (effectiveAvailability(clinic.availability, clinic.availability_set_at) === 'full') return fail(`${clinic.name} reported it is full. Choose another clinic.`);
@@ -507,12 +507,19 @@ export function demoRpc(fn: string, args: Record<string, unknown>): DemoRpcResul
         if (!r!.heads_up_facility_id) return fail('Only staff of the clinic that was told can confirm the animal arrived');
         if (r!.state !== 'claimed') return fail('This case is no longer with a rescuer on the way');
         if (r!.heads_up_response === 'cannot') return fail('You told the rescuer the clinic cannot take this animal');
-        if (r!.clinic_received_at) return fail('You already confirmed this animal arrived');
-        r!.clinic_received_at = now;
-        r!.heads_up_response = r!.heads_up_response ?? 'expecting';
-        r!.heads_up_response_at = r!.heads_up_response_at ?? now;
+        const clinic = d.clinics.find((c) => c.id === r!.heads_up_facility_id);
+        if (!clinic || clinic.status !== 'Listed') return fail('This clinic is paused and cannot receive animals right now');
+        // The confirmation is the handover (D-060): admitted to this clinic now, intake confirmed, care clock started
+        r!.state = 'admitted';
+        r!.facility_id = clinic.id;
+        r!.intake_confirmed_at = now;
         r!.updated_at = now;
-        return ok({ received_at: now });
+        clearExtras(r!);
+        r!.clinic_received_at = now; // kept on an admitted case: it records the handover
+        d.standby = d.standby.filter((s) => s.report_id !== r!.id);
+        clinic.last_active_at = now;
+        d.updates.push({ id: nextId('demo-u'), report_id: r!.id, notes: `Brought to ${clinic.name} by the rescuer. The clinic confirmed the animal arrived.`, state: 'admitted', created_at: now });
+        return ok({ received_at: now, state: 'admitted', facility_id: clinic.id });
       }
 
       case 'respond_to_heads_up': {

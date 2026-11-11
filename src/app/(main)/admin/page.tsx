@@ -511,7 +511,7 @@ function NoResponder() {
           .filter(
             (r) =>
               !r.hidden_at &&
-              needsRescuer(r.state, r.claimed_at, r.emergency_type, r.checkin_kind ?? null, r.heads_up_response === 'expecting', r.heads_up_eta_minutes ?? null) &&
+              needsRescuer(r.state, r.claimed_at, r.emergency_type, r.checkin_kind ?? null, r.heads_up_response !== 'cannot', r.heads_up_eta_minutes ?? null) &&
               (r.state === 'claimed' || calculateEscalation(r.created_at, r.emergency_type).isAlert)
           )
           .map((r) => ({
@@ -568,7 +568,7 @@ function NoResponder() {
     const cases: OpenCase[] = (reports.data ?? [])
       .filter(
         (r) =>
-          needsRescuer(r.state, r.claimed_at, r.emergency_type, r.checkin_kind ?? null, r.heads_up_response === 'expecting', r.heads_up_eta_minutes ?? null) &&
+          needsRescuer(r.state, r.claimed_at, r.emergency_type, r.checkin_kind ?? null, r.heads_up_response !== 'cannot', r.heads_up_eta_minutes ?? null) &&
           (r.state === 'claimed' || calculateEscalation(r.created_at, r.emergency_type).isAlert)
       )
       .map((r) => ({

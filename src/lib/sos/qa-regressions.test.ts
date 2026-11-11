@@ -9,11 +9,11 @@ describe('live Feed uses the real claim window', () => {
   it('a case a clinic is expecting stays on the Feed while the rescuer is due, however old the report', () => {
     const report = { state: 'claimed', createdAt: hoursAgo(30), claimedAt: minutesAgo(40), type: 'hit_and_run', checkinKind: 'on_my_way' as const };
     // Expected drive 30 min + 15: still due. Before the fix the 15-minute lock was assumed and this rescue vanished
-    expect(isOnLiveFeed({ ...report, clinicExpecting: true, etaMinutes: 30 })).toBe(true);
+    expect(isOnLiveFeed({ ...report, clinicHolding: true, etaMinutes: 30 })).toBe(true);
     // Expected drive 10 min + 15 is over: the rescuer went silent, and the report is older than 24 hours
-    expect(isOnLiveFeed({ ...report, clinicExpecting: true, etaMinutes: 10 })).toBe(false);
+    expect(isOnLiveFeed({ ...report, clinicHolding: true, etaMinutes: 10 })).toBe(false);
     // Without a clinic expecting, the lock really has run out
-    expect(isOnLiveFeed({ ...report, clinicExpecting: false })).toBe(false);
+    expect(isOnLiveFeed({ ...report, clinicHolding: false })).toBe(false);
   });
 
   it('a claim with no check-in lapses after the one-minute window', () => {

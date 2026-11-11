@@ -342,7 +342,7 @@ export default function HomePage() {
                   updatedAt: r.updated_at,
                   type: r.emergency_type,
                   checkinKind: r.checkin_kind ?? null,
-                  clinicExpecting: r.heads_up_response === 'expecting',
+                  clinicHolding: r.heads_up_response !== 'cannot',
                   etaMinutes: r.heads_up_eta_minutes ?? null,
                 })
             )
@@ -413,7 +413,7 @@ export default function HomePage() {
             .filter(
               (r) =>
                 !r.hidden_at &&
-                isOnLiveFeed({ state: r.state, createdAt: r.created_at, claimedAt: r.claimed_at, updatedAt: r.updated_at, type: r.emergency_type, checkinKind: r.checkin_kind ?? null, clinicExpecting: r.heads_up_response === 'expecting', etaMinutes: r.heads_up_eta_minutes ?? null })
+                isOnLiveFeed({ state: r.state, createdAt: r.created_at, claimedAt: r.claimed_at, updatedAt: r.updated_at, type: r.emergency_type, checkinKind: r.checkin_kind ?? null, clinicHolding: r.heads_up_response !== 'cannot', etaMinutes: r.heads_up_eta_minutes ?? null })
             )
             .map(toIncident)
             .sort((x, y) => (y.createdAt ?? '').localeCompare(x.createdAt ?? ''))
@@ -561,13 +561,13 @@ export default function HomePage() {
 
   // Open again but held for the first volunteer on standby: the Claim button stays off for everyone else
   const claimHeldFor = (incident: IncidentData): boolean => {
-    if (!needsRescuer(incident.state, incident.claimedAt, incident.type, incident.checkinKind ?? null, incident.headsUpResponse === 'expecting', incident.headsUpEtaMinutes)) return false;
+    if (!needsRescuer(incident.state, incident.claimedAt, incident.type, incident.checkinKind ?? null, incident.headsUpResponse !== 'cannot', incident.headsUpEtaMinutes)) return false;
     const phase = claimPhase({
       state: incident.state,
       claimedAt: incident.claimedAt,
       type: incident.type,
       checkinKind: incident.checkinKind ?? null,
-      clinicExpecting: incident.headsUpResponse === 'expecting',
+      clinicHolding: incident.headsUpResponse !== 'cannot',
       etaMinutes: incident.headsUpEtaMinutes,
       releasedAt: incident.updatedAt,
       standby: incident.standby ?? [],
@@ -643,9 +643,23 @@ export default function HomePage() {
       ) ?? null
     : null;
 
+  // The clinic's "Animal arrived" admits the case (D-060), so the bar disappears on its own: say why, once
+  const lastActiveIdRef = React.useRef<string | null>(null);
+  useEffect(() => {
+    const previous = lastActiveIdRef.current;
+    lastActiveIdRef.current = activeCase?.id ?? null;
+    if (!previous || activeCase) return;
+    const handed = emergencies.find((e) => e.id === previous);
+    if (!handed || (handed.state !== 'admitted' && handed.state !== 'healing')) return;
+    const clinic =
+      (handed.facilityId && (demoOn ? demo.clinics.find((c) => c.id === handed.facilityId)?.name : facilityNames[handed.facilityId])) ||
+      'the clinic';
+    setToast({ message: `Handed over to ${clinic}. #${handed.shortId} is in their care now. Thank you for the rescue!` });
+  }, [activeCase, emergencies, demoOn, demo, facilityNames]);
+
   // While the volunteer holds a live claim, their position goes to the person who reported it (real cases only; the demo simulates it)
   const claimLockLive =
-    !!activeCase && !calculateClaimTimer(activeCase.claimedAt, claimWindowMinutes(activeCase.type, activeCase.checkinKind ?? null, activeCase.headsUpResponse === 'expecting', activeCase.headsUpEtaMinutes)).isExpired;
+    !!activeCase && !calculateClaimTimer(activeCase.claimedAt, claimWindowMinutes(activeCase.type, activeCase.checkinKind ?? null, activeCase.headsUpResponse !== 'cannot', activeCase.headsUpEtaMinutes)).isExpired;
   // Sharing starts when the volunteer taps "On my way" (that is the moment they agree to it), not at the claim
   const locationShare = useShareRescuerLocation(
     activeCase?.id ?? null,
@@ -654,7 +668,7 @@ export default function HomePage() {
 
   const showCounts = feedStatus === 'live' || feedStatus === 'sample';
   // An expired claim is open again: the database keeps it 'claimed' until someone claims it
-  const isOpen = (incident: IncidentData) => needsRescuer(incident.state, incident.claimedAt, incident.type, incident.checkinKind ?? null, incident.headsUpResponse === 'expecting', incident.headsUpEtaMinutes);
+  const isOpen = (incident: IncidentData) => needsRescuer(incident.state, incident.claimedAt, incident.type, incident.checkinKind ?? null, incident.headsUpResponse !== 'cannot', incident.headsUpEtaMinutes);
 
   // The open sheet follows the live list, so a clinic's reply or a new standby shows without reopening it
   const selectedLive = selectedIncident ? (emergencies.find((e) => e.id === selectedIncident.id) ?? selectedIncident) : null;

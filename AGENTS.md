@@ -21,9 +21,10 @@ ESCALATION (config constants, tunable): Hit-and-Run/Bleeding critical at once,
 widen at 3 min, "no responder" at 10. Fracture/Trapped-Abused: 5 / 15.
 Sick/Mange: 15 / 60. CLAIM LOCK by severity: 15 / 30 / 60 min (D-042); "On my way"
 and "Arrived" restart it once each; volunteers can stand by ("I'm available") and the
-first in line gets 2 min when the lock ends. Once a clinic is EXPECTING the rescuer the
+first in line gets 2 min when the lock ends. Once a clinic is TOLD (and has not said no) the
 claim holds for the expected drive (distance + Manila traffic by time of day, worked out by the
-database) plus 15 min, then opens again (D-057). Clinics set Open / Emergencies only / Full
+database) plus 15 min, then opens again (D-057, D-060). The clinic's "Animal arrived" admits the
+case (the handover); the rescuer does not tap Admit (D-060). Clinics set Open / Emergencies only / Full
 (trusted 12 h, self-reported). Every serious button asks "Are you sure?" (ConfirmSheet).
 MOTION: Web: GSAP via @gsap/react useGSAP, client components only, wrapped in
 gsap.matchMedia() for prefers-reduced-motion. Mobile: Reanimated, respecting

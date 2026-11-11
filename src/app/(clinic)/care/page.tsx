@@ -494,7 +494,7 @@ export default function CarePage() {
                 On their way to you
               </h2>
               <p className="text-[12px] text-fg-muted">
-                A rescuer told {isAdmin ? 'a clinic' : 'your clinic'} they are bringing an animal. Answer so they know whether to come, then tap Animal arrived when it is there: that unlocks the rescuer&apos;s Admit button.
+                A rescuer told {isAdmin ? 'a clinic' : 'your clinic'} they are bringing an animal. Answer so they know whether to come, then tap Animal arrived when it is there: that hands the case over to you and starts its care.
               </p>
               <ul className="divide-y divide-border border-y border-border">
                 {incomingShown.map((i) => (
@@ -764,11 +764,11 @@ function IncomingCard({ item, showClinic, onDone, ask }: { item: Incoming; showC
       },
     });
 
-  // The clinic says the animal is physically here. This is what unlocks the rescuer's Admit button.
+  // The clinic says the animal is physically here. That is the handover: the case is admitted to this clinic (D-060).
   const confirmArrived = () =>
     ask({
       title: `Confirm that #${item.shortId} is at ${showClinic ? item.clinicName : 'your clinic'}?`,
-      message: 'Only confirm once the animal is really here. The rescuer can then mark it admitted, and its 14-day care clock starts.',
+      message: 'Only confirm once the animal is really here. The case is then admitted to your clinic, the rescuer is told it was handed over, and its 14-day care clock starts.',
       confirmLabel: 'Yes, the animal is here',
       onConfirm: async () => {
         setError(null);
@@ -802,7 +802,7 @@ function IncomingCard({ item, showClinic, onDone, ask }: { item: Incoming; showC
       )}
       {item.receivedAt ? (
         <p role="status" className="text-[12px] font-semibold text-healing-fg">
-          You confirmed the animal arrived. Waiting for the rescuer to mark it admitted.
+          You confirmed the animal arrived. It is in your care now.
         </p>
       ) : (
         <div className="space-y-2">

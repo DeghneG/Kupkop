@@ -208,15 +208,22 @@ describe('what the rescuer is told when the clinic answers', () => {
     expect(no.title).toBe('Choose another clinic · #KK-12');
     expect(no.body).toContain('Marikina cannot take the animal now: No space in the ward');
     expect(clinicAnswerMessage({ ...base, event: 'cannot' }).body).toBe('Marikina cannot take the animal now. Pick another clinic.');
-    expect(clinicAnswerMessage({ ...base, event: 'received' }).body).toContain('mark it admitted');
+    expect(clinicAnswerMessage({ ...base, event: 'received' }).body).toContain('in their care');
   });
 });
 
 describe('while a clinic is expecting the volunteer (D-057)', () => {
+  it('the hold starts when the clinic is told, before it answers (D-060)', () => {
+    // Told 20 minutes ago, no answer yet, expected drive 25 min: still held (25 + 15 = 40)
+    expect(needsRescuer('claimed', minutesAgo(20), 'hit_and_run', 'on_my_way', true, 25)).toBe(false);
+    // The clinic said it cannot take it: back to the normal 15-minute lock, which is over
+    expect(needsRescuer('claimed', minutesAgo(20), 'hit_and_run', 'on_my_way', false, 25)).toBe(true);
+  });
+
   it('the claim holds for the expected drive plus 15 minutes to hand over', () => {
     expect(claimWindowMinutes('hit_and_run', 'on_my_way', true, 20)).toBe(35);
-    // No expected drive recorded (an older heads-up): the severity lock plus the buffer
-    expect(claimWindowMinutes('hit_and_run', 'on_my_way', true, null)).toBe(30);
+    // No expected drive recorded (no clinic told): the severity lock
+    expect(claimWindowMinutes('hit_and_run', 'on_my_way', true, null)).toBe(15);
     expect(claimWindowMinutes('hit_and_run', 'on_my_way', false)).toBe(15);
     // It cannot be used to skip the one-minute confirm window: no check-in still means one minute
     expect(claimWindowMinutes('hit_and_run', null, true, 20)).toBe(1);
@@ -228,8 +235,8 @@ describe('while a clinic is expecting the volunteer (D-057)', () => {
     const ends = claimLockEndsAt(minutesAgo(30), 'hit_and_run', 'on_my_way', true, 20)!;
     expect(Math.round((ends - Date.now()) / 60_000)).toBe(5);
     const standby = [{ volunteerId: 'ana', joinedAt: minutesAgo(5) }];
-    expect(claimPhase({ state: 'claimed', claimedAt: minutesAgo(30), type: 'hit_and_run', checkinKind: 'on_my_way', clinicExpecting: true, etaMinutes: 20, standby }).phase).toBe('locked');
+    expect(claimPhase({ state: 'claimed', claimedAt: minutesAgo(30), type: 'hit_and_run', checkinKind: 'on_my_way', clinicHolding: true, etaMinutes: 20, standby }).phase).toBe('locked');
     // A silent rescuer no longer blocks standby
-    expect(claimPhase({ state: 'claimed', claimedAt: minutesAgo(36), type: 'hit_and_run', checkinKind: 'on_my_way', clinicExpecting: true, etaMinutes: 20, standby }).phase).toBe('reserved');
+    expect(claimPhase({ state: 'claimed', claimedAt: minutesAgo(36), type: 'hit_and_run', checkinKind: 'on_my_way', clinicHolding: true, etaMinutes: 20, standby }).phase).toBe('reserved');
   });
 });
