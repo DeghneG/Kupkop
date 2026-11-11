@@ -77,11 +77,11 @@ export interface IncidentCardProps {
 function getStatus(incident: IncidentData): { label: string; tone: string } {
   switch (incident.state) {
     case 'claimed': {
-      const timer = calculateClaimTimer(incident.claimedAt, claimWindowMinutes(incident.type, incident.checkinKind ?? null, incident.headsUpResponse === 'expecting'));
+      const timer = calculateClaimTimer(incident.claimedAt, claimWindowMinutes(incident.type, incident.checkinKind ?? null, incident.headsUpResponse === 'expecting', incident.headsUpEtaMinutes));
       if (timer.isExpired) return { label: 'Claim expired · needs a rescuer', tone: 'text-reported-fg' };
       if (!timer.isClaimed) return { label: 'Claimed', tone: 'text-claimed-fg' };
-      if (timer.isUnlimited) return { label: 'Claimed · a clinic is expecting them', tone: 'text-claimed-fg' };
       const left = timer.remainingMinutes > 0 ? `${timer.remainingMinutes}m` : `${timer.remainingSeconds}s`;
+      if (incident.headsUpResponse === 'expecting') return { label: `Claimed · on the way to a clinic · ${left} left`, tone: 'text-claimed-fg' };
       const standby = incident.standby?.length ? ` · ${incident.standby.length} on standby` : '';
       return { label: `Claimed · ${left} lock${standby}`, tone: 'text-claimed-fg' };
     }
@@ -121,7 +121,7 @@ const formatTriageTag = (type: string) => type.replace(/\s*[·•]\s*Critical/i,
 
 export function IncidentCard({ incident, onClick, onClaim, claiming, claimHeld }: IncidentCardProps) {
   const status = getStatus(incident);
-  const needsRescuer = isWaiting(incident.state, incident.claimedAt, incident.type, incident.checkinKind ?? null, incident.headsUpResponse === 'expecting');
+  const needsRescuer = isWaiting(incident.state, incident.claimedAt, incident.type, incident.checkinKind ?? null, incident.headsUpResponse === 'expecting', incident.headsUpEtaMinutes);
   const tier = getEscalationTier(incident.type);
 
   const showClaim = !!onClaim && needsRescuer;

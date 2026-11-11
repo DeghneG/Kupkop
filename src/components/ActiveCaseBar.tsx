@@ -41,11 +41,13 @@ export default function ActiveCaseBar({
   // The severity lock (15 / 30 / 60) once the volunteer checks in; before that only the short confirm window holds the claim
   const lockMinutes = claimLockMinutes(incident.type);
   const clinicExpecting = incident.headsUpResponse === 'expecting';
-  const windowMinutes = claimWindowMinutes(incident.type, incident.checkinKind ?? null, clinicExpecting);
+  const windowMinutes = claimWindowMinutes(incident.type, incident.checkinKind ?? null, clinicExpecting, incident.headsUpEtaMinutes);
   const timer = calculateClaimTimer(incident.claimedAt, windowMinutes);
   const expired = timer.isExpired;
-  const unlimited = !!timer.isUnlimited;
-  const expiring = !expired && !unlimited && timer.remainingMinutes < EXPIRING_MINUTES;
+  const expiring = !expired && timer.remainingMinutes < EXPIRING_MINUTES;
+  // Step 2 ("Arrived"): the rescuer is on the way, so the countdown is not shown. The lock still runs underneath.
+  // Not when a clinic is expecting them: then the time is when they are due at the clinic, which they need to see
+  const hideTimer = !expired && incident.checkinKind === 'on_my_way' && !clinicExpecting;
 
   // Live tick until the lock runs out
   useEffect(() => {
@@ -54,13 +56,11 @@ export default function ActiveCaseBar({
     return () => clearInterval(interval);
   }, [expired]);
 
-  const pillLabel = unlimited
-    ? 'No time limit'
-    : expiring
+  const pillLabel = expiring
     ? `${timer.remainingMinutes}:${String(timer.remainingSeconds).padStart(2, '0')} left`
     : `${timer.remainingMinutes + (timer.remainingSeconds > 0 ? 1 : 0)}m left`;
 
-  const lockUntil = incident.claimedAt && !unlimited
+  const lockUntil = incident.claimedAt
     ? new Date(new Date(incident.claimedAt).getTime() + windowMinutes * 60 * 1000).toLocaleTimeString([], {
         hour: 'numeric',
         minute: '2-digit',
@@ -91,18 +91,20 @@ export default function ActiveCaseBar({
             {incident.animal} · {incident.type}
           </span>
         </div>
-        <div
-          className={`flex h-7 shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-3 text-[12px] font-semibold tabular-nums ${
-            expired ? 'bg-surface-muted text-fg' : 'bg-claimed-bg text-claimed-fg'
-          }`}
-        >
-          {expired ? <LockOpen className="size-3.5" aria-hidden /> : <Lock className="size-3.5" aria-hidden />}
-          {expired ? 'Lock expired' : pillLabel}
-        </div>
+        {!hideTimer && (
+          <div
+            className={`flex h-7 shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-3 text-[12px] font-semibold tabular-nums ${
+              expired ? 'bg-surface-muted text-fg' : 'bg-claimed-bg text-claimed-fg'
+            }`}
+          >
+            {expired ? <LockOpen className="size-3.5" aria-hidden /> : <Lock className="size-3.5" aria-hidden />}
+            {expired ? 'Lock expired' : pillLabel}
+          </div>
+        )}
       </div>
 
       <div className="flex flex-col gap-2">
-        {!expired && !unlimited && (
+        {!expired && !hideTimer && (
           <div className="h-1 overflow-hidden rounded-full bg-surface-muted">
             <div
               className={`h-full rounded-full ${expiring ? 'bg-claimed-fg' : 'bg-fg-muted'}`}
@@ -110,6 +112,8 @@ export default function ActiveCaseBar({
             />
           </div>
         )}
+        {/* On step 2 the countdown and its wording are hidden together */}
+        {!hideTimer && (
         <p
           className={`text-[12px] ${expiring ? 'font-semibold text-claimed-fg' : 'text-fg-muted'}`}
           aria-live="polite"
@@ -118,14 +122,15 @@ export default function ActiveCaseBar({
             ? incident.checkinKind
               ? 'Others can claim this case now.'
               : 'You did not tap On my way in time. Others can claim this case now.'
-            : unlimited
-              ? `${incident.headsUpFacilityName ?? 'The clinic'} is expecting you, so there is no time limit. Take your time and drive safely.`
+            : clinicExpecting
+              ? `${incident.headsUpFacilityName ?? 'The clinic'} is expecting you by ${lockUntil} (the usual drive in this traffic, plus time to hand over). If you are not there by then, the case opens to other volunteers.`
               : !incident.checkinKind
                 ? 'Tap On my way, or I’m already here, before the time runs out, or the case opens for others.'
                 : expiring
                 ? 'Lock ends soon. Keep going or release it.'
                 : `Locked to you until ${lockUntil}`}
         </p>
+        )}
         {headsUp && incident.headsUpResponse !== 'cannot' && (
           <p className="text-[12px] text-fg-muted" aria-live="polite">
             {headsUp}

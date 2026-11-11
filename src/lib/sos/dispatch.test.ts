@@ -84,9 +84,17 @@ describe('clinic availability', () => {
     expect(rankClinics(stale, here)[0].usable).toBe(true);
   });
 
-  it('estimates a drive time', () => {
-    expect(estimateEtaMinutes(5)).toBe(15);
-    expect(estimateEtaMinutes(0.1)).toBe(1);
+  it('estimates a drive time from distance and Manila traffic by time of day', () => {
+    // 5 km straight is about 7 km of road
+    const wedRush = new Date('2026-11-11T00:00:00Z'); // Wednesday 8:00 am in Manila: 12 km/h
+    const wedNoon = new Date('2026-11-11T04:00:00Z'); // Wednesday noon: 18 km/h
+    const wedNight = new Date('2026-11-11T15:00:00Z'); // Wednesday 11:00 pm: 30 km/h
+    const satMorning = new Date('2026-11-14T00:00:00Z'); // Saturday 8:00 am: no weekday rush, 18 km/h
+    expect(estimateEtaMinutes(5, wedRush)).toBe(35);
+    expect(estimateEtaMinutes(5, wedNoon)).toBe(24);
+    expect(estimateEtaMinutes(5, wedNight)).toBe(14);
+    expect(estimateEtaMinutes(5, satMorning)).toBe(24);
+    expect(estimateEtaMinutes(0.1, wedNoon)).toBe(3); // never under 3 minutes
     expect(estimateEtaMinutes(null)).toBeNull();
   });
 
@@ -204,20 +212,24 @@ describe('what the rescuer is told when the clinic answers', () => {
   });
 });
 
-describe('no lock while a clinic is expecting the volunteer', () => {
-  it('the claim has no time limit once the clinic said it is expecting them', () => {
-    expect(claimWindowMinutes('hit_and_run', 'on_my_way', true)).toBe(Number.POSITIVE_INFINITY);
+describe('while a clinic is expecting the volunteer (D-057)', () => {
+  it('the claim holds for the expected drive plus 15 minutes to hand over', () => {
+    expect(claimWindowMinutes('hit_and_run', 'on_my_way', true, 20)).toBe(35);
+    // No expected drive recorded (an older heads-up): the severity lock plus the buffer
+    expect(claimWindowMinutes('hit_and_run', 'on_my_way', true, null)).toBe(30);
     expect(claimWindowMinutes('hit_and_run', 'on_my_way', false)).toBe(15);
     // It cannot be used to skip the one-minute confirm window: no check-in still means one minute
-    expect(claimWindowMinutes('hit_and_run', null, true)).toBe(1);
+    expect(claimWindowMinutes('hit_and_run', null, true, 20)).toBe(1);
   });
 
-  it('a case does not reopen however long the volunteer takes while a clinic expects them', () => {
-    expect(needsRescuer('claimed', minutesAgo(40), 'hit_and_run', 'on_my_way', false)).toBe(true);
-    expect(needsRescuer('claimed', minutesAgo(40), 'hit_and_run', 'on_my_way', true)).toBe(false);
-    expect(needsRescuer('claimed', minutesAgo(600), 'sick_mange', 'arrived', true)).toBe(false);
-    expect(claimLockEndsAt(minutesAgo(40), 'hit_and_run', 'on_my_way', true)).toBe(Number.POSITIVE_INFINITY);
+  it('holds while the rescuer is within the expected time, then opens again if they go silent', () => {
+    expect(needsRescuer('claimed', minutesAgo(30), 'hit_and_run', 'on_my_way', true, 20)).toBe(false);
+    expect(needsRescuer('claimed', minutesAgo(40), 'hit_and_run', 'on_my_way', true, 20)).toBe(true);
+    const ends = claimLockEndsAt(minutesAgo(30), 'hit_and_run', 'on_my_way', true, 20)!;
+    expect(Math.round((ends - Date.now()) / 60_000)).toBe(5);
     const standby = [{ volunteerId: 'ana', joinedAt: minutesAgo(5) }];
-    expect(claimPhase({ state: 'claimed', claimedAt: minutesAgo(40), type: 'hit_and_run', checkinKind: 'on_my_way', clinicExpecting: true, standby }).phase).toBe('locked');
+    expect(claimPhase({ state: 'claimed', claimedAt: minutesAgo(30), type: 'hit_and_run', checkinKind: 'on_my_way', clinicExpecting: true, etaMinutes: 20, standby }).phase).toBe('locked');
+    // A silent rescuer no longer blocks standby
+    expect(claimPhase({ state: 'claimed', claimedAt: minutesAgo(36), type: 'hit_and_run', checkinKind: 'on_my_way', clinicExpecting: true, etaMinutes: 20, standby }).phase).toBe('reserved');
   });
 });

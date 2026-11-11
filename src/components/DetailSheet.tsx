@@ -213,12 +213,12 @@ export default function DetailSheet({
   const isLive = !!incident.id && !incident.id.startsWith('case-');
   // An expired claim is open again for other volunteers
   const clinicExpecting = incident.headsUpResponse === 'expecting';
-  const open = needsRescuer(incident.state, incident.claimedAt, incident.type, incident.checkinKind ?? null, clinicExpecting);
+  const open = needsRescuer(incident.state, incident.claimedAt, incident.type, incident.checkinKind ?? null, clinicExpecting, incident.headsUpEtaMinutes);
   const isMine = !!userId && incident.claimedBy === userId;
   // The lock is shorter for the cases where minutes matter most (15 / 30 / 60)
   const lockMinutes = claimLockMinutes(incident.type);
   // Before the volunteer checks in only the short confirm window holds the claim
-  const lockTimer = calculateClaimTimer(incident.claimedAt, claimWindowMinutes(incident.type, incident.checkinKind ?? null, clinicExpecting));
+  const lockTimer = calculateClaimTimer(incident.claimedAt, claimWindowMinutes(incident.type, incident.checkinKind ?? null, clinicExpecting, incident.headsUpEtaMinutes));
   const isResponder = role === 'volunteer' || role === 'admin';
   const standbyList = incident.standby ?? [];
   const myStandbyPlace = standbyPosition(standbyList, userId);
@@ -400,7 +400,7 @@ export default function DetailSheet({
                     <span>Volunteer Claim Lock</span>
                   </div>
                   <span className="font-mono text-[12px] font-semibold tabular-nums">
-                    {lockTimer.isExpired ? 'Lock Expired' : lockTimer.isUnlimited ? 'Clinic expecting' : lockTimer.formatted}
+                    {lockTimer.isExpired ? 'Lock Expired' : lockTimer.formatted}
                   </span>
                 </div>
                 <div className="w-full bg-claimed-fg/15 h-1.5 rounded-full overflow-hidden">
@@ -551,7 +551,7 @@ export default function DetailSheet({
                       <TriageGlyph state="claimed" size={14} className="text-claimed-fg shrink-0" />
                       <span>
                         {claimerName ? `${claimerName} is on the way` : 'A rescuer is on the way'}{' '}
-                        {lockTimer.isUnlimited ? '(a clinic is expecting them)' : `(${lockTimer.remainingMinutes}m lock left)`}
+                        {clinicExpecting ? `(due at the clinic in ${lockTimer.remainingMinutes}m)` : `(${lockTimer.remainingMinutes}m lock left)`}
                       </span>
                     </div>
                     {isLive && isResponder && userId && (

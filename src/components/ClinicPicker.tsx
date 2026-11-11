@@ -4,8 +4,8 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Check, X } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { calculateFacilityInactivity } from '@/lib/sos/escalation';
-import { availabilityNote, estimateEtaMinutes, rankClinics } from '@/lib/sos/clinics';
-import { formatDistance, type LatLng } from '@/lib/sos/geo';
+import { availabilityNote, ARRIVAL_HOLD_NOTE, estimateEtaMinutes, rankClinics } from '@/lib/sos/clinics';
+import { distanceKm, formatDistance, type LatLng } from '@/lib/sos/geo';
 import { useFocusTrap } from '@/lib/useFocusTrap';
 import { useConfirm } from '@/components/ConfirmSheet';
 import { useDemoData, useDemoMode } from '@/lib/demo/demo';
@@ -23,7 +23,6 @@ type Clinic = {
   availabilitySetAt: string | null;
 };
 
-const ETA_CHOICES = [5, 10, 15, 30, 45];
 
 interface ClinicPickerProps {
   open: boolean;
@@ -36,6 +35,8 @@ interface ClinicPickerProps {
   reportId?: string;
   caseLabel?: string;
   near?: LatLng | null;
+  /** Where the animal is: the expected drive to a clinic is measured from here (the database does the same) */
+  caseLocation?: LatLng | null;
   busy?: boolean;
   error?: string | null;
   onPick: (facilityId: string) => void;
@@ -53,6 +54,7 @@ export default function ClinicPicker({
   reportId,
   caseLabel,
   near,
+  caseLocation,
   busy,
   error,
   onPick,
@@ -62,7 +64,6 @@ export default function ClinicPicker({
   const [clinics, setClinics] = useState<Clinic[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
-  const [etaChoice, setEtaChoice] = useState<number | null>(null);
   const [sending, setSending] = useState(false);
   const [headsUpError, setHeadsUpError] = useState<string | null>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -151,9 +152,10 @@ export default function ClinicPicker({
     ranked?.find((r) => r.suggested)?.clinic.id ??
     null;
   const chosen = ranked?.find((r) => r.clinic.id === chosenId) ?? null;
-  const chosenKm = chosen?.distanceKm ?? null;
-  const defaultEta = estimateEtaMinutes(chosenKm) ?? 10;
-  const eta = etaChoice ?? ETA_CHOICES.find((c) => c >= defaultEta) ?? ETA_CHOICES[ETA_CHOICES.length - 1];
+  // Expected drive from the animal to the chosen clinic in Manila traffic, like a ride app's estimate. The database works out the
+  // same number when the clinic is told, and the claim holds for it (plus time to hand over) once the clinic is expecting them.
+  const from = caseLocation ?? near ?? null;
+  const eta = chosen && from ? estimateEtaMinutes(distanceKm(from, { lat: chosen.clinic.latitude, lng: chosen.clinic.longitude })) : null;
   const allFull = !!ranked && ranked.length > 0 && !ranked.some((r) => r.usable);
   const canTell = !!reportId && !!chosen && chosen.usable;
 
@@ -172,7 +174,7 @@ export default function ClinicPicker({
     if (!chosen || !reportId) return;
     ask({
       title: `Tell ${chosen.clinic.name} you are coming?`,
-      message: `They get a notification now: the animal, what is wrong, and that you are about ${eta} minutes away. They answer that they are expecting you, or that they cannot take it now.`,
+      message: `They get a notification now: the animal, what is wrong, and ${eta ? `that you should be there in about ${eta} minutes` : 'that you are on the way'}. They answer that they are expecting you, or that they cannot take it now.`,
       confirmLabel: 'Yes, tell them',
       onConfirm: async () => {
         setSending(true);
@@ -239,10 +241,7 @@ export default function ClinicPicker({
                   type="button"
                   role="radio"
                   aria-checked={active}
-                  onClick={() => {
-                    setSelected(c.id);
-                    setEtaChoice(null);
-                  }}
+                  onClick={() => setSelected(c.id)}
                   className={`w-full min-h-[44px] flex items-center gap-3 px-2 py-3 text-left rounded-lg cursor-pointer ${
                     active ? 'bg-surface-muted' : 'hover:bg-surface-muted/60'
                   } ${r.usable ? '' : 'opacity-70'}`}
@@ -284,25 +283,10 @@ export default function ClinicPicker({
           </p>
         )}
 
-        {mode === 'headsup' && reportId && chosen && (
-          <fieldset className="space-y-1.5 border-0 p-0 m-0">
-            <legend className="text-[12px] font-semibold text-fg">About how far are you?</legend>
-            <div className="flex flex-wrap gap-2">
-              {ETA_CHOICES.map((minutes) => (
-                <button
-                  key={minutes}
-                  type="button"
-                  aria-pressed={eta === minutes}
-                  onClick={() => setEtaChoice(minutes)}
-                  className={`min-h-[44px] px-3 rounded-xl border text-[14px] cursor-pointer ${
-                    eta === minutes ? 'border-fg bg-surface-muted font-semibold text-fg' : 'border-border bg-surface text-fg-muted'
-                  }`}
-                >
-                  {minutes} min
-                </button>
-              ))}
-            </div>
-          </fieldset>
+        {mode === 'headsup' && reportId && chosen && eta != null && (
+          <p className="text-[12px] text-fg">
+            <strong className="font-semibold">About {eta} min</strong> to {chosen.clinic.name} in traffic at this hour. {ARRIVAL_HOLD_NOTE}
+          </p>
         )}
 
         {(error || headsUpError) && (

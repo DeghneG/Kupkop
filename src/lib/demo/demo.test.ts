@@ -152,7 +152,7 @@ describe('demo mode plays the whole flow', () => {
     expect(demoRpc('get_rescuer_info', { p_report_id: 'demo-f01' }).data?.arrived).toBe(true);
   });
 
-  it('while a clinic is expecting the volunteer the claim does not expire; the clinic can then track them', () => {
+  it('while a clinic is expecting the volunteer the claim holds for the expected drive; the clinic can then track them', () => {
     demoRpc('claim_sos_report', { p_report_id: 'demo-f01' });
     demoRpc('claim_checkin', { p_report_id: 'demo-f01', p_kind: 'on_my_way' });
     demoRpc('send_clinic_heads_up', { p_report_id: 'demo-f01', p_facility_id: DEMO_CLINIC_ID, p_eta_minutes: 10 });
@@ -160,9 +160,12 @@ describe('demo mode plays the whole flow', () => {
     expect(demoRpc('get_incoming_volunteer', { p_report_id: 'demo-f01' }).data?.claimed).toBe(false);
     demoRpc('respond_to_heads_up', { p_report_id: 'demo-f01', p_response: 'expecting', p_note: null });
 
-    // An hour passes: the severity lock would be long over, but the clinic is expecting them
+    // The expected drive was worked out from the distance, not taken from the rescuer
+    const told = read().reports.find((r) => r.id === 'demo-f01')!;
+    expect(told.heads_up_eta_minutes).toBeGreaterThanOrEqual(3);
+    // Within the expected drive plus 15 minutes the claim holds
     const data = read();
-    data.reports.find((r) => r.id === 'demo-f01')!.claimed_at = new Date(Date.now() - 60 * 60_000).toISOString();
+    data.reports.find((r) => r.id === 'demo-f01')!.claimed_at = new Date(Date.now() - 10 * 60_000).toISOString();
     localStorage.setItem('kupkop-demo-data', JSON.stringify(data));
     expect(demoRpc('claim_sos_report', { p_report_id: 'demo-f04' }).data?.success).toBe(false); // still holding an active rescue
 
@@ -173,6 +176,18 @@ describe('demo mode plays the whole flow', () => {
     expect((tracking?.location as { latitude: number } | undefined)?.latitude).toBeDefined();
     demoRpc('clinic_confirm_received', { p_report_id: 'demo-f01' });
     expect(demoRpc('get_incoming_volunteer', { p_report_id: 'demo-f01' }).data?.arrived).toBe(true);
+  });
+
+  it('a rescuer who goes silent after the clinic said it is expecting them does not hold the case forever', () => {
+    demoRpc('claim_sos_report', { p_report_id: 'demo-f01' });
+    demoRpc('claim_checkin', { p_report_id: 'demo-f01', p_kind: 'on_my_way' });
+    demoRpc('send_clinic_heads_up', { p_report_id: 'demo-f01', p_facility_id: DEMO_CLINIC_ID });
+    demoRpc('respond_to_heads_up', { p_report_id: 'demo-f01', p_response: 'expecting', p_note: null });
+    // Two hours later: far past the expected drive plus 15 minutes
+    const data = read();
+    data.reports.find((r) => r.id === 'demo-f01')!.claimed_at = new Date(Date.now() - 120 * 60_000).toISOString();
+    localStorage.setItem('kupkop-demo-data', JSON.stringify(data));
+    expect(demoRpc('claim_sos_report', { p_report_id: 'demo-f04' }).data?.success).toBe(true);
   });
 
   it('a clinic that said it cannot take the animal does not track the volunteer, and the lock applies again', () => {

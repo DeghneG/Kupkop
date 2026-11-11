@@ -92,10 +92,45 @@ export function rankClinics<T extends ClinicForRouting>(
   return ranked;
 }
 
-/** Rough minutes to drive a given distance in city traffic (about 20 km/h), at least 1. */
-export function estimateEtaMinutes(km: number | null | undefined): number | null {
+/**
+ * Metro Manila driving estimate (D-057), mirrored by public.travel_minutes() in SQL. Not live traffic: roads are about 1.4x the
+ * straight line, and speed follows the time of day in Manila.
+ */
+export const TRAFFIC = {
+  roadFactor: 1.4,
+  /** Weekdays 7-10 am and 5-8 pm */
+  rushKmh: 12,
+  /** 10 pm to 5 am */
+  nightKmh: 30,
+  /** Everything else */
+  dayKmh: 18,
+  minMinutes: 3,
+} as const;
+
+/** The hour (0-23) and ISO weekday (1 = Monday ... 7 = Sunday) in Manila, wherever the device is. */
+export function manilaClock(at: Date): { hour: number; isoWeekday: number } {
+  const parts = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Manila', hour: 'numeric', hourCycle: 'h23', weekday: 'short' }).formatToParts(at);
+  const hour = Number(parts.find((p) => p.type === 'hour')?.value ?? 0) % 24;
+  const day = parts.find((p) => p.type === 'weekday')?.value ?? 'Mon';
+  const isoWeekday = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].indexOf(day) + 1;
+  return { hour, isoWeekday };
+}
+
+/** Driving speed right now in Manila traffic. */
+export function trafficSpeedKmh(at: Date = new Date()): number {
+  const { hour, isoWeekday } = manilaClock(at);
+  if (isoWeekday <= 5 && ((hour >= 7 && hour <= 9) || (hour >= 17 && hour <= 19))) return TRAFFIC.rushKmh;
+  if (hour >= 22 || hour < 5) return TRAFFIC.nightKmh;
+  return TRAFFIC.dayKmh;
+}
+
+/**
+ * Expected minutes to drive a straight-line distance at this time of day, like a ride app's estimate (without live traffic).
+ * The database computes the same number when a rescuer tells a clinic they are coming.
+ */
+export function estimateEtaMinutes(km: number | null | undefined, at: Date = new Date()): number | null {
   if (km == null || !Number.isFinite(km)) return null;
-  return Math.max(1, Math.round((km / 20) * 60));
+  return Math.max(TRAFFIC.minMinutes, Math.ceil(((km * TRAFFIC.roadFactor) / trafficSpeedKmh(at)) * 60));
 }
 
 export type ClinicAnswerEvent = 'expecting' | 'cannot' | 'received';
@@ -130,3 +165,6 @@ export function headsUpMessage(r: { animal: string; type: string; etaMinutes: nu
     body: `A rescuer is bringing a ${r.animal.toLowerCase()}. ${r.type}, ${eta}. Tap to say you are expecting it, or that you cannot take it now.`,
   };
 }
+
+/** What the rescuer is told about the arrival hold before telling a clinic. */
+export const ARRIVAL_HOLD_NOTE = `If the clinic says it is expecting you, the case is held for you for that long plus ${ESCALATION_CONFIG.arrivalBufferMinutes} minutes to hand it over.`;

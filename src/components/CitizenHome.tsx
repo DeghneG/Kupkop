@@ -49,6 +49,7 @@ type Row = {
   checkin_kind?: 'on_my_way' | 'arrived' | null;
   heads_up_facility_id?: string | null;
   heads_up_response?: 'expecting' | 'cannot' | null;
+  heads_up_eta_minutes?: number | null;
   clinic_received_at?: string | null;
   facility_id?: string | null;
 };
@@ -220,7 +221,7 @@ export default function CitizenHome({ userId, onSeeNearby }: { userId: string | 
 
 function toReport(r: Row, clinicName: string | null, headsUpClinicName: string | null): MyReport {
   // A claim the volunteer never confirmed (no "On my way" in time) is open again, whatever the row still says
-  const state: CaseState = r.state === 'claimed' && needsRescuer(r.state, r.claimed_at, r.emergency_type, r.checkin_kind ?? null) ? 'reported' : r.state;
+  const state: CaseState = r.state === 'claimed' && needsRescuer(r.state, r.claimed_at, r.emergency_type, r.checkin_kind ?? null, r.heads_up_response === 'expecting', r.heads_up_eta_minutes ?? null) ? 'reported' : r.state;
   return {
     id: r.id,
     shortId: r.short_id,

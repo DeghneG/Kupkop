@@ -336,6 +336,9 @@ export default function HomePage() {
                   claimedAt: r.claimed_at,
                   updatedAt: r.updated_at,
                   type: r.emergency_type,
+                  checkinKind: r.checkin_kind ?? null,
+                  clinicExpecting: r.heads_up_response === 'expecting',
+                  etaMinutes: r.heads_up_eta_minutes ?? null,
                 })
             )
             .map(toIncident);
@@ -405,7 +408,7 @@ export default function HomePage() {
             .filter(
               (r) =>
                 !r.hidden_at &&
-                isOnLiveFeed({ state: r.state, createdAt: r.created_at, claimedAt: r.claimed_at, updatedAt: r.updated_at, type: r.emergency_type })
+                isOnLiveFeed({ state: r.state, createdAt: r.created_at, claimedAt: r.claimed_at, updatedAt: r.updated_at, type: r.emergency_type, checkinKind: r.checkin_kind ?? null, clinicExpecting: r.heads_up_response === 'expecting', etaMinutes: r.heads_up_eta_minutes ?? null })
             )
             .map(toIncident)
             .sort((x, y) => (y.createdAt ?? '').localeCompare(x.createdAt ?? ''))
@@ -553,13 +556,14 @@ export default function HomePage() {
 
   // Open again but held for the first volunteer on standby: the Claim button stays off for everyone else
   const claimHeldFor = (incident: IncidentData): boolean => {
-    if (!needsRescuer(incident.state, incident.claimedAt, incident.type, incident.checkinKind ?? null, incident.headsUpResponse === 'expecting')) return false;
+    if (!needsRescuer(incident.state, incident.claimedAt, incident.type, incident.checkinKind ?? null, incident.headsUpResponse === 'expecting', incident.headsUpEtaMinutes)) return false;
     const phase = claimPhase({
       state: incident.state,
       claimedAt: incident.claimedAt,
       type: incident.type,
       checkinKind: incident.checkinKind ?? null,
       clinicExpecting: incident.headsUpResponse === 'expecting',
+      etaMinutes: incident.headsUpEtaMinutes,
       releasedAt: incident.updatedAt,
       standby: incident.standby ?? [],
     });
@@ -636,7 +640,7 @@ export default function HomePage() {
 
   // While the volunteer holds a live claim, their position goes to the person who reported it (real cases only; the demo simulates it)
   const claimLockLive =
-    !!activeCase && !calculateClaimTimer(activeCase.claimedAt, claimWindowMinutes(activeCase.type, activeCase.checkinKind ?? null, activeCase.headsUpResponse === 'expecting')).isExpired;
+    !!activeCase && !calculateClaimTimer(activeCase.claimedAt, claimWindowMinutes(activeCase.type, activeCase.checkinKind ?? null, activeCase.headsUpResponse === 'expecting', activeCase.headsUpEtaMinutes)).isExpired;
   // Sharing starts when the volunteer taps "On my way" (that is the moment they agree to it), not at the claim
   const locationShare = useShareRescuerLocation(
     activeCase?.id ?? null,
@@ -645,7 +649,7 @@ export default function HomePage() {
 
   const showCounts = feedStatus === 'live' || feedStatus === 'sample';
   // An expired claim is open again: the database keeps it 'claimed' until someone claims it
-  const isOpen = (incident: IncidentData) => needsRescuer(incident.state, incident.claimedAt, incident.type, incident.checkinKind ?? null, incident.headsUpResponse === 'expecting');
+  const isOpen = (incident: IncidentData) => needsRescuer(incident.state, incident.claimedAt, incident.type, incident.checkinKind ?? null, incident.headsUpResponse === 'expecting', incident.headsUpEtaMinutes);
 
   // The open sheet follows the live list, so a clinic's reply or a new standby shows without reopening it
   const selectedLive = selectedIncident ? (emergencies.find((e) => e.id === selectedIncident.id) ?? selectedIncident) : null;
@@ -1048,6 +1052,7 @@ export default function HomePage() {
         reportId={admitTarget && isLiveReport(admitTarget) ? admitTarget.id : undefined}
         caseLabel={admitTarget ? `${admitTarget.animal} · Case #${admitTarget.shortId}` : undefined}
         near={userPosition}
+        caseLocation={admitTarget && admitTarget.latitude != null && admitTarget.longitude != null ? { lat: admitTarget.latitude, lng: admitTarget.longitude } : null}
         busy={admitting}
         error={admitTarget ? actionError : null}
         onPick={(facilityId) => admitTarget && handleAdmitIncident(admitTarget, facilityId)}

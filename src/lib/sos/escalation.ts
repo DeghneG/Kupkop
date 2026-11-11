@@ -37,6 +37,8 @@ export const ESCALATION_CONFIG = {
    * ends and the case is open to everyone again. Once they check in, the severity lock below applies.
    */
   claimConfirmMinutes: 1,
+  /** Once a clinic is expecting the rescuer, the claim holds for the expected drive (D-057) plus this much for loading and handover */
+  arrivalBufferMinutes: 15,
   /** After a lock ends, the first volunteer on standby has this long to claim before everyone can */
   standbyGraceMinutes: 2,
   /** A volunteer can be on standby for this many cases at once */
@@ -68,8 +70,6 @@ export interface ClaimTimerStatus {
   remainingSeconds: number;
   formatted: string;
   percentRemaining: number;
-  /** True while a clinic is expecting the volunteer: the claim has no time limit */
-  isUnlimited?: boolean;
 }
 
 export interface FacilityClockStatus {
@@ -103,17 +103,19 @@ export function claimLockMinutes(rawType?: string | null): number {
 
 /**
  * How long a claim holds right now. Before the volunteer checks in (checkinKind === null) it is the short confirm window; after
- * "On my way" or "Arrived" it is the severity lock; once a clinic is expecting the volunteer it has no limit (Infinity).
- * A caller that does not know (undefined) gets the severity lock.
+ * "On my way" or "Arrived" it is the severity lock. Once a clinic is expecting the volunteer it is the expected drive to that
+ * clinic (heads_up_eta_minutes, worked out by the database from distance and Manila traffic) plus a handover buffer, counted
+ * from the moment the clinic was told. A caller that does not know (undefined) gets the severity lock.
+ * Mirrors public.claim_window() in SQL.
  */
 export function claimWindowMinutes(
   rawType?: string | null,
   checkinKind?: 'on_my_way' | 'arrived' | null,
-  clinicExpecting?: boolean
+  clinicExpecting?: boolean,
+  etaMinutes?: number | null
 ): number {
   if (checkinKind === null) return ESCALATION_CONFIG.claimConfirmMinutes;
-  // A clinic that said it is expecting the volunteer: the volunteer is committed and on the way there, so there is no timer
-  if (clinicExpecting) return Number.POSITIVE_INFINITY;
+  if (clinicExpecting) return (etaMinutes ?? claimLockMinutes(rawType)) + ESCALATION_CONFIG.arrivalBufferMinutes;
   return claimLockMinutes(rawType);
 }
 
@@ -189,19 +191,6 @@ export function calculateClaimTimer(
       remainingSeconds: 0,
       formatted: 'Unclaimed',
       percentRemaining: 0,
-    };
-  }
-
-  // No limit: a clinic is expecting the volunteer
-  if (!Number.isFinite(lockDurationMinutes)) {
-    return {
-      isClaimed: true,
-      isExpired: false,
-      remainingMinutes: 0,
-      remainingSeconds: 0,
-      formatted: 'No time limit',
-      percentRemaining: 100,
-      isUnlimited: true,
     };
   }
 
@@ -297,11 +286,12 @@ export function needsRescuer(
   claimedAt?: string | Date | number | null,
   rawType?: string | null,
   checkinKind?: 'on_my_way' | 'arrived' | null,
-  clinicExpecting?: boolean
+  clinicExpecting?: boolean,
+  etaMinutes?: number | null
 ): boolean {
   return (
     state === 'reported' ||
-    (state === 'claimed' && calculateClaimTimer(claimedAt, claimWindowMinutes(rawType, checkinKind, clinicExpecting)).isExpired)
+    (state === 'claimed' && calculateClaimTimer(claimedAt, claimWindowMinutes(rawType, checkinKind, clinicExpecting, etaMinutes)).isExpired)
   );
 }
 
@@ -310,10 +300,11 @@ export function claimLockEndsAt(
   claimedAt?: string | Date | number | null,
   rawType?: string | null,
   checkinKind?: 'on_my_way' | 'arrived' | null,
-  clinicExpecting?: boolean
+  clinicExpecting?: boolean,
+  etaMinutes?: number | null
 ): number | null {
   if (!claimedAt) return null;
-  return new Date(claimedAt).getTime() + claimWindowMinutes(rawType, checkinKind, clinicExpecting) * 60_000;
+  return new Date(claimedAt).getTime() + claimWindowMinutes(rawType, checkinKind, clinicExpecting, etaMinutes) * 60_000;
 }
 
 /** How long a case has waited, short enough for a feed row: "7m", "3h", "15d". */
@@ -338,12 +329,18 @@ export function isOnLiveFeed(
     updatedAt?: string | Date | number | null;
     /** Emergency type, so the claim lock is the right length for the case */
     type?: string | null;
+    /** The rescuer's check-in (null = none yet), so the claim window matches every other screen */
+    checkinKind?: 'on_my_way' | 'arrived' | null;
+    /** A clinic is expecting the rescuer: the claim holds for the expected drive there */
+    clinicExpecting?: boolean;
+    /** Expected minutes to that clinic */
+    etaMinutes?: number | null;
   },
   now: number = Date.now()
 ): boolean {
   const windowMs = ESCALATION_CONFIG.feedWindowHours * 60 * 60 * 1000;
   const within = (time?: string | Date | number | null) => !time || now - new Date(time).getTime() < windowMs;
   if (report.state === 'resolved') return within(report.updatedAt ?? report.createdAt);
-  if (needsRescuer(report.state, report.claimedAt, report.type)) return within(report.createdAt);
+  if (needsRescuer(report.state, report.claimedAt, report.type, report.checkinKind, report.clinicExpecting, report.etaMinutes)) return within(report.createdAt);
   return true;
 }

@@ -13,7 +13,7 @@ import {
   type AlertArea,
   type AlertStage,
 } from '@/lib/sos/alerts';
-import { ESCALATION_CONFIG, claimLockEndsAt } from '@/lib/sos/escalation';
+import { ESCALATION_CONFIG, claimLockEndsAt, needsRescuer } from '@/lib/sos/escalation';
 import { headsUpMessage, rankClinics } from '@/lib/sos/clinics';
 import { claimPhase, standbyQueue } from '@/lib/sos/standby';
 import { animalLabel, emergencyLabel } from '@/lib/sos/labels';
@@ -83,14 +83,21 @@ async function responderTargets(db: SupabaseClient) {
 async function escalate(db: SupabaseClient, pushReady: boolean) {
   // Open reports from the last 3 hours; the longest tier ("no responder" at 60 min) fits inside it
   const since = new Date(Date.now() - 3 * 3_600_000).toISOString();
-  const { data: reports, error } = await db
+  const { data: rows, error } = await db
     .from('sos_reports')
-    .select('id,short_id,reporter_id,animal_type,emergency_type,location_name,latitude,longitude,created_at,sos_alert_log(stage)')
-    .eq('state', 'reported')
+    .select(
+      'id,short_id,reporter_id,animal_type,emergency_type,location_name,latitude,longitude,created_at,state,claimed_at,checkin_kind,heads_up_response,heads_up_eta_minutes,sos_alert_log(stage)'
+    )
+    .in('state', ['reported', 'claimed'])
     .is('hidden_at', null)
     .gte('created_at', since);
   if (error) throw error;
-  if (!reports?.length) return { sent: 0 };
+  // A claim that lapsed (no "On my way" within the minute, or the lock ran out) stays 'claimed' in the row but is open again,
+  // so it keeps escalating like any open case. A claim that is still held does not.
+  const reports = (rows ?? []).filter((r) =>
+    needsRescuer(r.state, r.claimed_at, r.emergency_type, r.checkin_kind ?? null, r.heads_up_response === 'expecting', r.heads_up_eta_minutes ?? null)
+  );
+  if (!reports.length) return { sent: 0 };
 
   const targets = await responderTargets(db);
   let sent = 0;
@@ -223,10 +230,10 @@ async function standbyTurns(db: SupabaseClient, pushReady: boolean) {
   if (!pushReady) return { sent: 0 };
   const { data: rows, error } = await db
     .from('claim_standby')
-    .select('report_id,volunteer_id,created_at,sos_reports(id,short_id,state,claimed_at,checkin_kind,heads_up_response,updated_at,emergency_type,hidden_at)');
+    .select('report_id,volunteer_id,created_at,sos_reports(id,short_id,state,claimed_at,checkin_kind,heads_up_response,heads_up_eta_minutes,updated_at,emergency_type,hidden_at)');
   if (error) return { sent: 0, skipped: 'D-042 migration not run yet' };
 
-  type Report = { id: string; short_id: string; state: string; claimed_at: string | null; checkin_kind: 'on_my_way' | 'arrived' | null; heads_up_response: 'expecting' | 'cannot' | null; updated_at: string; emergency_type: string; hidden_at: string | null };
+  type Report = { id: string; short_id: string; state: string; claimed_at: string | null; checkin_kind: 'on_my_way' | 'arrived' | null; heads_up_response: 'expecting' | 'cannot' | null; heads_up_eta_minutes: number | null; updated_at: string; emergency_type: string; hidden_at: string | null };
   const byReport = new Map<string, { report: Report; entries: { volunteerId: string; joinedAt: string }[] }>();
   for (const row of rows ?? []) {
     const report = row.sos_reports as unknown as Report | null;
@@ -241,7 +248,7 @@ async function standbyTurns(db: SupabaseClient, pushReady: boolean) {
     // Only a case that is open again: released, or its lock ran out
     const open =
       report.state === 'reported' ||
-      (report.state === 'claimed' && (claimLockEndsAt(report.claimed_at, report.emergency_type, report.checkin_kind ?? null, report.heads_up_response === 'expecting') ?? Infinity) <= Date.now());
+      (report.state === 'claimed' && (claimLockEndsAt(report.claimed_at, report.emergency_type, report.checkin_kind ?? null, report.heads_up_response === 'expecting', report.heads_up_eta_minutes ?? null) ?? Infinity) <= Date.now());
     if (!open) continue;
     const marker = report.state === 'claimed' ? report.claimed_at : report.updated_at;
     const queue = standbyQueue(entries);
@@ -251,6 +258,7 @@ async function standbyTurns(db: SupabaseClient, pushReady: boolean) {
       type: report.emergency_type,
       checkinKind: report.checkin_kind ?? null,
       clinicExpecting: report.heads_up_response === 'expecting',
+      etaMinutes: report.heads_up_eta_minutes ?? null,
       releasedAt: report.updated_at,
       standby: entries,
     });
@@ -297,7 +305,7 @@ async function adminAssignments(db: SupabaseClient, pushReady: boolean) {
     if (logError) continue;
     sent += await sendWebPush(db, [r.claimed_by as string], {
       title: `An admin assigned you · #${r.short_id}`,
-      body: `${(r.location_name || 'Pinned location').split(' — ')[0]}. Open it, then tap “On my way”.`,
+      body: `${(r.location_name || 'Pinned location').split(' — ')[0]}. It is held for you: open it and tap “I’ve arrived” when you get there.`,
       url: `/?case=${r.id}`,
       tag: `case-${r.id}`,
     });
