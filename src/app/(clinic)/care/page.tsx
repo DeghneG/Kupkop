@@ -17,7 +17,6 @@ import { prepareRecoveryPhoto } from '@/lib/recoveryPhoto';
 import RescuerCard from '@/components/RescuerCard';
 import { detailsError, requiredDocsError } from '@/lib/sos/recovery';
 import LiveCameraCapture from '@/components/LiveCameraCapture';
-import ScreenHeader from '@/components/ScreenHeader';
 
 type CareState = keyof typeof CARE_STATE_LABELS;
 type Ask = (options: ConfirmOptions) => void;
@@ -368,18 +367,17 @@ export default function CarePage() {
   const overdue = inCare.filter(({ clock }) => clock.status !== 'active').length;
 
   return (
-    <div className="flex flex-col flex-1 px-4 pt-3 pb-8 space-y-6">
-      <ScreenHeader
-        title="Clinic care"
-        subtitle={
-          isAdmin
+    <div className="w-full max-w-6xl mx-auto flex flex-col flex-1 px-4 lg:px-8 pt-5 pb-10 space-y-6">
+      <header className="space-y-1">
+        <h1 className="text-[22px] font-bold text-fg leading-tight">Dashboard</h1>
+        <p className="text-[14px] text-fg-muted">
+          {isAdmin
             ? 'Every animal in care at Listed clinics. Admins can post updates for any case.'
             : shownClinic
               ? `${shownClinic} · Listed. Log how each animal is doing at least every 14 days.`
-              : 'Log how each animal is doing at least every 14 days.'
-        }
-        className="-mx-4 -mt-3"
-      />
+              : 'Log how each animal is doing at least every 14 days.'}
+        </p>
+      </header>
 
       {sample && canView && (
         <p className="text-[12px] text-fg-muted rounded-xl border border-dashed border-border p-3">
@@ -426,18 +424,27 @@ export default function CarePage() {
         </p>
       ) : (
         <>
-          <dl className="grid grid-cols-2 divide-x divide-border border-y border-border">
-            <div className="py-3 pr-3 flex flex-col gap-1">
-              <dt className="text-[12px] text-fg-muted">In care</dt>
-              <dd className="text-[16px] font-semibold tabular-nums text-fg">{inCare.length}</dd>
-            </div>
-            <div className="py-3 pl-3 flex flex-col gap-1">
-              <dt className="text-[12px] text-fg-muted">Update due or overdue</dt>
-              <dd className={`text-[16px] font-semibold tabular-nums ${overdue > 0 ? 'text-claimed-fg' : 'text-fg'}`}>
-                {overdue}
-              </dd>
-            </div>
+          <dl className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-border border border-border rounded-2xl overflow-hidden">
+            {[
+              { label: 'On their way', value: incomingShown.length, href: '#incoming-heading', warn: incomingShown.length > 0 },
+              { label: 'Waiting for intake', value: awaiting.length, href: '#intake-heading', warn: awaiting.length > 0 },
+              { label: 'In care', value: inCare.length, href: '#in-care-heading', warn: false },
+              { label: 'Update due or overdue', value: overdue, href: '#in-care-heading', warn: overdue > 0 },
+            ].map((stat) => (
+              <div key={stat.label} className="bg-surface px-4 py-3 flex flex-col gap-1">
+                <dt className="text-[12px] text-fg-muted">{stat.label}</dt>
+                <dd>
+                  <a href={stat.href} className={`text-[22px] font-bold tabular-nums leading-none ${stat.warn ? 'text-claimed-fg' : 'text-fg'}`}>
+                    {stat.value}
+                  </a>
+                </dd>
+              </div>
+            ))}
           </dl>
+
+          {/* Desktop: what needs action on the left, the animals on the right. Phone: one column, in the same order */}
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] items-start">
+          <div className="space-y-6 min-w-0">
 
           {isStaff && !sample && myFacilityId && (
             <AvailabilitySwitch
@@ -526,6 +533,14 @@ export default function CarePage() {
             </section>
           )}
 
+          {incomingShown.length === 0 && awaiting.length === 0 && (
+            <p className="text-[14px] text-fg-muted rounded-2xl border border-border bg-surface p-4">
+              Nothing needs you right now: no rescuer is on the way and no animal is waiting for intake. New ones appear here.
+            </p>
+          )}
+          </div>
+
+          <div className="space-y-6 min-w-0">
           <section aria-labelledby="in-care-heading" className="space-y-2">
             <h2 id="in-care-heading" className="text-[16px] font-semibold text-fg">
               In care
@@ -545,7 +560,7 @@ export default function CarePage() {
                     <CaseSummary c={c} clock={clock} showClinic={isAdmin} />
                     <AnimalLinks c={c} onSaved={reload} />
                     {openId === c.id ? (
-                      <UpdateForm c={c} onCancel={() => setOpenId(null)} onPosted={reload} />
+                      <UpdateForm c={c} onCancel={() => setOpenId(null)} onPosted={reload} ask={ask} />
                     ) : (
                       <button
                         type="button"
@@ -590,6 +605,8 @@ export default function CarePage() {
               </ul>
             </section>
           )}
+          </div>
+          </div>
         </>
       )}
       </fieldset>
@@ -972,7 +989,7 @@ function IntakeActions({ c, onDone, ask }: { c: CareCase; onDone: () => void; as
   );
 }
 
-function UpdateForm({ c, onCancel, onPosted }: { c: CareCase; onCancel: () => void; onPosted: () => void }) {
+function UpdateForm({ c, onCancel, onPosted, ask }: { c: CareCase; onCancel: () => void; onPosted: () => void; ask: Ask }) {
   // Healing never goes back to admitted; the database enforces the same rule
   const options: CareState[] = c.state === 'healing' ? ['healing', 'resolved'] : ['admitted', 'healing', 'resolved'];
   const [state, setState] = useState<CareState>(c.state);
@@ -995,6 +1012,20 @@ function UpdateForm({ c, onCancel, onPosted }: { c: CareCase; onCancel: () => vo
       setError(problem);
       return;
     }
+    // Resolving closes the case for good, so it asks first (D-059)
+    if (state === 'resolved') {
+      ask({
+        title: `Close #${c.shortId} as recovered?`,
+        message: 'The animal leaves your care list and the case is finished. The person who reported it is told it recovered.',
+        confirmLabel: 'Yes, it recovered',
+        onConfirm: post,
+      });
+      return;
+    }
+    await post();
+  };
+
+  const post = async () => {
     setBusy(true);
     setError(null);
     let photoPath: string;

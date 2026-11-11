@@ -3,6 +3,7 @@
  * The data comes from get_rescuer_info() in SQL: a name, how many animals they have helped, and a recent position.
  */
 import { distanceKm, formatDistance, getDirectionalBearing, type LatLng } from './geo';
+import { TRAFFIC, trafficSpeedKmh } from './clinics';
 
 export interface RescuerInfo {
   /** True once the volunteer tapped "I've arrived"; false while they are on the way */
@@ -139,17 +140,18 @@ export function speedKmh(trail: TrackPoint[]): number | null {
 
 /**
  * Minutes until arrival. Uses the observed speed when it is believable (so the time shrinks as they get close, like a ride
- * app), otherwise a city-traffic guess of 20 km/h. At least 1 minute while they are still on the way.
+ * app), otherwise the same Manila traffic estimate the clinic picker and the arrival hold use (D-057). At least 1 minute
+ * while they are still on the way. Observed speed is over the real road, so it is not multiplied by the road factor.
  */
-export function arrivalMinutes(remainingKm: number, trail: TrackPoint[]): number {
+export function arrivalMinutes(remainingKm: number, trail: TrackPoint[], at: Date = new Date()): number {
   const seen = speedKmh(trail);
-  const v = seen != null && seen >= 5 && seen <= 80 ? seen : 20;
-  return Math.max(1, Math.round((remainingKm / v) * 60));
+  if (seen != null && seen >= 5 && seen <= 80) return Math.max(1, Math.round((remainingKm / seen) * 60));
+  return Math.max(1, Math.ceil(((remainingKm * TRAFFIC.roadFactor) / trafficSpeedKmh(at)) * 60));
 }
 
 /** The words for the big line of the tracker. */
-export function arrivalLabel(remainingKm: number, trail: TrackPoint[], arrived: boolean): string {
+export function arrivalLabel(remainingKm: number, trail: TrackPoint[], arrived: boolean, at: Date = new Date()): string {
   if (arrived || remainingKm < 0.05) return 'Your volunteer is here';
-  const m = arrivalMinutes(remainingKm, trail);
+  const m = arrivalMinutes(remainingKm, trail, at);
   return m <= 1 ? 'Arriving in about 1 min' : `Arriving in about ${m} min`;
 }

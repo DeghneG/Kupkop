@@ -238,6 +238,11 @@ export default function HomePage() {
     }
   }, [profile.loading, profile.user, demoOn, router]);
 
+  // Clinic staff have their own workspace (D-058): the Feed is for people who find and rescue animals
+  useEffect(() => {
+    if (!profile.loading && profile.role === 'facility') router.replace('/care');
+  }, [profile.loading, profile.role, router]);
+
   // Re-render twice a minute so escalation labels and ordering stay current
   // (The first fetch sets `now`, so nothing is set synchronously here.)
   useEffect(() => {

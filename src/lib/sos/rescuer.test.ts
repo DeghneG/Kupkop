@@ -102,14 +102,15 @@ describe('live tracking view', () => {
 
   it('falls back to a city-traffic guess when the speed cannot be told', () => {
     expect(speedKmh([])).toBeNull();
-    expect(arrivalMinutes(10, [])).toBe(30); // 10 km at 20 km/h
+    // No movement seen: the Manila traffic estimate. Wednesday noon: 10 km x 1.4 road at 18 km/h = 47 min
+    expect(arrivalMinutes(10, [], new Date('2026-11-11T04:00:00Z'))).toBe(47);
     // A stopped or absurd reading is ignored
     const t0 = Date.now();
-    expect(arrivalMinutes(10, [{ ...scene, t: t0 }, { ...scene, t: t0 + 60_000 }])).toBe(30);
+    expect(arrivalMinutes(10, [{ ...scene, t: t0 }, { ...scene, t: t0 + 60_000 }], new Date('2026-11-11T04:00:00Z'))).toBe(47);
   });
 
   it('says it in words', () => {
-    expect(arrivalLabel(10, [], false)).toBe('Arriving in about 30 min');
+    expect(arrivalLabel(10, [], false, new Date('2026-11-11T04:00:00Z'))).toBe('Arriving in about 47 min');
     expect(arrivalLabel(0.1, [], false)).toBe('Arriving in about 1 min');
     expect(arrivalLabel(0.01, [], false)).toBe('Your volunteer is here');
     expect(arrivalLabel(3, [], true)).toBe('Your volunteer is here');

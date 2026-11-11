@@ -143,7 +143,7 @@ export default function ClinicPicker({
   if (!open) return null;
 
   const clinicList = demoOn ? demoClinics : clinics;
-  const ranked = clinicList ? rankClinics(clinicList, near) : null;
+  const ranked = clinicList ? rankClinics(clinicList, caseLocation ?? near) : null;
   // Nothing tapped yet: the suggested clinic is the starting choice
   // The clinic already told is the starting choice; otherwise the nearest one that is not full
   const chosenId =

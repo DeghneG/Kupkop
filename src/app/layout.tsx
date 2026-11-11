@@ -1,11 +1,6 @@
-import { Suspense } from 'react';
 import type { Metadata, Viewport } from 'next';
 import { Atkinson_Hyperlegible } from 'next/font/google';
 import './globals.css';
-import TestModeBanner from '@/components/TestModeBanner';
-import RolePreviewBanner from '@/components/RolePreviewBanner';
-import { DemoBanner } from '@/components/DemoMode';
-import Navigation from '@/components/Navigation';
 
 // Designed for low vision: letterforms stay distinct in harsh sun and at arm's length
 const atkinson = Atkinson_Hyperlegible({
@@ -34,6 +29,8 @@ export const viewport: Viewport = {
   themeColor: '#232D69',
 };
 
+// Shared by every screen. The phone app, src/app/(main)/layout.tsx, and the clinic workspace,
+// src/app/(clinic)/layout.tsx, each bring their own frame and navigation.
 export default function RootLayout({
   children,
 }: {
@@ -41,19 +38,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`${atkinson.variable} h-full antialiased`} suppressHydrationWarning>
-      <body className="min-h-full bg-page text-fg font-sans flex flex-col items-center">
-        {/* Mobile viewport container */}
-        <div className="w-full max-w-md min-h-screen bg-page border-x border-border shadow-sm flex flex-col relative pb-28 transition-colors duration-150">
-          <TestModeBanner />
-          <DemoBanner />
-          <RolePreviewBanner />
-          <main className="flex-1 flex flex-col">{children}</main>
-          {/* The dock reads the current address, which a dynamic page like /animal/[id] only knows at runtime */}
-          <Suspense fallback={null}>
-            <Navigation />
-          </Suspense>
-        </div>
-      </body>
+      <body className="min-h-full bg-page text-fg font-sans">{children}</body>
     </html>
   );
 }

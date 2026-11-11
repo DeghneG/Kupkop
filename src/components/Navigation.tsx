@@ -3,15 +3,35 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Camera, MessageSquareHeart, Building2, Settings } from 'lucide-react';
+import { Home, Camera, MessageSquareHeart, Building2, Settings, LayoutDashboard } from 'lucide-react';
+import { useProfile } from '@/lib/supabase/useProfile';
 
 export default function Navigation() {
   const pathname = usePathname();
+  const { role } = useProfile();
 
   // If user is inside the SOS emergency dispatch flow, hide navigation to maximize camera view
   // The welcome page has its own report and sign-in actions, so the dock would only duplicate them
   if (pathname === '/sos' || pathname === '/welcome') {
     return null;
+  }
+
+  // Clinic staff work in the clinic workspace (D-058). On a shared page (an animal's page, a clinic page) they get a way
+  // back to it instead of the Feed, Rafa and SOS, which are for people who find and rescue animals.
+  if (role === 'facility') {
+    return (
+      <nav aria-label="Clinic navigation" className="fixed bottom-0 left-0 right-0 z-40 px-3 pb-[calc(env(safe-area-inset-bottom,0px)+8px)] pointer-events-none">
+        <div className="max-w-md mx-auto pointer-events-auto">
+          <Link
+            href="/care"
+            className="min-h-[48px] rounded-2xl border border-border bg-surface shadow-md shadow-black/10 flex items-center justify-center gap-2 text-[14px] font-semibold text-fg hover:bg-surface-muted"
+          >
+            <LayoutDashboard className="w-4 h-4 text-fg-muted" aria-hidden="true" />
+            Back to the clinic dashboard
+          </Link>
+        </div>
+      </nav>
+    );
   }
 
   const leftTabs = [

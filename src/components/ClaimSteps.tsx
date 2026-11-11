@@ -114,7 +114,7 @@ export default function ClaimSteps({
           <button type="button" onClick={() => onCheckin?.('arrived')} className={primary}>
             I’ve arrived
           </button>
-          <p className="text-[12px] text-fg-muted text-center">Restarts the lock once more. The person who reported it is told.</p>
+          <p className="text-[12px] text-fg-muted text-center">The person who reported it is told you are there.</p>
         </div>
       )}
       {current.id === 'tell_clinic' && (
