@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { claimLockEndsAt, claimLockMinutes, isOnLiveFeed, needsRescuer } from './escalation';
+import { claimLockEndsAt, claimLockMinutes, claimWindowMinutes, isOnLiveFeed, needsRescuer } from './escalation';
 import { reporterNoResponderMessage } from './alerts';
-import { availabilityNote, effectiveAvailability, estimateEtaMinutes, headsUpMessage, rankClinics } from './clinics';
+import { availabilityNote, clinicAnswerMessage, effectiveAvailability, estimateEtaMinutes, headsUpMessage, rankClinics } from './clinics';
 import { canClaimNow, claimPhase, standbyPosition, standbyQueue } from './standby';
 
 const minutesAgo = (m: number) => new Date(Date.now() - m * 60_000).toISOString();
@@ -158,5 +158,66 @@ describe('no responder: the reporter is told too', () => {
     const msg = reporterNoResponderMessage({ shortId: 'KK-9', clinicName: null, clinicPhone: null });
     expect(msg.body).not.toContain('nearest clinic');
     expect(msg.body).toContain('Rafa');
+  });
+});
+
+describe('the one-minute confirm window after claiming', () => {
+  it('holds the claim for one minute until the volunteer checks in, then the severity lock applies', () => {
+    expect(claimWindowMinutes('hit_and_run', null)).toBe(1);
+    expect(claimWindowMinutes('sick_mange', null)).toBe(1);
+    expect(claimWindowMinutes('hit_and_run', 'on_my_way')).toBe(15);
+    expect(claimWindowMinutes('fracture', 'arrived')).toBe(30);
+    // A caller that does not know gets the severity lock
+    expect(claimWindowMinutes('hit_and_run')).toBe(15);
+  });
+
+  it('opens the case again when nobody tapped On my way in time', () => {
+    const thirtySecondsAgo = new Date(Date.now() - 30_000).toISOString();
+    expect(needsRescuer('claimed', thirtySecondsAgo, 'hit_and_run', null)).toBe(false);
+    expect(needsRescuer('claimed', minutesAgo(2), 'hit_and_run', null)).toBe(true);
+    // The same claim two minutes on, but checked in: still locked
+    expect(needsRescuer('claimed', minutesAgo(2), 'hit_and_run', 'on_my_way')).toBe(false);
+  });
+
+  it('the lock end and the standby phase follow the window', () => {
+    const claimedAt = minutesAgo(0.5);
+    const ends = claimLockEndsAt(claimedAt, 'bleeding', null)!;
+    expect(ends - Date.now()).toBeGreaterThan(25_000);
+    expect(ends - Date.now()).toBeLessThan(35_000);
+    const standby = [{ volunteerId: 'ana', joinedAt: minutesAgo(5) }];
+    expect(claimPhase({ state: 'claimed', claimedAt, type: 'bleeding', checkinKind: null, standby }).phase).toBe('locked');
+    // After the minute with no check-in, the first volunteer on standby gets the head start
+    expect(claimPhase({ state: 'claimed', claimedAt: minutesAgo(1.5), type: 'bleeding', checkinKind: null, standby }).phase).toBe('reserved');
+    expect(claimPhase({ state: 'claimed', claimedAt: minutesAgo(1.5), type: 'bleeding', checkinKind: 'on_my_way', standby }).phase).toBe('locked');
+  });
+});
+
+describe('what the rescuer is told when the clinic answers', () => {
+  it('says expecting, cannot (with the reason) and received', () => {
+    const base = { clinicName: 'Marikina', shortId: 'KK-12' };
+    expect(clinicAnswerMessage({ ...base, event: 'expecting' }).title).toBe('Marikina is expecting you · #KK-12');
+    const no = clinicAnswerMessage({ ...base, event: 'cannot', note: 'No space in the ward' });
+    expect(no.title).toBe('Choose another clinic · #KK-12');
+    expect(no.body).toContain('Marikina cannot take the animal now: No space in the ward');
+    expect(clinicAnswerMessage({ ...base, event: 'cannot' }).body).toBe('Marikina cannot take the animal now. Pick another clinic.');
+    expect(clinicAnswerMessage({ ...base, event: 'received' }).body).toContain('mark it admitted');
+  });
+});
+
+describe('no lock while a clinic is expecting the volunteer', () => {
+  it('the claim has no time limit once the clinic said it is expecting them', () => {
+    expect(claimWindowMinutes('hit_and_run', 'on_my_way', true)).toBe(Number.POSITIVE_INFINITY);
+    expect(claimWindowMinutes('hit_and_run', 'on_my_way', false)).toBe(15);
+    // It cannot be used to skip the one-minute confirm window: no check-in still means one minute
+    expect(claimWindowMinutes('hit_and_run', null, true)).toBe(1);
+  });
+
+  it('a case does not reopen however long the volunteer takes while a clinic expects them', () => {
+    expect(needsRescuer('claimed', minutesAgo(40), 'hit_and_run', 'on_my_way', false)).toBe(true);
+    expect(needsRescuer('claimed', minutesAgo(40), 'hit_and_run', 'on_my_way', true)).toBe(false);
+    expect(needsRescuer('claimed', minutesAgo(600), 'sick_mange', 'arrived', true)).toBe(false);
+    expect(claimLockEndsAt(minutesAgo(40), 'hit_and_run', 'on_my_way', true)).toBe(Number.POSITIVE_INFINITY);
+    const standby = [{ volunteerId: 'ana', joinedAt: minutesAgo(5) }];
+    expect(claimPhase({ state: 'claimed', claimedAt: minutesAgo(40), type: 'hit_and_run', checkinKind: 'on_my_way', clinicExpecting: true, standby }).phase).toBe('locked');
   });
 });

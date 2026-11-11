@@ -32,6 +32,11 @@ export const ESCALATION_CONFIG = {
   },
   /** Used when the case type is unknown (sample cases) */
   claimLockDurationMinutes: 60,
+  /**
+   * Right after claiming, the volunteer has this long to tap "On my way" (or "I'm already here"). If they do not, the claim
+   * ends and the case is open to everyone again. Once they check in, the severity lock below applies.
+   */
+  claimConfirmMinutes: 1,
   /** After a lock ends, the first volunteer on standby has this long to claim before everyone can */
   standbyGraceMinutes: 2,
   /** A volunteer can be on standby for this many cases at once */
@@ -63,6 +68,8 @@ export interface ClaimTimerStatus {
   remainingSeconds: number;
   formatted: string;
   percentRemaining: number;
+  /** True while a clinic is expecting the volunteer: the claim has no time limit */
+  isUnlimited?: boolean;
 }
 
 export interface FacilityClockStatus {
@@ -92,6 +99,22 @@ export function getEscalationTier(rawType?: string | null): EscalationTier {
 export function claimLockMinutes(rawType?: string | null): number {
   if (!rawType) return ESCALATION_CONFIG.claimLockDurationMinutes;
   return ESCALATION_CONFIG[getEscalationTier(rawType)].claimLockMinutes;
+}
+
+/**
+ * How long a claim holds right now. Before the volunteer checks in (checkinKind === null) it is the short confirm window; after
+ * "On my way" or "Arrived" it is the severity lock; once a clinic is expecting the volunteer it has no limit (Infinity).
+ * A caller that does not know (undefined) gets the severity lock.
+ */
+export function claimWindowMinutes(
+  rawType?: string | null,
+  checkinKind?: 'on_my_way' | 'arrived' | null,
+  clinicExpecting?: boolean
+): number {
+  if (checkinKind === null) return ESCALATION_CONFIG.claimConfirmMinutes;
+  // A clinic that said it is expecting the volunteer: the volunteer is committed and on the way there, so there is no timer
+  if (clinicExpecting) return Number.POSITIVE_INFINITY;
+  return claimLockMinutes(rawType);
 }
 
 /**
@@ -166,6 +189,19 @@ export function calculateClaimTimer(
       remainingSeconds: 0,
       formatted: 'Unclaimed',
       percentRemaining: 0,
+    };
+  }
+
+  // No limit: a clinic is expecting the volunteer
+  if (!Number.isFinite(lockDurationMinutes)) {
+    return {
+      isClaimed: true,
+      isExpired: false,
+      remainingMinutes: 0,
+      remainingSeconds: 0,
+      formatted: 'No time limit',
+      percentRemaining: 100,
+      isUnlimited: true,
     };
   }
 
@@ -259,15 +295,25 @@ export function calculateFacilityInactivity(
 export function needsRescuer(
   state: string,
   claimedAt?: string | Date | number | null,
-  rawType?: string | null
+  rawType?: string | null,
+  checkinKind?: 'on_my_way' | 'arrived' | null,
+  clinicExpecting?: boolean
 ): boolean {
-  return state === 'reported' || (state === 'claimed' && calculateClaimTimer(claimedAt, claimLockMinutes(rawType)).isExpired);
+  return (
+    state === 'reported' ||
+    (state === 'claimed' && calculateClaimTimer(claimedAt, claimWindowMinutes(rawType, checkinKind, clinicExpecting)).isExpired)
+  );
 }
 
 /** The moment a claim lock ends, or null when there is no claim. */
-export function claimLockEndsAt(claimedAt?: string | Date | number | null, rawType?: string | null): number | null {
+export function claimLockEndsAt(
+  claimedAt?: string | Date | number | null,
+  rawType?: string | null,
+  checkinKind?: 'on_my_way' | 'arrived' | null,
+  clinicExpecting?: boolean
+): number | null {
   if (!claimedAt) return null;
-  return new Date(claimedAt).getTime() + claimLockMinutes(rawType) * 60_000;
+  return new Date(claimedAt).getTime() + claimWindowMinutes(rawType, checkinKind, clinicExpecting) * 60_000;
 }
 
 /** How long a case has waited, short enough for a feed row: "7m", "3h", "15d". */

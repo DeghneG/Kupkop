@@ -223,10 +223,10 @@ async function standbyTurns(db: SupabaseClient, pushReady: boolean) {
   if (!pushReady) return { sent: 0 };
   const { data: rows, error } = await db
     .from('claim_standby')
-    .select('report_id,volunteer_id,created_at,sos_reports(id,short_id,state,claimed_at,updated_at,emergency_type,hidden_at)');
+    .select('report_id,volunteer_id,created_at,sos_reports(id,short_id,state,claimed_at,checkin_kind,heads_up_response,updated_at,emergency_type,hidden_at)');
   if (error) return { sent: 0, skipped: 'D-042 migration not run yet' };
 
-  type Report = { id: string; short_id: string; state: string; claimed_at: string | null; updated_at: string; emergency_type: string; hidden_at: string | null };
+  type Report = { id: string; short_id: string; state: string; claimed_at: string | null; checkin_kind: 'on_my_way' | 'arrived' | null; heads_up_response: 'expecting' | 'cannot' | null; updated_at: string; emergency_type: string; hidden_at: string | null };
   const byReport = new Map<string, { report: Report; entries: { volunteerId: string; joinedAt: string }[] }>();
   for (const row of rows ?? []) {
     const report = row.sos_reports as unknown as Report | null;
@@ -241,7 +241,7 @@ async function standbyTurns(db: SupabaseClient, pushReady: boolean) {
     // Only a case that is open again: released, or its lock ran out
     const open =
       report.state === 'reported' ||
-      (report.state === 'claimed' && (claimLockEndsAt(report.claimed_at, report.emergency_type) ?? Infinity) <= Date.now());
+      (report.state === 'claimed' && (claimLockEndsAt(report.claimed_at, report.emergency_type, report.checkin_kind ?? null, report.heads_up_response === 'expecting') ?? Infinity) <= Date.now());
     if (!open) continue;
     const marker = report.state === 'claimed' ? report.claimed_at : report.updated_at;
     const queue = standbyQueue(entries);
@@ -249,6 +249,8 @@ async function standbyTurns(db: SupabaseClient, pushReady: boolean) {
       state: report.state,
       claimedAt: report.claimed_at,
       type: report.emergency_type,
+      checkinKind: report.checkin_kind ?? null,
+      clinicExpecting: report.heads_up_response === 'expecting',
       releasedAt: report.updated_at,
       standby: entries,
     });

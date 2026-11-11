@@ -98,6 +98,27 @@ export function estimateEtaMinutes(km: number | null | undefined): number | null
   return Math.max(1, Math.round((km / 20) * 60));
 }
 
+export type ClinicAnswerEvent = 'expecting' | 'cannot' | 'received';
+
+/** What the rescuer reads (as a push) when the clinic they told answers, or confirms the animal is there. */
+export function clinicAnswerMessage(r: { event: ClinicAnswerEvent; clinicName: string; shortId: string; note?: string | null }): {
+  title: string;
+  body: string;
+} {
+  const code = `#${r.shortId}`;
+  switch (r.event) {
+    case 'expecting':
+      return { title: `${r.clinicName} is expecting you · ${code}`, body: 'Keep going. They will confirm when the animal arrives.' };
+    case 'cannot':
+      return {
+        title: `Choose another clinic · ${code}`,
+        body: `${r.clinicName} cannot take the animal now${r.note ? `: ${r.note}` : ''}. Pick another clinic.`,
+      };
+    case 'received':
+      return { title: `${r.clinicName} has the animal · ${code}`, body: 'They confirmed it arrived. You can mark it admitted now.' };
+  }
+}
+
 /** What a clinic reads when a rescuer is bringing an animal. */
 export function headsUpMessage(r: { animal: string; type: string; etaMinutes: number | null; shortId: string }): {
   title: string;

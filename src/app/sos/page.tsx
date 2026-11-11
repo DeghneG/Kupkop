@@ -23,7 +23,9 @@ import { useConfirm } from '@/components/ConfirmSheet';
 import { useProfile } from '@/lib/supabase/useProfile';
 import { createClient } from '@/lib/supabase/client';
 import { appRpc } from '@/lib/demo/rpc';
+import RescuerCard from '@/components/RescuerCard';
 import { DEMO_PLACE, isDemoOn } from '@/lib/demo/demo';
+import { cleanAnimalOther } from '@/lib/sos/labels';
 import { generateCaseId, formatCoordinates, compressVideoFrame, createSimulatedFrame } from '@/lib/sos/utils';
 
 type AnimalType = 'dog' | 'cat' | 'other';
@@ -47,6 +49,27 @@ const EMERGENCY_TIERS: EmergencyOption[] = [
   { id: 'sick_mange', label: 'Sick / Mange', urgency: 'moderate', urgencyLabel: 'Moderate' },
 ];
 
+// Shown under the animal buttons when "Other" is chosen: optional, so it never slows a report down
+function OtherAnimalField({ value, onChange, disabled }: { value: string; onChange: (v: string) => void; disabled?: boolean }) {
+  const tooLong = value.trim().length > 30;
+  return (
+    <label className="block space-y-1 pt-1">
+      <span className="text-[12px] font-semibold text-fg-muted">What animal is it? (optional)</span>
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value.replace(/[<>]/g, ''))}
+        maxLength={40}
+        disabled={disabled}
+        placeholder="Rabbit, goat, bird, monkey…"
+        autoComplete="off"
+        className="w-full min-h-[44px] rounded-xl border border-border bg-surface text-fg text-[14px] px-3 focus:outline-none focus:ring-2 focus:ring-accent"
+      />
+      {tooLong && <span className="block text-[12px] text-fg-muted">Keep it to 30 characters.</span>}
+    </label>
+  );
+}
+
 interface DispatchedReport {
   /** Database id, for "I'll take it myself"; null if the insert did not return it */
   reportId: string | null;
@@ -63,6 +86,8 @@ export default function SOSCameraPage() {
   // Selection states
   const [animal, setAnimal] = useState<AnimalType>('dog');
   const [emergency, setEmergency] = useState<EmergencyTier>('hit_and_run');
+  // What the reporter typed when the animal is "Other" (rabbit, goat, bird...)
+  const [animalOther, setAnimalOther] = useState('');
 
   // Camera states
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -316,6 +341,17 @@ export default function SOSCameraPage() {
 
     const timer = setTimeout(() => {
       if (!isCancelled) {
+        // Every time this screen opens it starts a fresh report. The app keeps a screen's state when you leave and come back,
+        // so without this a second report would open on the first report's "Report sent" page.
+        setDispatchStep('camera');
+        setDispatchedData(null);
+        setDispatchError(null);
+        setStagedBlob(null);
+        setStagedPreview(null);
+        setDescription('');
+        setAnimalOther('');
+        setSelfClaim({ busy: false, error: null });
+        locationEditedRef.current = false;
         // Demo mode opens on the labelled fake lens so the flow plays without a camera; "Switch to Live Webcam" still opens the real one
         if (isDemoOn()) {
           setCameraStatus('simulated');
@@ -368,6 +404,7 @@ export default function SOSCameraPage() {
         });
         const { data, error: demoError } = await appRpc('create_report', {
           p_animal_type: animal,
+          p_animal_other: animal === 'other' ? animalOther : null,
           p_emergency_type: emergency,
           p_latitude: coords.lat,
           p_longitude: coords.lng,
@@ -443,6 +480,11 @@ export default function SOSCameraPage() {
           const send = () =>
             supabase.from('sos_reports').insert({ ...payload, short_id: shortId }).select('id,server_timestamp').single();
           let res = await send();
+          // Before the animal_other migration runs the column is absent: send the report without the name
+          if (res.error?.code === '42703' && res.error.message?.includes('animal_other')) {
+            delete payload.animal_other;
+            res = await send();
+          }
           for (let retries = 0; retries < 3 && res.error?.code === '23505' && res.error.message?.includes('short_id'); retries++) {
             shortId = generateCaseId();
             res = await send();
@@ -463,6 +505,8 @@ export default function SOSCameraPage() {
           longitude: finalLng,
           location_name: finalLocationName,
         };
+        const namedAnimal = animal === 'other' ? cleanAnimalOther(animalOther) : null;
+        if (namedAnimal) insertPayload.animal_other = namedAnimal;
 
         if (description.trim()) {
           insertPayload.description = description.trim();
@@ -517,7 +561,7 @@ export default function SOSCameraPage() {
         setDispatchStep('review');
       }
     },
-    [coords, gpsStatus, animal, emergency, resolvedAddress, locationText, description, setDispatchStep]
+    [coords, gpsStatus, animal, animalOther, emergency, resolvedAddress, locationText, description, setDispatchStep]
   );
 
   // 5. Handle Shutter Button Press (Snaps evidence & shows Confirmation / Review option)
@@ -683,6 +727,7 @@ export default function SOSCameraPage() {
                   </button>
                 ))}
               </div>
+              {animal === 'other' && <OtherAnimalField value={animalOther} onChange={setAnimalOther} disabled={dispatchStep === 'uploading'} />}
             </div>
 
             {/* Severity Selection */}
@@ -870,6 +915,9 @@ export default function SOSCameraPage() {
             </div>
           </div>
 
+          {/* Appears once a volunteer claims the case: who they are and where they are */}
+          {dispatchedData.reportId && <RescuerCard reportId={dispatchedData.reportId} scene={dispatchedData.coords} />}
+
           {/* On-Scene First-Aid Advisory (Calm & Clear) */}
           <div className="pt-4 border-t border-border space-y-2">
             <div className="flex items-center gap-2 text-fg font-semibold text-[14px]">
@@ -899,7 +947,7 @@ export default function SOSCameraPage() {
                   onClick={() =>
                     askConfirm({
                       title: 'Take this rescue yourself?',
-                      message: 'The case is locked to you so other volunteers do not come too. You can release it if you cannot go.',
+                      message: 'The case is locked to you so other volunteers do not come too. You can release it if you cannot go. Your name and live location are shared with the person who reported it until you admit or release it.',
                       confirmLabel: 'Yes, I will take it',
                       onConfirm: async () => {
                         setSelfClaim({ busy: true, error: null });
@@ -954,6 +1002,7 @@ export default function SOSCameraPage() {
                 onClick={() => {
                   setDispatchedData(null);
                   setDescription('');
+                  setAnimalOther('');
                   setLocationText(resolvedAddress);
                   locationEditedRef.current = false;
                   setDispatchError(null);
@@ -1201,6 +1250,7 @@ export default function SOSCameraPage() {
             </button>
           ))}
         </div>
+        {animal === 'other' && <OtherAnimalField value={animalOther} onChange={setAnimalOther} disabled={dispatchStep === 'uploading'} />}
       </div>
 
       {/* Urgency Selection (Tap 2) */}

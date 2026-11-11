@@ -1,6 +1,7 @@
 import { timingSafeEqual } from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { cleanAnimalOther } from '@/lib/sos/labels';
 
 // Called by a Supabase Database Webhook on INSERT into sos_reports.
 // Alerts every volunteer and admin with the app (except the reporter) about the new case.
@@ -23,6 +24,7 @@ type ReportRecord = {
   short_id: string;
   reporter_id: string | null;
   animal_type: string | null;
+  animal_other?: string | null;
   emergency_type: string | null;
   location_name: string | null;
 };
@@ -69,7 +71,8 @@ export async function POST(request: Request) {
   const tokens = [...new Set((rows ?? []).map((r) => r.token))];
   if (tokens.length === 0) return NextResponse.json({ sent: 0 });
 
-  const title = `New SOS · ${ANIMAL_LABELS[report.animal_type ?? ''] ?? 'Injured animal'}`;
+  const named = report.animal_type === 'other' ? cleanAnimalOther(report.animal_other) : null;
+  const title = `New SOS · ${named ? `Injured ${named}` : (ANIMAL_LABELS[report.animal_type ?? ''] ?? 'Injured animal')}`;
   const typeLabel = TYPE_LABELS[report.emergency_type ?? ''] ?? 'Emergency';
   const place = (report.location_name || 'Pinned location').split(' — ')[0];
   const body = `${typeLabel} · ${place} · #${report.short_id}`;

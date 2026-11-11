@@ -9,7 +9,8 @@ import { useSyncExternalStore } from 'react';
 import { claimLockEndsAt, claimLockMinutes, ESCALATION_CONFIG } from '@/lib/sos/escalation';
 import { effectiveAvailability } from '@/lib/sos/clinics';
 import { claimPhase, canClaimNow } from '@/lib/sos/standby';
-import { detailsError } from '@/lib/sos/recovery';
+import { detailsError, requiredDocsError } from '@/lib/sos/recovery';
+import { cleanAnimalOther } from '@/lib/sos/labels';
 import { readViewAs } from '@/lib/storage';
 
 export const DEMO_USER = 'demo-user';
@@ -30,6 +31,7 @@ export interface DemoReport {
   short_id: string;
   reporter_id: string;
   animal_type: 'dog' | 'cat' | 'other';
+  animal_other?: string | null;
   emergency_type: string;
   urgency: string;
   state: CaseState;
@@ -52,6 +54,8 @@ export interface DemoReport {
   heads_up_response: 'expecting' | 'cannot' | null;
   heads_up_response_at: string | null;
   heads_up_note: string | null;
+  /** When the clinic that was told confirmed the animal is there; Admit is locked until then */
+  clinic_received_at?: string | null;
   ai_graphic: boolean;
   created_at: string;
   updated_at: string;
@@ -245,7 +249,7 @@ export function seedDemo(withSamples = false): DemoData {
     baseReport({ id: 'demo-f07', short_id: 'KK-F07', animal_type: 'dog', emergency_type: 'bleeding', latitude: 14.6091, longitude: 121.0223, location_name: 'España Blvd, Manila', description: 'White dog with a deep cut on its shoulder, leaving blood on the sidewalk.' }, 9),
     baseReport({ id: 'demo-f08', short_id: 'KK-F08', animal_type: 'dog', emergency_type: 'fracture', latitude: 14.5995, longitude: 121.0361, location_name: 'Shaw Blvd, Mandaluyong', description: 'Golden dog with a swollen hind leg, will not put it down.' }, 30),
     // Claimed by someone else; its 15-minute lock ends in about a minute
-    baseReport({ id: 'demo-f05', short_id: 'KK-F05', animal_type: 'dog', emergency_type: 'hit_and_run', latitude: 14.56, longitude: 121.0215, location_name: 'EDSA Buendia flyover, Makati', description: 'Dog dragging its back legs across the lane.', state: 'claimed', claimed_by: OTHER_USER, claimed_at: ago(14) }, 16),
+    baseReport({ id: 'demo-f05', short_id: 'KK-F05', animal_type: 'dog', emergency_type: 'hit_and_run', latitude: 14.56, longitude: 121.0215, location_name: 'EDSA Buendia flyover, Makati', description: 'Dog dragging its back legs across the lane.', state: 'claimed', claimed_by: OTHER_USER, claimed_at: ago(14), checkin_kind: 'on_my_way', checkin_at: ago(14) }, 16),
     // In care at Marikina: a dog healing, a cat just brought in
     baseReport({ id: 'demo-c01', short_id: 'KK-C01', animal_type: 'dog', emergency_type: 'fracture', latitude: 14.6401, longitude: 121.0985, location_name: 'Sumulong Highway, Marikina', description: 'Brown dog dragging a hind leg near the market.', state: 'healing', claimed_by: OTHER_USER, claimed_at: ago(60 * 48), facility_id: DEMO_CLINIC_ID, intake_confirmed_at: ago(60 * 48 - 40), animal_name: 'Max' }, 60 * 48 + 20),
     baseReport({ id: 'demo-c02', short_id: 'KK-C02', animal_type: 'cat', emergency_type: 'sick_mange', latitude: 14.6288, longitude: 121.095, location_name: 'Gil Fernando Ave, Marikina', description: 'Thin grey cat with bald patches, sneezing.', state: 'admitted', claimed_by: OTHER_USER, claimed_at: ago(35), facility_id: DEMO_CLINIC_ID }, 50),
@@ -290,13 +294,78 @@ function clearExtras(r: DemoReport) {
   r.heads_up_response = null;
   r.heads_up_response_at = null;
   r.heads_up_note = null;
+  r.clinic_received_at = null;
 }
 
 let counter = 0;
 const nextId = (prefix: string) => `${prefix}-${Date.now().toString(36)}-${counter++}`;
 
+/**
+ * A sample volunteer driving to a place: it starts about 3 km away and gets there in `seconds` along streets (east along an
+ * avenue, then north up a side street), or is there at once when `done`. Sample data only: no real position is involved.
+ */
+function simulatedPosition(place: { lat: number; lng: number }, sinceIso: string | null, seconds: number, done: boolean) {
+  const elapsed = (Date.now() - new Date(sinceIso ?? Date.now()).getTime()) / 1000;
+  const f = done ? 1 : Math.min(0.97, Math.max(0, elapsed / seconds));
+  const DLAT = 0.012;
+  const DLNG = 0.014;
+  const along = f * (DLAT + DLNG);
+  return {
+    latitude: place.lat - DLAT + Math.max(0, along - DLNG),
+    longitude: place.lng - DLNG + Math.min(along, DLNG),
+    accuracy_m: 15,
+    updated_at: new Date().toISOString(),
+  };
+}
+
+const demoVolunteerRecord = () => {
+  const helped = snapshot().reports.filter((x) => x.claimed_by === DEMO_USER && ['admitted', 'healing', 'resolved'].includes(x.state)).length;
+  return { name: 'Demo Volunteer', role: 'volunteer', member_since: ago(60 * 24 * 90), animals_helped: 7 + helped };
+};
+
+/**
+ * What the reporter sees of the volunteer who claimed their case (get_rescuer_info), played locally. A read only: it must not
+ * rewrite the shared demo data every few seconds. The reporter watches the marker move toward the animal like in a ride app.
+ */
+function demoRescuerInfo(reportId: string | undefined): DemoRpcResult {
+  const r = snapshot().reports.find((x) => x.id === reportId);
+  if (!r) return fail('Report not found');
+  // Nothing is shared until the volunteer taps On my way (or I'm already here)
+  if (r.state !== 'claimed' || !r.claimed_by || !r.checkin_kind) return ok({ claimed: false });
+  return ok({
+    claimed: true,
+    arrived: r.checkin_kind === 'arrived',
+    claimed_at: r.claimed_at,
+    ...demoVolunteerRecord(),
+    location: simulatedPosition({ lat: r.latitude, lng: r.longitude }, r.claimed_at, 180, r.checkin_kind === 'arrived'),
+  });
+}
+
+/**
+ * What the clinic that said it is expecting the volunteer sees (get_incoming_volunteer): the volunteer driving to the clinic.
+ * Only once the clinic answered "expecting", and until it confirms the animal arrived.
+ */
+function demoIncomingVolunteer(reportId: string | undefined): DemoRpcResult {
+  const d = snapshot();
+  const r = d.reports.find((x) => x.id === reportId);
+  if (!r) return fail('Report not found');
+  const clinic = d.clinics.find((c) => c.id === r.heads_up_facility_id);
+  if (!clinic) return fail('Only staff of the clinic that was told can track the volunteer');
+  if (r.state !== 'claimed' || !r.claimed_by || !r.checkin_kind || r.heads_up_response !== 'expecting') return ok({ claimed: false });
+  return ok({
+    claimed: true,
+    arrived: !!r.clinic_received_at,
+    ...demoVolunteerRecord(),
+    location: simulatedPosition({ lat: clinic.latitude, lng: clinic.longitude }, r.heads_up_response_at ?? r.heads_up_at, 150, !!r.clinic_received_at),
+  });
+}
+
 export function demoRpc(fn: string, args: Record<string, unknown>): DemoRpcResult {
   const reportId = args.p_report_id as string | undefined;
+  if (fn === 'get_rescuer_info') return demoRescuerInfo(reportId);
+  if (fn === 'get_incoming_volunteer') return demoIncomingVolunteer(reportId);
+  // The demo volunteer's position is simulated, so there is nothing to store
+  if (fn === 'share_rescuer_location') return ok({});
   const now = new Date().toISOString();
   const nowMs = Date.now();
 
@@ -315,6 +384,9 @@ export function demoRpc(fn: string, args: Record<string, unknown>): DemoRpcResul
         const lng = Number(args.p_longitude);
         if (!Number.isFinite(lat) || !Number.isFinite(lng)) return fail('A real location is needed to send a report');
         const text = (v: unknown) => ((v as string | null | undefined) ?? '').trim();
+        const otherRaw = text(args.p_animal_other);
+        const animalOther = animal === 'other' && otherRaw ? cleanAnimalOther(otherRaw) : null;
+        if (animal === 'other' && otherRaw && !animalOther) return fail('Name the animal in 2 to 30 plain letters (no < or >)');
         const description = text(args.p_description).slice(0, 500);
         if (/[<>]/.test(description)) return fail('Use plain words in the description (no < or >)');
         const photo = text(args.p_photo);
@@ -324,7 +396,7 @@ export function demoRpc(fn: string, args: Record<string, unknown>): DemoRpcResul
           shortId = 'KK-' + Math.random().toString(36).slice(2, 6).toUpperCase();
         } while (d.reports.some((x) => x.short_id === shortId));
         const report = baseReport(
-          { id: nextId('demo-r'), short_id: shortId, animal_type: animal as DemoReport['animal_type'], emergency_type: emergency, latitude: lat, longitude: lng, location_name: text(args.p_location_name) || DEMO_PLACE.name, description, reporter_id: DEMO_CITIZEN, photo_url: photo },
+          { id: nextId('demo-r'), short_id: shortId, animal_type: animal as DemoReport['animal_type'], animal_other: animalOther, emergency_type: emergency, latitude: lat, longitude: lng, location_name: text(args.p_location_name) || DEMO_PLACE.name, description, reporter_id: DEMO_CITIZEN, photo_url: photo },
           0
         );
         report.created_at = now;
@@ -340,20 +412,23 @@ export function demoRpc(fn: string, args: Record<string, unknown>): DemoRpcResul
         if (report.state !== 'reported' && report.state !== 'claimed') return fail('This case is already past the claim stage');
         if (!viewingAsAdmin()) {
           const holding = d.reports.find(
-            (x) => x.id !== report.id && x.state === 'claimed' && x.claimed_by === DEMO_USER && (claimLockEndsAt(x.claimed_at, x.emergency_type) ?? 0) > nowMs
+            (x) => x.id !== report.id && x.state === 'claimed' && x.claimed_by === DEMO_USER && (claimLockEndsAt(x.claimed_at, x.emergency_type, x.checkin_kind, x.heads_up_response === 'expecting') ?? 0) > nowMs
           );
           if (holding) return fail('You already have an active rescue. Admit or release it first.');
         }
         const lock = claimLockMinutes(report.emergency_type);
-        if (report.state === 'claimed' && report.claimed_by && report.claimed_by !== DEMO_USER && (claimLockEndsAt(report.claimed_at, report.emergency_type) ?? 0) > nowMs) {
+        if (report.state === 'claimed' && report.claimed_by && report.claimed_by !== DEMO_USER && (claimLockEndsAt(report.claimed_at, report.emergency_type, report.checkin_kind, report.heads_up_response === 'expecting') ?? 0) > nowMs) {
           return fail('Already claimed by another rescuer');
         }
         const standby = d.standby.filter((s) => s.report_id === report.id).map((s) => ({ volunteerId: s.volunteer_id, joinedAt: s.created_at }));
         if (report.claimed_by !== DEMO_USER) {
-          const phase = claimPhase({ state: report.state, claimedAt: report.claimed_at, type: report.emergency_type, releasedAt: report.updated_at, standby });
+          const phase = claimPhase({ state: report.state, claimedAt: report.claimed_at, type: report.emergency_type, checkinKind: report.checkin_kind, clinicExpecting: report.heads_up_response === 'expecting', releasedAt: report.updated_at, standby });
           if (!canClaimNow(phase, DEMO_USER)) return fail('This case is held for the next volunteer in line for a moment.');
         }
         if (report.claimed_by !== DEMO_USER) clearExtras(report);
+        // A fresh claim starts with no check-in: the volunteer has the short confirm window to tap On my way
+        report.checkin_kind = null;
+        report.checkin_at = null;
         report.state = 'claimed';
         report.claimed_by = DEMO_USER;
         report.claimed_at = now;
@@ -379,6 +454,8 @@ export function demoRpc(fn: string, args: Record<string, unknown>): DemoRpcResul
         const kind = args.p_kind as 'on_my_way' | 'arrived';
         if (r!.state !== 'claimed' || r!.claimed_by !== DEMO_USER) return fail('Only the rescuer who claimed this case can check in');
         if (r!.checkin_kind === 'arrived' || r!.checkin_kind === kind) return fail('You already checked in for this step');
+        // The confirm window already ran out: the case is open again
+        if ((claimLockEndsAt(r!.claimed_at, r!.emergency_type, r!.checkin_kind, r!.heads_up_response === 'expecting') ?? 0) <= nowMs) return fail('Your time to check in ran out, so the case is open again. Claim it again if you can still go.');
         r!.claimed_at = now;
         r!.checkin_kind = kind;
         r!.checkin_at = now;
@@ -390,7 +467,7 @@ export function demoRpc(fn: string, args: Record<string, unknown>): DemoRpcResul
         if (needReport()) return needReport()!;
         if (r!.state !== 'claimed') return fail('Only a claimed case has a standby list');
         if (r!.claimed_by === DEMO_USER) return fail('This is your own rescue');
-        if ((claimLockEndsAt(r!.claimed_at, r!.emergency_type) ?? 0) <= nowMs) return fail('The lock has ended. You can claim this case now.');
+        if ((claimLockEndsAt(r!.claimed_at, r!.emergency_type, r!.checkin_kind, r!.heads_up_response === 'expecting') ?? 0) <= nowMs) return fail('The lock has ended. You can claim this case now.');
         const mine = d.standby.filter((s) => s.volunteer_id === DEMO_USER && s.report_id !== r!.id && d.reports.find((x) => x.id === s.report_id)?.state === 'claimed');
         if (mine.length >= ESCALATION_CONFIG.maxStandbyCases) return fail('You are already on standby for 3 cases. Leave one first.');
         if (!d.standby.some((s) => s.report_id === r!.id && s.volunteer_id === DEMO_USER)) {
@@ -407,6 +484,7 @@ export function demoRpc(fn: string, args: Record<string, unknown>): DemoRpcResul
       case 'send_clinic_heads_up': {
         if (needReport()) return needReport()!;
         if (r!.state !== 'claimed') return fail('Only a claimed case can send a heads-up');
+        if (r!.clinic_received_at) return fail('A clinic already confirmed it has the animal. You can mark it admitted now.');
         const clinic = d.clinics.find((c) => c.id === args.p_facility_id);
         if (!clinic || clinic.status !== 'Listed') return fail('This clinic is not accepting animals right now');
         if (effectiveAvailability(clinic.availability, clinic.availability_set_at) === 'full') return fail(`${clinic.name} reported it is full. Choose another clinic.`);
@@ -416,8 +494,23 @@ export function demoRpc(fn: string, args: Record<string, unknown>): DemoRpcResul
         r!.heads_up_response = null;
         r!.heads_up_response_at = null;
         r!.heads_up_note = null;
+        r!.clinic_received_at = null;
+        r!.claimed_at = now; // a step like the others: it restarts the lock
         r!.updated_at = now;
         return ok({ facility_id: clinic.id });
+      }
+
+      case 'clinic_confirm_received': {
+        if (needReport()) return needReport()!;
+        if (!r!.heads_up_facility_id) return fail('Only staff of the clinic that was told can confirm the animal arrived');
+        if (r!.state !== 'claimed') return fail('This case is no longer with a rescuer on the way');
+        if (r!.heads_up_response === 'cannot') return fail('You told the rescuer the clinic cannot take this animal');
+        if (r!.clinic_received_at) return fail('You already confirmed this animal arrived');
+        r!.clinic_received_at = now;
+        r!.heads_up_response = r!.heads_up_response ?? 'expecting';
+        r!.heads_up_response_at = r!.heads_up_response_at ?? now;
+        r!.updated_at = now;
+        return ok({ received_at: now });
       }
 
       case 'respond_to_heads_up': {
@@ -435,17 +528,21 @@ export function demoRpc(fn: string, args: Record<string, unknown>): DemoRpcResul
         if (needReport()) return needReport()!;
         if (r!.state !== 'claimed') return fail('Only a claimed case can be admitted');
         if (r!.claimed_by !== DEMO_USER && !viewingAsAdmin()) return fail('Only the rescuer who claimed this case can hand it off');
+        // The volunteer can only admit to the clinic that confirmed the animal is there; an admin can admit directly
+        const confirmed = !!r!.clinic_received_at && r!.heads_up_facility_id === args.p_facility_id;
+        if (!confirmed && !viewingAsAdmin()) return fail('Ask the clinic to confirm the animal arrived first. You can mark it admitted once they do.');
         const clinic = d.clinics.find((c) => c.id === args.p_facility_id);
         if (!clinic) return fail('Partner facility not found');
         if (clinic.status !== 'Listed') return fail('This clinic is paused and cannot receive animals right now');
+        const receivedAt = confirmed ? r!.clinic_received_at! : null;
         r!.state = 'admitted';
         r!.facility_id = clinic.id;
-        r!.intake_confirmed_at = null;
+        r!.intake_confirmed_at = receivedAt;
         r!.updated_at = now;
         clearExtras(r!);
         d.standby = d.standby.filter((s) => s.report_id !== r!.id);
         clinic.last_active_at = now;
-        d.updates.push({ id: nextId('demo-u'), report_id: r!.id, notes: `Brought to ${clinic.name}. Waiting for the clinic to confirm.`, state: 'admitted', created_at: now });
+        d.updates.push({ id: nextId('demo-u'), report_id: r!.id, notes: confirmed ? `Brought to ${clinic.name}. The clinic confirmed the animal arrived.` : `Brought to ${clinic.name}. Waiting for the clinic to confirm.`, state: 'admitted', created_at: now });
         return ok({ report_id: r!.id, facility_id: clinic.id, state: 'admitted', admitted_at: now });
       }
 
@@ -485,10 +582,11 @@ export function demoRpc(fn: string, args: Record<string, unknown>): DemoRpcResul
         const clean = (v: unknown) => ((v as string | null | undefined) ?? '').trim() || null;
         const weight = args.p_weight_kg == null || args.p_weight_kg === '' ? null : Number(args.p_weight_kg);
         const details = { treatment: clean(args.p_treatment), medication: clean(args.p_medication), weight_kg: weight, next_checkup_on: clean(args.p_next_checkup_on) };
-        const detailProblem = detailsError(details);
-        if (detailProblem) return fail(detailProblem);
         const photo = clean(args.p_photo_path);
         if (photo && !photo.startsWith('data:image/')) return fail('That photo does not belong to this case');
+        // Every update is documented: a camera photo, treatment, medication and weight
+        const detailProblem = requiredDocsError(details, !!photo) ?? detailsError(details);
+        if (detailProblem) return fail(detailProblem);
         d.updates.push({ id: nextId('demo-u'), report_id: r!.id, notes: notes.slice(0, 500), state, created_at: now, photo_url: photo, ...details });
         r!.state = state;
         r!.intake_confirmed_at = r!.intake_confirmed_at ?? now;

@@ -511,7 +511,7 @@ function NoResponder() {
           .filter(
             (r) =>
               !r.hidden_at &&
-              needsRescuer(r.state, r.claimed_at, r.emergency_type) &&
+              needsRescuer(r.state, r.claimed_at, r.emergency_type, r.checkin_kind ?? null, r.heads_up_response === 'expecting') &&
               (r.state === 'claimed' || calculateEscalation(r.created_at, r.emergency_type).isAlert)
           )
           .map((r) => ({
@@ -542,7 +542,7 @@ function NoResponder() {
     const [reports, people, withStatus] = await Promise.all([
       supabase
         .from('sos_reports')
-        .select('id,short_id,animal_type,emergency_type,state,claimed_at,created_at,location_name,latitude,longitude')
+        .select('id,short_id,animal_type,emergency_type,state,claimed_at,checkin_kind,heads_up_response,created_at,location_name,latitude,longitude')
         .in('state', ['reported', 'claimed'])
         .is('hidden_at', null)
         .gte('created_at', since)
@@ -568,7 +568,7 @@ function NoResponder() {
     const cases: OpenCase[] = (reports.data ?? [])
       .filter(
         (r) =>
-          needsRescuer(r.state, r.claimed_at, r.emergency_type) &&
+          needsRescuer(r.state, r.claimed_at, r.emergency_type, r.checkin_kind ?? null, r.heads_up_response === 'expecting') &&
           (r.state === 'claimed' || calculateEscalation(r.created_at, r.emergency_type).isAlert)
       )
       .map((r) => ({

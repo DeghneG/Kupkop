@@ -48,6 +48,7 @@ export interface SOSReport {
   id: string; // e.g. KK-4821 short reference
   reporter_id: string;
   animal_type: 'dog' | 'cat' | 'other';
+  animal_other?: string | null; // what the reporter typed when animal_type is 'other'
   emergency_type: EmergencyType;
   urgency: EmergencyUrgency;
   state: CaseState;

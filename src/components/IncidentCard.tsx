@@ -5,7 +5,7 @@ import { ArrowUp } from 'lucide-react';
 import {
   calculateEscalation,
   calculateClaimTimer,
-  claimLockMinutes,
+  claimWindowMinutes,
   getEscalationTier,
   needsRescuer as isWaiting,
 } from '@/lib/sos/escalation';
@@ -36,6 +36,10 @@ export interface IncidentData {
   claimedAt?: string | null;
   createdAt?: string | null;
   facilityId?: string | null;
+  /** When the clinic confirmed the animal arrived; null while an admitted case still waits for it */
+  intakeConfirmedAt?: string | null;
+  /** When the clinic that was told confirmed the animal is there (Admit stays locked until then) */
+  clinicReceivedAt?: string | null;
   facilityName?: string | null;
   /** The scheduler has alerted every volunteer about this case */
   alertWidened?: boolean;
@@ -73,9 +77,10 @@ export interface IncidentCardProps {
 function getStatus(incident: IncidentData): { label: string; tone: string } {
   switch (incident.state) {
     case 'claimed': {
-      const timer = calculateClaimTimer(incident.claimedAt, claimLockMinutes(incident.type));
+      const timer = calculateClaimTimer(incident.claimedAt, claimWindowMinutes(incident.type, incident.checkinKind ?? null, incident.headsUpResponse === 'expecting'));
       if (timer.isExpired) return { label: 'Claim expired · needs a rescuer', tone: 'text-reported-fg' };
       if (!timer.isClaimed) return { label: 'Claimed', tone: 'text-claimed-fg' };
+      if (timer.isUnlimited) return { label: 'Claimed · a clinic is expecting them', tone: 'text-claimed-fg' };
       const left = timer.remainingMinutes > 0 ? `${timer.remainingMinutes}m` : `${timer.remainingSeconds}s`;
       const standby = incident.standby?.length ? ` · ${incident.standby.length} on standby` : '';
       return { label: `Claimed · ${left} lock${standby}`, tone: 'text-claimed-fg' };
@@ -116,7 +121,7 @@ const formatTriageTag = (type: string) => type.replace(/\s*[·•]\s*Critical/i,
 
 export function IncidentCard({ incident, onClick, onClaim, claiming, claimHeld }: IncidentCardProps) {
   const status = getStatus(incident);
-  const needsRescuer = isWaiting(incident.state, incident.claimedAt, incident.type);
+  const needsRescuer = isWaiting(incident.state, incident.claimedAt, incident.type, incident.checkinKind ?? null, incident.headsUpResponse === 'expecting');
   const tier = getEscalationTier(incident.type);
 
   const showClaim = !!onClaim && needsRescuer;

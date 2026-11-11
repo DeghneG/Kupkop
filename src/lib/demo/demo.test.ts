@@ -17,6 +17,17 @@ function installBrowser() {
 const read = () => JSON.parse(localStorage.getItem('kupkop-demo-data')!) as ReturnType<typeof seedDemo>;
 const report = (id: string) => read().reports.find((r) => r.id === id)!;
 
+// A full set of documentation for a recovery update: a camera photo, treatment, medication and weight
+const DOCS = { p_photo_path: 'data:image/jpeg;base64,AAAA', p_treatment: 'Cast on left leg', p_medication: 'None', p_weight_kg: 7.5 };
+
+// Claim, tell the clinic, the clinic confirms the animal is there, then the volunteer admits (the only way to admit)
+function admitViaClinic(id: string, clinic = DEMO_CLINIC_ID) {
+  demoRpc('claim_sos_report', { p_report_id: id });
+  demoRpc('send_clinic_heads_up', { p_report_id: id, p_facility_id: clinic, p_eta_minutes: 10 });
+  demoRpc('clinic_confirm_received', { p_report_id: id });
+  return demoRpc('admit_to_facility', { p_report_id: id, p_facility_id: clinic });
+}
+
 describe('demo mode plays the whole flow', () => {
   beforeEach(() => {
     installBrowser();
@@ -62,42 +73,50 @@ describe('demo mode plays the whole flow', () => {
     expect(demoRpc('respond_to_heads_up', { p_report_id: 'demo-f01', p_response: 'expecting', p_note: null }).data?.success).toBe(true);
     expect(report('demo-f01').heads_up_response).toBe('expecting');
 
-    // Admit: the heads-up and check-in clear, the first update is recorded
+    // Admit is locked until the clinic confirms the animal is there
+    const early = demoRpc('admit_to_facility', { p_report_id: 'demo-f01', p_facility_id: DEMO_CLINIC_ID });
+    expect(early.data?.success).toBe(false);
+    expect(report('demo-f01').state).toBe('claimed');
+    // Only the clinic that was told can confirm, and only once
+    expect(demoRpc('clinic_confirm_received', { p_report_id: 'demo-f01' }).data?.success).toBe(true);
+    expect(demoRpc('clinic_confirm_received', { p_report_id: 'demo-f01' }).data?.success).toBe(false);
+    // ...and the volunteer can only admit to that clinic
+    expect(demoRpc('admit_to_facility', { p_report_id: 'demo-f01', p_facility_id: 'demo-clinic-makati' }).data?.success).toBe(false);
+
+    // Admit: the heads-up and check-in clear, the first update is recorded, intake is already confirmed
     expect(demoRpc('admit_to_facility', { p_report_id: 'demo-f01', p_facility_id: DEMO_CLINIC_ID }).data?.success).toBe(true);
     const admitted = report('demo-f01');
     expect(admitted.state).toBe('admitted');
     expect(admitted.heads_up_facility_id).toBeNull();
     expect(admitted.checkin_kind).toBeNull();
+    expect(admitted.clinic_received_at).toBeNull();
+    expect(admitted.intake_confirmed_at).not.toBeNull();
     expect(read().updates.filter((u) => u.report_id === 'demo-f01')).toHaveLength(1);
+    expect(demoRpc('confirm_intake', { p_report_id: 'demo-f01' }).data?.success).toBe(false); // nothing left to confirm
 
-    // The clinic confirms, once
-    expect(demoRpc('confirm_intake', { p_report_id: 'demo-f01' }).data?.success).toBe(true);
-    expect(demoRpc('confirm_intake', { p_report_id: 'demo-f01' }).data?.success).toBe(false);
-
-    // Updates need a real note; healing never goes back to admitted
-    expect(demoRpc('post_recovery_update', { p_report_id: 'demo-f01', p_notes: 'ok', p_state: 'healing' }).data?.success).toBe(false);
-    expect(demoRpc('post_recovery_update', { p_report_id: 'demo-f01', p_notes: 'Eating well and walking', p_state: 'healing' }).data?.success).toBe(true);
-    expect(demoRpc('post_recovery_update', { p_report_id: 'demo-f01', p_notes: 'Back to admitted?', p_state: 'admitted' }).data?.success).toBe(false);
-    expect(demoRpc('post_recovery_update', { p_report_id: 'demo-f01', p_notes: 'Healthy, released today', p_state: 'resolved' }).data?.success).toBe(true);
+    // Updates need a real note and the documentation; healing never goes back to admitted
+    expect(demoRpc('post_recovery_update', { p_report_id: 'demo-f01', p_notes: 'ok', p_state: 'healing', ...DOCS }).data?.success).toBe(false);
+    expect(demoRpc('post_recovery_update', { p_report_id: 'demo-f01', p_notes: 'Eating well and walking', p_state: 'healing', ...DOCS }).data?.success).toBe(true);
+    expect(demoRpc('post_recovery_update', { p_report_id: 'demo-f01', p_notes: 'Back to admitted?', p_state: 'admitted', ...DOCS }).data?.success).toBe(false);
+    expect(demoRpc('post_recovery_update', { p_report_id: 'demo-f01', p_notes: 'Healthy, released today', p_state: 'resolved', ...DOCS }).data?.success).toBe(true);
     expect(report('demo-f01').state).toBe('resolved');
   });
 
   it('a recovery update can carry a photo and details; bad details are refused', () => {
-    demoRpc('claim_sos_report', { p_report_id: 'demo-f01' });
-    demoRpc('admit_to_facility', { p_report_id: 'demo-f01', p_facility_id: DEMO_CLINIC_ID });
+    expect(admitViaClinic('demo-f01').data?.success).toBe(true);
     const base = { p_report_id: 'demo-f01', p_notes: 'X-ray shows a clean break', p_state: 'healing' };
-    expect(demoRpc('post_recovery_update', { ...base, p_weight_kg: 500 }).data?.success).toBe(false);
-    expect(demoRpc('post_recovery_update', { ...base, p_treatment: '<b>x</b>' }).data?.success).toBe(false);
-    expect(demoRpc('post_recovery_update', { ...base, p_photo_path: 'someone-elses/photo.jpg' }).data?.success).toBe(false);
+    // Documentation is required: no photo, no treatment, no medication, no weight each refuse the update
+    expect(demoRpc('post_recovery_update', { ...base }).data?.success).toBe(false);
+    expect(demoRpc('post_recovery_update', { ...base, ...DOCS, p_photo_path: null }).data?.success).toBe(false);
+    expect(demoRpc('post_recovery_update', { ...base, ...DOCS, p_treatment: '' }).data?.success).toBe(false);
+    expect(demoRpc('post_recovery_update', { ...base, ...DOCS, p_medication: '' }).data?.success).toBe(false);
+    expect(demoRpc('post_recovery_update', { ...base, ...DOCS, p_weight_kg: null }).data?.success).toBe(false);
+    // ...and bad details are refused
+    expect(demoRpc('post_recovery_update', { ...base, ...DOCS, p_weight_kg: 500 }).data?.success).toBe(false);
+    expect(demoRpc('post_recovery_update', { ...base, ...DOCS, p_treatment: '<b>x</b>' }).data?.success).toBe(false);
+    expect(demoRpc('post_recovery_update', { ...base, ...DOCS, p_photo_path: 'someone-elses/photo.jpg' }).data?.success).toBe(false);
     expect(report('demo-f01').state).toBe('admitted');
-    const ok = demoRpc('post_recovery_update', {
-      ...base,
-      p_photo_path: 'data:image/jpeg;base64,AAAA',
-      p_treatment: 'Cast on left leg',
-      p_medication: 'Amoxicillin',
-      p_weight_kg: 7.5,
-      p_next_checkup_on: null,
-    });
+    const ok = demoRpc('post_recovery_update', { ...base, ...DOCS, p_medication: 'Amoxicillin', p_next_checkup_on: null });
     expect(ok.data?.success).toBe(true);
     const posted = read().updates.filter((u) => u.report_id === 'demo-f01').at(-1);
     expect(posted?.treatment).toBe('Cast on left leg');
@@ -105,7 +124,81 @@ describe('demo mode plays the whole flow', () => {
     expect(posted?.photo_url).toBe('data:image/jpeg;base64,AAAA');
   });
 
+  it('a claim ends after one minute without On my way, and the volunteer can claim again', () => {
+    expect(demoRpc('claim_sos_report', { p_report_id: 'demo-f01' }).data?.success).toBe(true);
+    // Two minutes pass and nobody tapped On my way
+    const data = read();
+    data.reports.find((r) => r.id === 'demo-f01')!.claimed_at = new Date(Date.now() - 2 * 60_000).toISOString();
+    localStorage.setItem('kupkop-demo-data', JSON.stringify(data));
+    const late = demoRpc('claim_checkin', { p_report_id: 'demo-f01', p_kind: 'on_my_way' });
+    expect(late.data?.success).toBe(false);
+    expect(late.data?.error).toContain('ran out');
+    // Claiming again starts a fresh window, and a check-in in time works
+    expect(demoRpc('claim_sos_report', { p_report_id: 'demo-f01' }).data?.success).toBe(true);
+    expect(report('demo-f01').checkin_kind).toBeNull();
+    expect(demoRpc('claim_checkin', { p_report_id: 'demo-f01', p_kind: 'on_my_way' }).data?.success).toBe(true);
+    // The reporter learns who is coming only now
+    expect(demoRpc('get_rescuer_info', { p_report_id: 'demo-f01' }).data?.claimed).toBe(true);
+  });
+
+  it('the reporter sees nothing about the volunteer until they tap On my way', () => {
+    demoRpc('claim_sos_report', { p_report_id: 'demo-f01' });
+    expect(demoRpc('get_rescuer_info', { p_report_id: 'demo-f01' }).data?.claimed).toBe(false);
+    demoRpc('claim_checkin', { p_report_id: 'demo-f01', p_kind: 'on_my_way' });
+    const info = demoRpc('get_rescuer_info', { p_report_id: 'demo-f01' }).data;
+    expect(info?.claimed).toBe(true);
+    expect(info?.arrived).toBe(false);
+    demoRpc('claim_checkin', { p_report_id: 'demo-f01', p_kind: 'arrived' });
+    expect(demoRpc('get_rescuer_info', { p_report_id: 'demo-f01' }).data?.arrived).toBe(true);
+  });
+
+  it('while a clinic is expecting the volunteer the claim does not expire; the clinic can then track them', () => {
+    demoRpc('claim_sos_report', { p_report_id: 'demo-f01' });
+    demoRpc('claim_checkin', { p_report_id: 'demo-f01', p_kind: 'on_my_way' });
+    demoRpc('send_clinic_heads_up', { p_report_id: 'demo-f01', p_facility_id: DEMO_CLINIC_ID, p_eta_minutes: 10 });
+    // Not tracked by the clinic before it answered
+    expect(demoRpc('get_incoming_volunteer', { p_report_id: 'demo-f01' }).data?.claimed).toBe(false);
+    demoRpc('respond_to_heads_up', { p_report_id: 'demo-f01', p_response: 'expecting', p_note: null });
+
+    // An hour passes: the severity lock would be long over, but the clinic is expecting them
+    const data = read();
+    data.reports.find((r) => r.id === 'demo-f01')!.claimed_at = new Date(Date.now() - 60 * 60_000).toISOString();
+    localStorage.setItem('kupkop-demo-data', JSON.stringify(data));
+    expect(demoRpc('claim_sos_report', { p_report_id: 'demo-f04' }).data?.success).toBe(false); // still holding an active rescue
+
+    // The clinic sees who is coming and where, until it confirms the animal arrived
+    const tracking = demoRpc('get_incoming_volunteer', { p_report_id: 'demo-f01' }).data;
+    expect(tracking?.claimed).toBe(true);
+    expect(tracking?.arrived).toBe(false);
+    expect((tracking?.location as { latitude: number } | undefined)?.latitude).toBeDefined();
+    demoRpc('clinic_confirm_received', { p_report_id: 'demo-f01' });
+    expect(demoRpc('get_incoming_volunteer', { p_report_id: 'demo-f01' }).data?.arrived).toBe(true);
+  });
+
+  it('a clinic that said it cannot take the animal does not track the volunteer, and the lock applies again', () => {
+    demoRpc('claim_sos_report', { p_report_id: 'demo-f01' });
+    demoRpc('claim_checkin', { p_report_id: 'demo-f01', p_kind: 'on_my_way' });
+    demoRpc('send_clinic_heads_up', { p_report_id: 'demo-f01', p_facility_id: DEMO_CLINIC_ID });
+    demoRpc('respond_to_heads_up', { p_report_id: 'demo-f01', p_response: 'cannot', p_note: 'No space' });
+    expect(demoRpc('get_incoming_volunteer', { p_report_id: 'demo-f01' }).data?.claimed).toBe(false);
+  });
+
+  it('telling a different clinic starts over, and not after a clinic confirmed', () => {
+    demoRpc('claim_sos_report', { p_report_id: 'demo-f01' });
+    demoRpc('send_clinic_heads_up', { p_report_id: 'demo-f01', p_facility_id: DEMO_CLINIC_ID });
+    demoRpc('clinic_confirm_received', { p_report_id: 'demo-f01' });
+    expect(demoRpc('send_clinic_heads_up', { p_report_id: 'demo-f01', p_facility_id: 'demo-clinic-makati' }).data?.success).toBe(false);
+    // a clinic that said it cannot take the animal cannot confirm it
+    localStorage.setItem('kupkop-view-as', 'admin'); // lets the same demo user hold a second case
+    demoRpc('claim_sos_report', { p_report_id: 'demo-f02' });
+    demoRpc('send_clinic_heads_up', { p_report_id: 'demo-f02', p_facility_id: 'demo-clinic-makati' });
+    demoRpc('respond_to_heads_up', { p_report_id: 'demo-f02', p_response: 'cannot', p_note: 'No space' });
+    expect(demoRpc('clinic_confirm_received', { p_report_id: 'demo-f02' }).data?.success).toBe(false);
+  });
+
   it('a clinic that cannot take the animal sends it back to the rescuer', () => {
+    // An admin can admit without the clinic's confirmation; the clinic then confirms or declines at intake
+    localStorage.setItem('kupkop-view-as', 'admin');
     demoRpc('claim_sos_report', { p_report_id: 'demo-f02' });
     demoRpc('admit_to_facility', { p_report_id: 'demo-f02', p_facility_id: DEMO_CLINIC_ID });
     expect(demoRpc('decline_admission', { p_report_id: 'demo-f02', p_reason: '' }).data?.success).toBe(false);
@@ -135,6 +228,17 @@ describe('demo mode plays the whole flow', () => {
     expect(created.urgency).toBe('critical');
     expect(created.reporter_id).toBe('demo-citizen');
     expect(demoRpc('claim_sos_report', { p_report_id: created.id }).data?.success).toBe(true);
+  });
+
+  it('an "other" animal can be named; the name is ignored for dogs and refused when marked up', () => {
+    const args = { p_animal_type: 'other', p_emergency_type: 'fracture', p_latitude: 14.6, p_longitude: 121.1, p_location_name: 'Somewhere', p_description: '', p_photo: '' };
+    expect(demoRpc('create_report', { ...args, p_animal_other: '<b>x</b>' }).data?.success).toBe(false);
+    expect(demoRpc('create_report', { ...args, p_animal_other: ' guinea   pig ' }).data?.success).toBe(true);
+    expect(read().reports[0].animal_other).toBe('guinea pig');
+    expect(demoRpc('create_report', { ...args, p_animal_other: '' }).data?.success).toBe(true);
+    expect(read().reports[0].animal_other).toBeNull();
+    expect(demoRpc('create_report', { ...args, p_animal_type: 'dog', p_animal_other: 'rabbit' }).data?.success).toBe(true);
+    expect(read().reports[0].animal_other).toBeNull();
   });
 
   it('clinic staff can edit the details; bad input is refused', () => {

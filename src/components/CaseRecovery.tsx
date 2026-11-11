@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { calculateFacilityInactivity } from '@/lib/sos/escalation';
-import { CARE_STATE_LABELS } from '@/lib/sos/labels';
+import { CARE_STATE_LABELS, formatWhen } from '@/lib/sos/labels';
 import TriageGlyph from '@/components/icons/TriageGlyph';
 import DayWeave from '@/components/DayWeave';
 import { useDemoData, useDemoMode } from '@/lib/demo/demo';
@@ -104,7 +104,7 @@ export default function CaseRecovery({ reportId, state, canPost }: CaseRecoveryP
           {updatesShown.slice(0, 5).map((u) => (
             <li key={u.id} className="text-[12px] leading-snug">
               <span className="font-semibold">
-                {new Date(u.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} ·{' '}
+                {formatWhen(u.created_at, false)} ·{' '}
                 {CARE_STATE_LABELS[u.state] ?? u.state}
               </span>
               <span className="block">{u.notes}</span>

@@ -8,13 +8,15 @@ import DayWeave from '@/components/DayWeave';
 import StageWeave from '@/components/StageWeave';
 import { useProfile } from '@/lib/supabase/useProfile';
 import { calculateFacilityInactivity, type FacilityClockStatus } from '@/lib/sos/escalation';
-import { animalLabel, emergencyLabel, CARE_STATE_LABELS } from '@/lib/sos/labels';
+import { animalLabel, emergencyLabel, formatWhen, CARE_STATE_LABELS } from '@/lib/sos/labels';
 import { availabilityNote, CLINIC_STATUS_LABELS, effectiveAvailability, type ClinicStatus } from '@/lib/sos/clinics';
 import { useConfirm, type ConfirmOptions } from '@/components/ConfirmSheet';
-import { DEMO_CLINIC_ID, useDemoData, useDemoMode } from '@/lib/demo/demo';
+import { DEMO_CLINIC_ID, isDemoOn, useDemoData, useDemoMode } from '@/lib/demo/demo';
 import { appRpc } from '@/lib/demo/rpc';
 import { prepareRecoveryPhoto } from '@/lib/recoveryPhoto';
-import { detailsError } from '@/lib/sos/recovery';
+import RescuerCard from '@/components/RescuerCard';
+import { detailsError, requiredDocsError } from '@/lib/sos/recovery';
+import LiveCameraCapture from '@/components/LiveCameraCapture';
 import ScreenHeader from '@/components/ScreenHeader';
 
 type CareState = keyof typeof CARE_STATE_LABELS;
@@ -30,6 +32,11 @@ interface Incoming {
   headsUpAt: string | null;
   response: 'expecting' | 'cannot' | null;
   clinicName: string;
+  /** When this clinic confirmed the animal is there; the volunteer's Admit unlocks then */
+  receivedAt: string | null;
+  /** Where the clinic is: the volunteer's tracker measures the distance to here */
+  clinicLat: number | null;
+  clinicLng: number | null;
 }
 
 interface CareUpdate {
@@ -57,6 +64,7 @@ type Row = {
   id: string;
   short_id: string;
   animal_type: string | null;
+  animal_other?: string | null;
   emergency_type: string | null;
   state: CareState;
   updated_at: string;
@@ -191,7 +199,7 @@ export default function CarePage() {
         rows.map((r) => ({
           id: r.id,
           shortId: r.short_id,
-          animal: animalLabel(r.animal_type),
+          animal: animalLabel(r.animal_type, r.animal_other),
           type: emergencyLabel(r.emergency_type),
           state: r.state,
           clinicName: r.facilities?.name ?? 'Listed clinic',
@@ -246,28 +254,39 @@ export default function CarePage() {
     }
 
     // Rescuers who told a clinic they are coming, waiting for an answer or already answered "expecting"
-    let incomingQuery = supabase
-      .from('sos_reports')
-      .select('id,short_id,animal_type,emergency_type,heads_up_facility_id,heads_up_eta_minutes,heads_up_at,heads_up_response')
-      .eq('state', 'claimed')
-      .not('heads_up_facility_id', 'is', null)
-      .order('heads_up_at', { ascending: false });
-    if (!isAdmin && facilityId) incomingQuery = incomingQuery.eq('heads_up_facility_id', facilityId);
-    Promise.all([incomingQuery, supabase.from('facilities').select('id,name')]).then(([cases, names]) => {
+    const incomingBase = 'id,short_id,animal_type,animal_other,emergency_type,heads_up_facility_id,heads_up_eta_minutes,heads_up_at,heads_up_response';
+    const loadIncoming = async (columns: string) => {
+      let q = supabase.from('sos_reports').select(columns).eq('state', 'claimed').not('heads_up_facility_id', 'is', null).order('heads_up_at', { ascending: false });
+      if (!isAdmin && facilityId) q = q.eq('heads_up_facility_id', facilityId);
+      return q;
+    };
+    // The newer columns arrive with later migrations; fall back to the plain list before they exist
+    const incomingWithAll = async () => {
+      const full = await loadIncoming(`${incomingBase},clinic_received_at`);
+      if (!full.error) return full;
+      const withOther = await loadIncoming(incomingBase);
+      if (!withOther.error) return withOther;
+      return loadIncoming('id,short_id,animal_type,emergency_type,heads_up_facility_id,heads_up_eta_minutes,heads_up_at,heads_up_response');
+    };
+    Promise.all([incomingWithAll(), supabase.from('facilities').select('id,name,latitude,longitude')]).then(([cases, names]) => {
       if (!active || cases.error) return;
       const nameById = new Map((names.data ?? []).map((f) => [f.id as string, f.name as string]));
+      const spotById = new Map((names.data ?? []).map((f) => [f.id as string, { lat: f.latitude as number | null, lng: f.longitude as number | null }]));
       setIncoming(
-        (cases.data ?? [])
+        ((cases.data ?? []) as unknown as Record<string, string | number | null>[])
           .filter((r) => r.heads_up_response !== 'cannot')
           .map((r) => ({
-            id: r.id,
-            shortId: r.short_id,
-            animal: animalLabel(r.animal_type),
-            type: emergencyLabel(r.emergency_type),
-            etaMinutes: r.heads_up_eta_minutes ?? null,
-            headsUpAt: r.heads_up_at ?? null,
+            id: r.id as string,
+            shortId: r.short_id as string,
+            animal: animalLabel(r.animal_type as string | null, r.animal_other as string | null | undefined),
+            type: emergencyLabel(r.emergency_type as string | null),
+            etaMinutes: (r.heads_up_eta_minutes as number | null) ?? null,
+            headsUpAt: (r.heads_up_at as string | null) ?? null,
             response: (r.heads_up_response as Incoming['response']) ?? null,
             clinicName: nameById.get(r.heads_up_facility_id as string) ?? 'Listed clinic',
+            receivedAt: (r.clinic_received_at as string | null | undefined) ?? null,
+            clinicLat: spotById.get(r.heads_up_facility_id as string)?.lat ?? null,
+            clinicLng: spotById.get(r.heads_up_facility_id as string)?.lng ?? null,
           }))
       );
     });
@@ -298,7 +317,7 @@ export default function CarePage() {
         .map((r) => ({
           id: r.id,
           shortId: r.short_id,
-          animal: animalLabel(r.animal_type),
+          animal: animalLabel(r.animal_type, r.animal_other),
           type: emergencyLabel(r.emergency_type),
           state: r.state as CareState,
           clinicName: demo.clinics.find((c) => c.id === r.facility_id)?.name ?? 'Listed clinic',
@@ -322,6 +341,9 @@ export default function CarePage() {
           headsUpAt: r.heads_up_at,
           response: r.heads_up_response,
           clinicName: demo.clinics.find((c) => c.id === r.heads_up_facility_id)?.name ?? 'Listed clinic',
+          receivedAt: r.clinic_received_at ?? null,
+          clinicLat: demo.clinics.find((c) => c.id === r.heads_up_facility_id)?.latitude ?? null,
+          clinicLng: demo.clinics.find((c) => c.id === r.heads_up_facility_id)?.longitude ?? null,
         }))
     : [];
   const demoMine = demo.clinics.find((c) => c.id === DEMO_CLINIC_ID);
@@ -339,7 +361,10 @@ export default function CarePage() {
     .map((c) => ({ c, clock: calculateFacilityInactivity(lastUpdateAt(c)) }))
     // Most overdue first
     .sort((a, b) => STATUS_RANK[a.clock.status] - STATUS_RANK[b.clock.status] || b.clock.elapsedDays - a.clock.elapsedDays);
-  const released = (shown ?? []).filter((c) => c.state === 'resolved').slice(0, 10);
+  // Every completed case, newest first: the clinic's record of the animals it has seen through to the end
+  const released = (shown ?? [])
+    .filter((c) => c.state === 'resolved')
+    .sort((a, b) => (lastUpdateAt(b) ?? '').localeCompare(lastUpdateAt(a) ?? ''));
   const overdue = inCare.filter(({ clock }) => clock.status !== 'active').length;
 
   return (
@@ -462,7 +487,7 @@ export default function CarePage() {
                 On their way to you
               </h2>
               <p className="text-[12px] text-fg-muted">
-                A rescuer told {isAdmin ? 'a clinic' : 'your clinic'} they are bringing an animal. Answer so they know whether to come.
+                A rescuer told {isAdmin ? 'a clinic' : 'your clinic'} they are bringing an animal. Answer so they know whether to come, then tap Animal arrived when it is there: that unlocks the rescuer&apos;s Admit button.
               </p>
               <ul className="divide-y divide-border border-y border-border">
                 {incomingShown.map((i) => (
@@ -539,19 +564,27 @@ export default function CarePage() {
           {released.length > 0 && (
             <section aria-labelledby="released-heading" className="space-y-2">
               <h2 id="released-heading" className="text-[16px] font-semibold text-fg">
-                Recently released
+                Past cases ({released.length})
               </h2>
+              <p className="text-[12px] text-fg-muted">Animals that finished their recovery here, newest first. Open one to read its whole story.</p>
               <ul className="divide-y divide-border border-y border-border">
                 {released.map((c) => (
-                  <li key={c.id} className="py-3">
+                  <li key={c.id} className="py-3 space-y-1">
                     <p className="text-[14px] font-semibold text-fg">
-                      {c.animal} <span className="font-mono text-[12px] text-fg-muted">#{c.shortId}</span>
+                      {c.animalName ? `${c.animalName} · ${c.animal}` : c.animal}{' '}
+                      <span className="font-mono text-[12px] text-fg-muted">#{c.shortId}</span>
                     </p>
                     <p className="text-[12px] text-fg-muted">
-                      {isAdmin ? `${c.clinicName} · ` : ''}
-                      {lastUpdateAt(c) ? `Released ${formatDate(lastUpdateAt(c)!)}` : 'Released'}
-                      {c.updates[0] ? ` · ${c.updates[0].notes}` : ''}
+                      {c.type}
+                      {isAdmin ? ` · ${c.clinicName}` : ''}
+                      {lastUpdateAt(c) ? ` · released ${formatWhen(lastUpdateAt(c)!)}` : ' · released'}
                     </p>
+                    {c.updates[0] && <p className="text-[12px] text-fg-muted">{c.updates[0].notes}</p>}
+                    {!c.id.startsWith('sample-') && (
+                      <Link href={`/animal/${c.id}`} className="min-h-[44px] inline-flex items-center text-[14px] font-semibold text-link underline underline-offset-4">
+                        Read the story
+                      </Link>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -594,7 +627,7 @@ function CaseSummary({ c, clock, showClinic }: { c: CareCase; clock: FacilityClo
       <DayWeave elapsedDays={clock.elapsedDays} />
       {latest && (
         <p className="text-[12px] text-fg-muted">
-          <span className="font-semibold text-fg">Last update {formatDate(latest.createdAt)}:</span> {latest.notes}
+          <span className="font-semibold text-fg">Last update {formatWhen(latest.createdAt)}:</span> {latest.notes}
         </p>
       )}
     </div>
@@ -678,6 +711,13 @@ function AvailabilitySwitch({
   );
 }
 
+// Tell the rescuer at once (a push) that the clinic answered or confirmed the animal arrived. The server checks that it is true.
+// The demo shows it on screen instead.
+function tellRescuer(reportId: string) {
+  if (isDemoOn()) return;
+  fetch('/api/push/clinic-answer', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ reportId }) }).catch(() => {});
+}
+
 // A rescuer says they are bringing an animal. The clinic answers; the rescuer is told right away.
 function IncomingCard({ item, showClinic, onDone, ask }: { item: Incoming; showClinic: boolean; onDone: () => void; ask: Ask }) {
   const [note, setNote] = useState('');
@@ -702,6 +742,25 @@ function IncomingCard({ item, showClinic, onDone, ask }: { item: Incoming; showC
           setError(data?.error || rpcError?.message || 'Something went wrong. Please try again.');
           return;
         }
+        tellRescuer(item.id);
+        onDone();
+      },
+    });
+
+  // The clinic says the animal is physically here. This is what unlocks the rescuer's Admit button.
+  const confirmArrived = () =>
+    ask({
+      title: `Confirm that #${item.shortId} is at ${showClinic ? item.clinicName : 'your clinic'}?`,
+      message: 'Only confirm once the animal is really here. The rescuer can then mark it admitted, and its 14-day care clock starts.',
+      confirmLabel: 'Yes, the animal is here',
+      onConfirm: async () => {
+        setError(null);
+        const { data, error: rpcError } = await appRpc('clinic_confirm_received', { p_report_id: item.id });
+        if (rpcError || !data?.success) {
+          setError(data?.error || rpcError?.message || 'Something went wrong. Please try again.');
+          return;
+        }
+        tellRescuer(item.id);
         onDone();
       },
     });
@@ -720,31 +779,46 @@ function IncomingCard({ item, showClinic, onDone, ask }: { item: Incoming; showC
         {item.etaMinutes ? ` · about ${item.etaMinutes} min away` : ''}
         {item.headsUpAt ? ` · told ${formatDate(item.headsUpAt)}` : ''}
       </p>
-      {item.response === 'expecting' ? (
-        <p className="text-[12px] font-semibold text-healing-fg">You told the rescuer you are expecting it.</p>
+      {/* Once the clinic said it is expecting the volunteer, it can follow them here until it confirms the animal arrived */}
+      {item.response === 'expecting' && !item.receivedAt && item.clinicLat != null && item.clinicLng != null && (
+        <RescuerCard perspective="clinic" reportId={item.id} scene={{ lat: item.clinicLat, lng: item.clinicLng }} />
+      )}
+      {item.receivedAt ? (
+        <p role="status" className="text-[12px] font-semibold text-healing-fg">
+          You confirmed the animal arrived. Waiting for the rescuer to mark it admitted.
+        </p>
       ) : (
         <div className="space-y-2">
-          <label className="block space-y-1">
-            <span className="text-[12px] text-fg-muted">If you cannot take it, say why (optional, shown to the rescuer)</span>
-            <input
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              maxLength={300}
-              className="w-full min-h-[44px] rounded-xl border border-border bg-surface text-fg text-[14px] px-3 focus:outline-none focus:ring-2 focus:ring-action"
-            />
-          </label>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => respond('expecting')}
-              className="flex-1 min-h-[48px] rounded-xl bg-action text-action-fg font-semibold text-[14px] cursor-pointer"
-            >
-              Expecting it
-            </button>
-            <button type="button" onClick={() => respond('cannot')} className={secondary}>
-              Can&apos;t take it now
-            </button>
+        {item.response === 'expecting' ? (
+          <p className="text-[12px] font-semibold text-healing-fg">You told the rescuer you are expecting it.</p>
+        ) : (
+          <div className="space-y-2">
+            <label className="block space-y-1">
+              <span className="text-[12px] text-fg-muted">If you cannot take it, say why (optional, shown to the rescuer)</span>
+              <input
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                maxLength={300}
+                className="w-full min-h-[44px] rounded-xl border border-border bg-surface text-fg text-[14px] px-3 focus:outline-none focus:ring-2 focus:ring-action"
+              />
+            </label>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => respond('expecting')} className={`flex-1 ${secondary}`}>
+                Expecting it
+              </button>
+              <button type="button" onClick={() => respond('cannot')} className={secondary}>
+                Can&apos;t take it now
+              </button>
+            </div>
           </div>
+        )}
+          <button
+            type="button"
+            onClick={confirmArrived}
+            className="w-full min-h-[48px] rounded-xl bg-action text-action-fg font-semibold text-[14px] cursor-pointer"
+          >
+            Animal arrived
+          </button>
         </div>
       )}
       {error && <InlineError>{error}</InlineError>}
@@ -907,39 +981,38 @@ function UpdateForm({ c, onCancel, onPosted }: { c: CareCase; onCancel: () => vo
   const [medication, setMedication] = useState('');
   const [weight, setWeight] = useState('');
   const [nextCheckup, setNextCheckup] = useState('');
-  const [photo, setPhoto] = useState<File | null>(null);
+  const [photo, setPhoto] = useState<Blob | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const field = 'w-full min-h-[44px] rounded-xl border border-border bg-surface text-fg text-[14px] px-3 focus:outline-none focus:ring-2 focus:ring-action';
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Every update is documented: a camera photo, treatment, medication ("None" is fine) and weight. The database checks too.
     const details = { treatment, medication, weight_kg: weight, next_checkup_on: nextCheckup || null };
-    const problem = detailsError(details);
+    const problem = requiredDocsError(details, !!photo) ?? detailsError(details);
     if (problem) {
       setError(problem);
       return;
     }
     setBusy(true);
     setError(null);
-    let photoPath: string | null = null;
-    if (photo) {
-      try {
-        photoPath = await prepareRecoveryPhoto(c.id, photo);
-      } catch (err) {
-        setBusy(false);
-        setError(err instanceof Error ? err.message : 'Could not prepare the photo.');
-        return;
-      }
+    let photoPath: string;
+    try {
+      photoPath = await prepareRecoveryPhoto(c.id, photo as Blob);
+    } catch (err) {
+      setBusy(false);
+      setError(err instanceof Error ? err.message : 'Could not prepare the photo.');
+      return;
     }
     const { data, error: rpcError } = await appRpc('post_recovery_update', {
       p_report_id: c.id,
       p_notes: notes.trim(),
       p_state: state,
       p_photo_path: photoPath,
-      p_treatment: treatment.trim() || null,
-      p_medication: medication.trim() || null,
-      p_weight_kg: weight.trim() === '' ? null : Number(weight),
+      p_treatment: treatment.trim(),
+      p_medication: medication.trim(),
+      p_weight_kg: Number(weight),
       p_next_checkup_on: nextCheckup || null,
     });
     setBusy(false);
@@ -951,7 +1024,7 @@ function UpdateForm({ c, onCancel, onPosted }: { c: CareCase; onCancel: () => vo
   };
 
   return (
-    <form onSubmit={submit} className="space-y-3 rounded-xl bg-surface-muted p-3">
+    <form onSubmit={submit} noValidate className="space-y-3 rounded-xl bg-surface-muted p-3">
       <fieldset className="space-y-2">
         <legend className="text-[12px] font-semibold text-fg">Status</legend>
         <div className="flex flex-wrap gap-2">
@@ -975,8 +1048,11 @@ function UpdateForm({ c, onCancel, onPosted }: { c: CareCase; onCancel: () => vo
           ))}
         </div>
       </fieldset>
-      <label className="block space-y-2">
-        <span className="text-[12px] font-semibold text-fg">How is the animal doing? (5–500 characters)</span>
+
+      <LiveCameraCapture onChange={setPhoto} disabled={busy} />
+
+      <label className="block space-y-1">
+        <span className="text-[12px] font-semibold text-fg">How is the animal doing? (5–500 characters, required)</span>
         <textarea
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
@@ -987,34 +1063,25 @@ function UpdateForm({ c, onCancel, onPosted }: { c: CareCase; onCancel: () => vo
           className="w-full rounded-xl border border-border bg-surface text-fg text-[14px] p-3 focus:outline-none focus:ring-2 focus:ring-action"
         />
       </label>
-      <details className="rounded-xl border border-border bg-surface">
-        <summary className="min-h-[44px] px-3 flex items-center text-[14px] font-semibold text-fg cursor-pointer">Document this update (optional)</summary>
-        <div className="space-y-3 p-3 pt-1">
-          <label className="block space-y-1">
-            <span className="text-[12px] font-semibold text-fg">Photo</span>
-            <input type="file" accept="image/*" onChange={(e) => setPhoto(e.target.files?.[0] ?? null)} className="w-full text-[14px] text-fg" />
-          </label>
-          <label className="block space-y-1">
-            <span className="text-[12px] font-semibold text-fg">Treatment given</span>
-            <input value={treatment} onChange={(e) => setTreatment(e.target.value)} maxLength={200} placeholder="Cast on left front leg" className={field} />
-          </label>
-          <label className="block space-y-1">
-            <span className="text-[12px] font-semibold text-fg">Medication</span>
-            <input value={medication} onChange={(e) => setMedication(e.target.value)} maxLength={200} placeholder="Amoxicillin, twice a day" className={field} />
-          </label>
-          <div className="grid grid-cols-2 gap-2">
-            <label className="block space-y-1">
-              <span className="text-[12px] font-semibold text-fg">Weight (kg)</span>
-              <input value={weight} onChange={(e) => setWeight(e.target.value)} inputMode="decimal" placeholder="7.5" className={field} />
-            </label>
-            <label className="block space-y-1">
-              <span className="text-[12px] font-semibold text-fg">Next check-up</span>
-              <input type="date" value={nextCheckup} onChange={(e) => setNextCheckup(e.target.value)} className={field} />
-            </label>
-          </div>
-          <p className="text-[12px] text-fg-muted">Shown on the animal’s public story. Do not include names or phone numbers of people. Posted updates cannot be edited.</p>
-        </div>
-      </details>
+      <label className="block space-y-1">
+        <span className="text-[12px] font-semibold text-fg">Treatment given (required)</span>
+        <input value={treatment} onChange={(e) => setTreatment(e.target.value)} maxLength={200} required placeholder="Cast on left front leg" className={field} />
+      </label>
+      <label className="block space-y-1">
+        <span className="text-[12px] font-semibold text-fg">Medication (required, write “None” if there was none)</span>
+        <input value={medication} onChange={(e) => setMedication(e.target.value)} maxLength={200} required placeholder="Amoxicillin, twice a day" className={field} />
+      </label>
+      <div className="grid grid-cols-2 gap-2">
+        <label className="block space-y-1">
+          <span className="text-[12px] font-semibold text-fg">Weight in kg (required)</span>
+          <input value={weight} onChange={(e) => setWeight(e.target.value)} inputMode="decimal" required placeholder="7.5" className={field} />
+        </label>
+        <label className="block space-y-1">
+          <span className="text-[12px] font-semibold text-fg">Next check-up (optional)</span>
+          <input type="date" value={nextCheckup} onChange={(e) => setNextCheckup(e.target.value)} className={field} />
+        </label>
+      </div>
+      <p className="text-[12px] text-fg-muted">Shown on the animal’s public story. Do not include names or phone numbers of people. Posted updates cannot be edited.</p>
       {state === 'resolved' && (
         <p className="text-[12px] text-fg-muted">Marks the case resolved: released, adopted, or returned. This closes it.</p>
       )}

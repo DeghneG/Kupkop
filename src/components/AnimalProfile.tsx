@@ -5,21 +5,27 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
-import { animalLabel, emergencyLabel } from '@/lib/sos/labels';
+import { animalLabel, emergencyLabel, formatWhen } from '@/lib/sos/labels';
 import { calculateFacilityInactivity } from '@/lib/sos/escalation';
 import ScreenHeader from '@/components/ScreenHeader';
 import StageWeave from '@/components/StageWeave';
 import DayWeave from '@/components/DayWeave';
 import AnimalGlyph, { animalKind } from '@/components/AnimalGlyph';
-import { useDemoData, useDemoMode } from '@/lib/demo/demo';
-import UpdateDetails, { type DocumentedUpdate } from '@/components/UpdateDetails';
+import { DEMO_CITIZEN, useDemoData, useDemoMode } from '@/lib/demo/demo';
+import { useProfile } from '@/lib/supabase/useProfile';
+import RescuerCard from '@/components/RescuerCard';
+import UpdateDetails, { recoveryPhotoSrc, type DocumentedUpdate } from '@/components/UpdateDetails';
 
 type State = 'reported' | 'claimed' | 'admitted' | 'healing' | 'resolved';
 
 interface Report {
   id: string;
   short_id: string;
+  reporter_id?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
   animal_type: string | null;
+  animal_other?: string | null;
   emergency_type: string | null;
   state: State;
   location_name: string | null;
@@ -55,6 +61,7 @@ export default function AnimalProfile() {
   const [fetchedUpdates, setUpdates] = useState<Update[]>([]);
   const demoOn = useDemoMode();
   const demo = useDemoData();
+  const { user, role } = useProfile();
 
   useEffect(() => {
     if (!id || demoOn) return;
@@ -86,7 +93,11 @@ export default function AnimalProfile() {
       ? {
           id: demoRow.id,
           short_id: demoRow.short_id,
+          reporter_id: demoRow.reporter_id,
+          latitude: demoRow.latitude,
+          longitude: demoRow.longitude,
           animal_type: demoRow.animal_type,
+          animal_other: demoRow.animal_other ?? null,
           emergency_type: demoRow.emergency_type,
           state: demoRow.state,
           location_name: demoRow.location_name,
@@ -133,11 +144,12 @@ export default function AnimalProfile() {
   }
 
   const name = report.animal_name?.trim() || null;
-  const kind = animalLabel(report.animal_type);
+  const kind = animalLabel(report.animal_type, report.animal_other);
   const inCare = report.state === 'admitted' || report.state === 'healing';
   const lastUpdate = updates.length ? updates[updates.length - 1].created_at : null;
   const clock = inCare ? calculateFacilityInactivity(lastUpdate) : null;
   const clinic = report.facilities?.name ?? null;
+  const profilePhoto = [...updates].reverse().find((u) => !!u.photo_url)?.photo_url ?? null;
 
   // The story, oldest first: the report itself, then every update
   const story: { key: string; when: string; title: string; notes?: string; update?: Update }[] = [
@@ -155,8 +167,14 @@ export default function AnimalProfile() {
       {header(name ?? kind, `Case #${report.short_id}`)}
 
       <div className="flex items-center gap-4">
-        <div className="w-[72px] h-[72px] rounded-2xl bg-surface border border-border shrink-0 flex items-center justify-center">
-          <AnimalGlyph kind={animalKind(report.animal_type as 'dog' | 'cat' | 'other' | null, kind)} size={54} />
+        {/* The profile picture is the newest photo the clinic took; a drawing until there is one */}
+        <div className="w-[72px] h-[72px] rounded-2xl bg-surface border border-border shrink-0 overflow-hidden flex items-center justify-center">
+          {profilePhoto ? (
+            // eslint-disable-next-line @next/next/no-img-element -- clinic photo from storage or a local data URL
+            <img src={recoveryPhotoSrc(profilePhoto)} alt={`${name ?? kind}, photo from the clinic`} className="w-full h-full object-cover" />
+          ) : (
+            <AnimalGlyph kind={animalKind(report.animal_type as 'dog' | 'cat' | 'other' | null, kind)} size={54} />
+          )}
         </div>
         <div className="min-w-0 space-y-0.5">
           <p className="text-[16px] font-semibold text-fg">{name ? `${name} · ${kind}` : kind}</p>
@@ -169,6 +187,11 @@ export default function AnimalProfile() {
       </div>
 
       <StageWeave state={report.state} showLabels />
+
+      {/* Only the person who reported the case sees who took it and where they are; the database checks this too */}
+      {report.state === 'claimed' && report.latitude != null && report.longitude != null && (demoOn ? role === 'citizen' && report.reporter_id === DEMO_CITIZEN : !!user && user.id === report.reporter_id) && (
+        <RescuerCard reportId={report.id} scene={{ lat: report.latitude, lng: report.longitude }} />
+      )}
 
       {clock && (
         <section aria-label="Recovery clock" className="space-y-2">
@@ -194,7 +217,7 @@ export default function AnimalProfile() {
           {story.map((item) => (
             <li key={item.key} className="space-y-0.5">
               <p className="text-[14px] font-semibold text-fg">{item.title}</p>
-              <p className="text-[12px] text-fg-muted tabular-nums">{formatDay(item.when)}</p>
+              <p className="text-[12px] text-fg-muted tabular-nums">{formatWhen(item.when)}</p>
               {item.notes && <p className="text-[14px] text-fg leading-snug">{item.notes}</p>}
               {item.update && <UpdateDetails update={item.update} alt={`${STATE_WORDS[item.update.state] ?? 'Update'} photo, ${formatDay(item.when)}`} />}
             </li>

@@ -31,6 +31,10 @@ export function claimPhase(args: {
   state: string;
   claimedAt?: string | Date | number | null;
   type?: string | null;
+  /** null = the volunteer has not checked in yet, so only the short confirm window holds the claim */
+  checkinKind?: 'on_my_way' | 'arrived' | null;
+  /** True while a clinic is expecting the volunteer: the claim has no time limit */
+  clinicExpecting?: boolean;
   /** When a released case went back to open (its updated_at) */
   releasedAt?: string | Date | number | null;
   standby: StandbyEntry[];
@@ -39,7 +43,7 @@ export function claimPhase(args: {
   const now = args.now ?? Date.now();
   let openedAt: number;
   if (args.state === 'claimed') {
-    const endsAt = claimLockEndsAt(args.claimedAt, args.type);
+    const endsAt = claimLockEndsAt(args.claimedAt, args.type, args.checkinKind, args.clinicExpecting);
     if (endsAt != null && now < endsAt) return { phase: 'locked', endsAt };
     openedAt = endsAt ?? now;
   } else if (args.state === 'reported') {

@@ -11,17 +11,17 @@ import { PANE_PREFIX } from '@/lib/storage';
 // played from the start without switching roles. Each frame is the real app locked to one role (?pane=);
 // they share the demo data through the browser's storage, so an action in one shows up in the others.
 const PANES = [
-  { id: 'citizen', label: 'Citizen', who: 'Sees an injured animal', src: '/sos?pane=citizen' },
+  { id: 'citizen', label: 'Citizen', who: 'Sees an injured animal', src: '/?pane=citizen' },
   { id: 'volunteer', label: 'Volunteer', who: 'Rescues and takes it to a clinic', src: '/?pane=volunteer' },
   { id: 'facility', label: 'Clinic staff', who: 'Confirms arrival and posts updates', src: '/care?pane=facility' },
 ] as const;
 
 const STEPS = [
-  'Citizen: pick the animal and emergency, tap the shutter, then Send. The case is dispatched.',
-  'Volunteer: the case appears at the top of the Feed. Claim it, then tap On my way.',
-  'Volunteer: Tell a clinic I’m coming, then Admit when you arrive.',
-  'Clinic staff: answer the heads-up, then Animal arrived. Post a recovery update with a photo.',
-  'Citizen: open Follow this case to see every step appear.',
+  'Citizen: tap Report an animal in trouble, pick the animal and emergency, tap the shutter, then Send.',
+  'Volunteer: the case appears at the top of the Feed. Claim it, then follow the steps one at a time: On my way, Arrived, Tell a clinic.',
+  'Clinic staff: tap Animal arrived when the animal is there. That unlocks the volunteer’s Admit button.',
+  'Volunteer: Admit. Clinic staff: post a recovery update (camera photo, treatment, medication, weight are required).',
+  'Citizen: your report stays on the citizen home. It tells you at every step: on the way, arrived, clinic told, admitted.',
 ];
 
 export default function DemoPage() {

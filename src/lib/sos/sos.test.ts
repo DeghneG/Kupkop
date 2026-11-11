@@ -10,7 +10,7 @@ import {
 } from './escalation';
 import { alertRecipients, currentAlertStage, planAlertStages, usersInArea } from './alerts';
 import { distanceKm, generateCaseId } from './geo';
-import { emergencyLabel } from './labels';
+import { animalLabel, emergencyLabel } from './labels';
 
 const minutesAgo = (m: number) => new Date(Date.now() - m * 60_000).toISOString();
 const daysAgo = (d: number) => new Date(Date.now() - d * 86_400_000).toISOString();
@@ -157,5 +157,23 @@ describe('live feed window (24 hours)', () => {
   it('a resolved case leaves 24 hours after it was resolved, not after it was reported', () => {
     expect(isOnLiveFeed({ state: 'resolved', createdAt: hoursAgo(24 * 6), updatedAt: hoursAgo(5) })).toBe(true);
     expect(isOnLiveFeed({ state: 'resolved', createdAt: hoursAgo(24 * 6), updatedAt: hoursAgo(30) })).toBe(false);
+  });
+});
+
+describe('naming an "other" animal', () => {
+  it('labels it by the typed name, tidied up', () => {
+    expect(animalLabel('other', 'guinea pig')).toBe('Injured Guinea Pig');
+    expect(animalLabel('other', '  rabbit ')).toBe('Injured Rabbit');
+    expect(animalLabel('other', 'ibon')).toBe('Injured Ibon');
+  });
+  it('falls back to Injured Animal when empty, too short, too long, or marked up', () => {
+    expect(animalLabel('other')).toBe('Injured Animal');
+    expect(animalLabel('other', 'a')).toBe('Injured Animal');
+    expect(animalLabel('other', 'x'.repeat(31))).toBe('Injured Animal');
+    expect(animalLabel('other', '<b>hi</b>')).toBe('Injured Animal');
+  });
+  it('ignores the typed name for a dog or a cat', () => {
+    expect(animalLabel('dog', 'rabbit')).toBe('Injured Dog');
+    expect(animalLabel('cat', 'rabbit')).toBe('Injured Cat');
   });
 });

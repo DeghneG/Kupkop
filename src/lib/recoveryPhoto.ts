@@ -5,7 +5,7 @@ import { compressVideoFrame } from '@/lib/sos/utils';
 import { isDemoOn } from '@/lib/demo/demo';
 
 /** Shrinks a chosen photo to a small WebP/JPEG so a clinic on mobile data can upload it. */
-async function shrink(file: File, maxWidth: number, quality: number): Promise<Blob> {
+async function shrink(file: Blob, maxWidth: number, quality: number): Promise<Blob> {
   const bitmap = await createImageBitmap(file);
   const canvas = document.createElement('canvas');
   canvas.width = bitmap.width;
@@ -29,7 +29,7 @@ const toDataUrl = (blob: Blob) =>
  * Prepares a recovery photo and returns the value to pass as p_photo_path.
  * Real app: uploads into recovery-photos/<case id>/ and returns the path. Demo: returns a small data URL.
  */
-export async function prepareRecoveryPhoto(reportId: string, file: File): Promise<string> {
+export async function prepareRecoveryPhoto(reportId: string, file: Blob): Promise<string> {
   if (!file.type.startsWith('image/')) throw new Error('Choose an image file.');
   if (isDemoOn()) return toDataUrl(await shrink(file, 480, 0.6));
   const blob = await shrink(file, 1280, 0.75);

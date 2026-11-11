@@ -22,3 +22,20 @@ describe('recovery documentation', () => {
     expect(detailsError({}, today)).toBeNull();
   });
 });
+
+import { requiredDocsError } from './recovery';
+
+describe('required documentation', () => {
+  const full = { treatment: 'Cast on left leg', medication: 'None', weight_kg: '7.5' };
+  it('asks for the camera photo first, then treatment, medication and weight', () => {
+    expect(requiredDocsError(full, false)).toContain('camera');
+    expect(requiredDocsError({ ...full, treatment: ' ' }, true)).toContain('treatment');
+    expect(requiredDocsError({ ...full, medication: '' }, true)).toContain('medication');
+    expect(requiredDocsError({ ...full, weight_kg: '' }, true)).toContain('weight');
+    expect(requiredDocsError({ ...full, weight_kg: 0 }, true)).toContain('weight');
+  });
+  it('accepts "None" for medication, and does not need a next check-up', () => {
+    expect(requiredDocsError(full, true)).toBeNull();
+    expect(requiredDocsError({ ...full, next_checkup_on: null }, true)).toBeNull();
+  });
+});

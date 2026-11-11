@@ -27,8 +27,11 @@ const ETA_CHOICES = [5, 10, 15, 30, 45];
 
 interface ClinicPickerProps {
   open: boolean;
-  /** 'headsup': tell a clinic you are coming (while on the way). 'admit': the animal is at a clinic. */
+  /** 'headsup': tell a clinic you are coming (while on the way). 'admit': an admin admits without the clinic's confirmation
+   *  (a volunteer never sees this: they can only admit to the clinic that confirmed). */
   mode?: 'admit' | 'headsup';
+  /** The clinic the rescuer already told: it is the starting choice */
+  defaultFacilityId?: string | null;
   /** The real case, so the heads-up can be sent; sample cases only admit */
   reportId?: string;
   caseLabel?: string;
@@ -46,6 +49,7 @@ interface ClinicPickerProps {
 export default function ClinicPicker({
   open,
   mode = 'admit',
+  defaultFacilityId,
   reportId,
   caseLabel,
   near,
@@ -140,7 +144,12 @@ export default function ClinicPicker({
   const clinicList = demoOn ? demoClinics : clinics;
   const ranked = clinicList ? rankClinics(clinicList, near) : null;
   // Nothing tapped yet: the suggested clinic is the starting choice
-  const chosenId = selected ?? ranked?.find((r) => r.suggested)?.clinic.id ?? null;
+  // The clinic already told is the starting choice; otherwise the nearest one that is not full
+  const chosenId =
+    selected ??
+    (defaultFacilityId && ranked?.some((r) => r.clinic.id === defaultFacilityId) ? defaultFacilityId : null) ??
+    ranked?.find((r) => r.suggested)?.clinic.id ??
+    null;
   const chosen = ranked?.find((r) => r.clinic.id === chosenId) ?? null;
   const chosenKm = chosen?.distanceKm ?? null;
   const defaultEta = estimateEtaMinutes(chosenKm) ?? 10;
@@ -151,9 +160,10 @@ export default function ClinicPicker({
   const askAdmit = () => {
     if (!chosen) return;
     ask({
-      title: `Confirm that ${chosen.clinic.name} has the animal?`,
-      message: 'Only confirm once the animal is at the clinic. The clinic then confirms it arrived, and its 14-day care clock starts.',
+      title: `Admit this case to ${chosen.clinic.name} without its confirmation?`,
+      message: `${chosen.clinic.address}. Admin only: the clinic has not confirmed the animal arrived. The clinic is then asked to confirm, and its 14-day care clock starts when it does.`,
       confirmLabel: 'Yes, admit it here',
+      cancelLabel: 'Not this clinic',
       onConfirm: () => onPick(chosen.clinic.id),
     });
   };
@@ -274,7 +284,7 @@ export default function ClinicPicker({
           </p>
         )}
 
-        {reportId && chosen && (
+        {mode === 'headsup' && reportId && chosen && (
           <fieldset className="space-y-1.5 border-0 p-0 m-0">
             <legend className="text-[12px] font-semibold text-fg">About how far are you?</legend>
             <div className="flex flex-wrap gap-2">
@@ -301,7 +311,7 @@ export default function ClinicPicker({
           </p>
         )}
 
-        {canTell && (
+        {mode === 'headsup' && canTell && (
           <button
             type="button"
             disabled={sending}

@@ -1,8 +1,9 @@
 'use client';
 import React, { useEffect, useState } from 'react';
-import { Lock, LockOpen, Check } from 'lucide-react';
+import { Lock, LockOpen } from 'lucide-react';
 import { IncidentData } from './ListRow';
-import { calculateClaimTimer, claimLockMinutes } from '@/lib/sos/escalation';
+import { calculateClaimTimer, claimLockMinutes, claimWindowMinutes } from '@/lib/sos/escalation';
+import ClaimSteps from '@/components/ClaimSteps';
 
 interface ActiveCaseBarProps {
   incident: IncidentData;
@@ -15,6 +16,10 @@ interface ActiveCaseBarProps {
   onCheckin?: (kind: 'on_my_way' | 'arrived') => void;
   /** Tell a clinic you are bringing an animal (real cases only) */
   onTellClinic?: () => void;
+  /** Whether this device is sharing the volunteer's position with the person who reported the case */
+  locationShare?: 'off' | 'sharing' | 'denied' | 'unavailable';
+  /** An admin may admit without the clinic's confirmation */
+  adminOverride?: boolean;
 }
 
 // Under this many minutes the pill switches to m:ss and the note warns
@@ -29,12 +34,18 @@ export default function ActiveCaseBar({
   onDismiss,
   onCheckin,
   onTellClinic,
+  locationShare = 'off',
+  adminOverride = false,
 }: ActiveCaseBarProps) {
   const [, setTicker] = useState(0);
+  // The severity lock (15 / 30 / 60) once the volunteer checks in; before that only the short confirm window holds the claim
   const lockMinutes = claimLockMinutes(incident.type);
-  const timer = calculateClaimTimer(incident.claimedAt, lockMinutes);
+  const clinicExpecting = incident.headsUpResponse === 'expecting';
+  const windowMinutes = claimWindowMinutes(incident.type, incident.checkinKind ?? null, clinicExpecting);
+  const timer = calculateClaimTimer(incident.claimedAt, windowMinutes);
   const expired = timer.isExpired;
-  const expiring = !expired && timer.remainingMinutes < EXPIRING_MINUTES;
+  const unlimited = !!timer.isUnlimited;
+  const expiring = !expired && !unlimited && timer.remainingMinutes < EXPIRING_MINUTES;
 
   // Live tick until the lock runs out
   useEffect(() => {
@@ -43,19 +54,19 @@ export default function ActiveCaseBar({
     return () => clearInterval(interval);
   }, [expired]);
 
-  const pillLabel = expiring
+  const pillLabel = unlimited
+    ? 'No time limit'
+    : expiring
     ? `${timer.remainingMinutes}:${String(timer.remainingSeconds).padStart(2, '0')} left`
     : `${timer.remainingMinutes + (timer.remainingSeconds > 0 ? 1 : 0)}m left`;
 
-  const lockUntil = incident.claimedAt
-    ? new Date(new Date(incident.claimedAt).getTime() + lockMinutes * 60 * 1000).toLocaleTimeString([], {
+  const lockUntil = incident.claimedAt && !unlimited
+    ? new Date(new Date(incident.claimedAt).getTime() + windowMinutes * 60 * 1000).toLocaleTimeString([], {
         hour: 'numeric',
         minute: '2-digit',
       })
     : '';
 
-  // The next check-in on offer, if any
-  const nextCheckin = !incident.checkinKind ? 'on_my_way' : incident.checkinKind === 'on_my_way' ? 'arrived' : null;
   const standbyCount = incident.standby?.length ?? 0;
   const headsUp = incident.headsUpFacilityName
     ? incident.headsUpResponse === 'expecting'
@@ -91,7 +102,7 @@ export default function ActiveCaseBar({
       </div>
 
       <div className="flex flex-col gap-2">
-        {!expired && (
+        {!expired && !unlimited && (
           <div className="h-1 overflow-hidden rounded-full bg-surface-muted">
             <div
               className={`h-full rounded-full ${expiring ? 'bg-claimed-fg' : 'bg-fg-muted'}`}
@@ -104,17 +115,32 @@ export default function ActiveCaseBar({
           aria-live="polite"
         >
           {expired
-            ? 'Others can claim this case now.'
-            : expiring
-              ? 'Lock ends soon. Admit or release.'
-              : `Locked to you until ${lockUntil}`}
+            ? incident.checkinKind
+              ? 'Others can claim this case now.'
+              : 'You did not tap On my way in time. Others can claim this case now.'
+            : unlimited
+              ? `${incident.headsUpFacilityName ?? 'The clinic'} is expecting you, so there is no time limit. Take your time and drive safely.`
+              : !incident.checkinKind
+                ? 'Tap On my way, or I’m already here, before the time runs out, or the case opens for others.'
+                : expiring
+                ? 'Lock ends soon. Keep going or release it.'
+                : `Locked to you until ${lockUntil}`}
         </p>
-        {headsUp && (
-          <p
-            className={`text-[12px] ${incident.headsUpResponse === 'cannot' ? 'font-semibold text-claimed-fg' : 'text-fg-muted'}`}
-            aria-live="polite"
-          >
+        {headsUp && incident.headsUpResponse !== 'cannot' && (
+          <p className="text-[12px] text-fg-muted" aria-live="polite">
             {headsUp}
+          </p>
+        )}
+        {!expired && locationShare === 'sharing' && (
+          <p className="text-[12px] text-fg-muted">
+            Sharing your live location with the person who reported this{clinicExpecting ? ` and with ${incident.headsUpFacilityName ?? 'the clinic'}, which is expecting you` : ''}, until you admit or release it.
+          </p>
+        )}
+        {!expired && (locationShare === 'denied' || locationShare === 'unavailable') && (
+          <p className="text-[12px] font-semibold text-claimed-fg">
+            {locationShare === 'denied'
+              ? 'Location is blocked, so the person who reported this cannot see where you are. Allow location for this site.'
+              : 'Could not get your location yet, so it is not being shared.'}
           </p>
         )}
         {standbyCount > 0 && (
@@ -127,44 +153,49 @@ export default function ActiveCaseBar({
             {error}
           </p>
         )}
-        {!expired && onCheckin && nextCheckin && (
-          <button
-            type="button"
-            onClick={() => onCheckin(nextCheckin)}
-            className="min-h-[44px] rounded-xl border border-border bg-surface hover:bg-surface-muted text-[14px] font-semibold text-fg cursor-pointer"
-          >
-            {nextCheckin === 'on_my_way' ? `On my way (restarts the ${lockMinutes}-minute lock)` : "I've arrived (restarts the lock)"}
-          </button>
+        {/* One step at a time: On my way, Arrived, Tell a clinic, then Admit */}
+        {!expired && (
+          <ClaimSteps
+            caseId={incident.id}
+            state={incident}
+            lockMinutes={lockMinutes}
+            canAct
+            adminOverride={adminOverride}
+            onCheckin={onCheckin}
+            onTellClinic={onTellClinic}
+            onAdmit={onAdmit}
+            admitLabel="Admit"
+          />
         )}
-        {!expired && onTellClinic && (
-          <button
-            type="button"
-            onClick={onTellClinic}
-            className="min-h-[44px] rounded-xl border border-border bg-surface hover:bg-surface-muted text-[14px] font-semibold text-fg cursor-pointer"
-          >
-            {incident.headsUpFacilityName ? 'Tell a different clinic' : 'Tell a clinic I’m coming'}
-          </button>
-        )}
-        {incident.checkinKind === 'arrived' && <p className="text-[12px] text-fg-muted">You checked in: arrived.</p>}
       </div>
 
-      <div className="flex items-center gap-3">
+      {expired ? (
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={onDismiss}
+            className="flex h-11 flex-1 cursor-pointer items-center justify-center rounded-xl border border-border bg-transparent text-[14px] font-semibold text-fg hover:bg-surface-muted"
+          >
+            Dismiss
+          </button>
+          <button
+            type="button"
+            onClick={onClaimAgain}
+            className="flex h-12 flex-[1.6] cursor-pointer items-center justify-center gap-2 rounded-xl bg-action text-[14px] font-semibold text-action-fg hover:opacity-95"
+          >
+            <Lock className="size-3.5" aria-hidden />
+            Claim again
+          </button>
+        </div>
+      ) : (
         <button
           type="button"
-          onClick={expired ? onDismiss : onRelease}
-          className="flex h-11 flex-1 cursor-pointer items-center justify-center rounded-xl border border-border bg-transparent text-[14px] font-semibold text-fg hover:bg-surface-muted"
+          onClick={onRelease}
+          className="flex h-11 w-full cursor-pointer items-center justify-center rounded-xl border border-border bg-transparent text-[14px] font-semibold text-fg hover:bg-surface-muted"
         >
-          {expired ? 'Dismiss' : 'Release'}
+          Release this case
         </button>
-        <button
-          type="button"
-          onClick={expired ? onClaimAgain : onAdmit}
-          className="flex h-12 flex-[1.6] cursor-pointer items-center justify-center gap-2 rounded-xl bg-action text-[14px] font-semibold text-action-fg hover:opacity-95"
-        >
-          {expired ? <Lock className="size-3.5" aria-hidden /> : <Check className="size-3.5" aria-hidden />}
-          {expired ? 'Claim again' : 'Admit'}
-        </button>
-      </div>
+      )}
     </section>
   );
 }

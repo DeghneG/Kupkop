@@ -46,3 +46,17 @@ export function detailsError(d: UpdateDetails, today: Date = new Date()): string
   }
   return null;
 }
+
+/**
+ * A recovery update must be documented: a photo taken with the camera just now, what was done (treatment), what was given
+ * (medication, "None" is fine) and the weight. The next check-up stays optional. Returns the first thing missing, or null.
+ * Mirrors post_recovery_update() in SQL, which also refuses an update without them.
+ */
+export function requiredDocsError(d: UpdateDetails, hasPhoto: boolean): string | null {
+  if (!hasPhoto) return 'Take a photo of the animal with the camera. Photos from the gallery are not accepted.';
+  if ((d.treatment ?? '').trim().length < 2) return 'Say what treatment was given.';
+  if ((d.medication ?? '').trim().length < 2) return 'Write the medication, or "None" if there was none.';
+  const w = d.weight_kg == null || d.weight_kg === '' ? NaN : Number(d.weight_kg);
+  if (!Number.isFinite(w) || w <= 0) return 'Enter the animal’s weight in kg.';
+  return null;
+}

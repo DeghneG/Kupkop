@@ -7,12 +7,14 @@ import { ChevronLeft, MapPin, Navigation, Phone } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { appRpc } from '@/lib/demo/rpc';
 import { useProfile } from '@/lib/supabase/useProfile';
-import { animalLabel, emergencyLabel, CARE_STATE_LABELS } from '@/lib/sos/labels';
+import { animalLabel, emergencyLabel, formatWhen, CARE_STATE_LABELS } from '@/lib/sos/labels';
 import { calculateFacilityInactivity } from '@/lib/sos/escalation';
 import { availabilityNote, effectiveAvailability } from '@/lib/sos/clinics';
 import { DEMO_CLINIC_ID, useDemoData, useDemoMode } from '@/lib/demo/demo';
 import ScreenHeader from '@/components/ScreenHeader';
 import DayWeave from '@/components/DayWeave';
+import AnimalGlyph, { animalKind } from '@/components/AnimalGlyph';
+import { recoveryPhotoSrc } from '@/components/UpdateDetails';
 
 type CareState = keyof typeof CARE_STATE_LABELS;
 
@@ -39,20 +41,47 @@ interface ClinicCase {
   state: CareState;
   /** Newest recovery update, or the last change when there is none */
   lastUpdateAt: string;
+  /** The kind of animal, for the drawing when there is no photo */
+  kind: 'dog' | 'cat' | 'other';
+  /** The newest photo the clinic took of the animal (the profile picture), if any */
+  photo: string | null;
+  /** What the clinic wrote in its newest update */
+  latestNote: string | null;
+  /** When the animal was first admitted (the oldest update) */
+  admittedAt: string | null;
 }
 
 type CaseRow = {
   id: string;
   short_id: string;
   animal_type: string | null;
+  animal_other?: string | null;
   emergency_type: string | null;
   state: CareState;
   updated_at: string;
   animal_name?: string | null;
-  recovery_updates: { created_at: string }[] | null;
+  recovery_updates: { created_at: string; notes?: string | null; photo_url?: string | null }[] | null;
 };
 
-const day = (iso: string) => new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+// One animal as the public page shows it. The newest clinic photo is its profile picture; the reporter's photo is never used.
+function toCase(r: CaseRow): ClinicCase {
+  const updates = [...(r.recovery_updates ?? [])].sort((a, b) => a.created_at.localeCompare(b.created_at));
+  const newest = updates.at(-1);
+  const withPhoto = [...updates].reverse().find((u) => !!u.photo_url);
+  return {
+    id: r.id,
+    shortId: r.short_id,
+    animal: animalLabel(r.animal_type, r.animal_other),
+    animalName: r.animal_name ?? null,
+    type: emergencyLabel(r.emergency_type),
+    state: r.state,
+    lastUpdateAt: newest?.created_at ?? r.updated_at,
+    kind: animalKind(r.animal_type, animalLabel(r.animal_type)),
+    photo: withPhoto?.photo_url ?? null,
+    latestNote: newest?.notes ?? null,
+    admittedAt: updates[0]?.created_at ?? null,
+  };
+}
 
 // One clinic's page: where it is, whether it can take animals, and the animals in its care.
 // Public, like the Clinics list: it shows no reporter or rescuer details.
@@ -85,25 +114,28 @@ export default function ClinicProfile() {
         : (withStatus.data as Record<string, unknown> | null);
 
       const states = ['admitted', 'healing', 'resolved'];
-      const caseBasic = 'id,short_id,animal_type,emergency_type,state,updated_at,recovery_updates(created_at)';
-      const withName = await supabase
-        .from('sos_reports')
-        .select(`${caseBasic},animal_name`)
-        .eq('facility_id', id)
-        .in('state', states)
-        .order('updated_at', { ascending: false })
-        .limit(50);
-      const rows = (withName.error
-        ? (
-            await supabase
-              .from('sos_reports')
-              .select(caseBasic)
-              .eq('facility_id', id)
-              .in('state', states)
-              .order('updated_at', { ascending: false })
-              .limit(50)
-          ).data
-        : withName.data) as unknown as CaseRow[] | null;
+      // Newest first, every animal (not only the last few). Newer columns arrive with later migrations, so try the richest
+      // list first and fall back to a plainer one.
+      const attempts = [
+        'id,short_id,animal_type,animal_other,emergency_type,state,updated_at,animal_name,recovery_updates(created_at,notes,photo_url)',
+        'id,short_id,animal_type,emergency_type,state,updated_at,animal_name,recovery_updates(created_at,notes,photo_url)',
+        'id,short_id,animal_type,emergency_type,state,updated_at,recovery_updates(created_at)',
+      ];
+      let rows: CaseRow[] | null = null;
+      for (const columns of attempts) {
+        const res = await supabase
+          .from('sos_reports')
+          .select(columns)
+          .eq('facility_id', id)
+          .in('state', states)
+          .is('hidden_at', null)
+          .order('updated_at', { ascending: false })
+          .limit(200);
+        if (!res.error) {
+          rows = res.data as unknown as CaseRow[];
+          break;
+        }
+      }
 
       if (!active) return;
       setClinic(
@@ -123,17 +155,7 @@ export default function ClinicProfile() {
             }
           : null
       );
-      setCases(
-        (rows ?? []).map((r) => ({
-          id: r.id,
-          shortId: r.short_id,
-          animal: animalLabel(r.animal_type),
-          animalName: r.animal_name ?? null,
-          type: emergencyLabel(r.emergency_type),
-          state: r.state,
-          lastUpdateAt: (r.recovery_updates ?? []).map((u) => u.created_at).sort().at(-1) ?? r.updated_at,
-        }))
-      );
+      setCases((rows ?? []).map(toCase));
     })();
     return () => {
       active = false;
@@ -161,22 +183,23 @@ export default function ClinicProfile() {
     : fetchedClinic;
   const cases: ClinicCase[] = demoOn
     ? demo.reports
-        .filter((r) => r.facility_id === id && ['admitted', 'healing', 'resolved'].includes(r.state))
+        .filter((r) => r.facility_id === id && !r.hidden_at && ['admitted', 'healing', 'resolved'].includes(r.state))
         .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
-        .map((r) => ({
-          id: r.id,
-          shortId: r.short_id,
-          animal: animalLabel(r.animal_type),
-          animalName: r.animal_name,
-          type: emergencyLabel(r.emergency_type),
-          state: r.state as CareState,
-          lastUpdateAt:
-            demo.updates
+        .map((r) =>
+          toCase({
+            id: r.id,
+            short_id: r.short_id,
+            animal_type: r.animal_type,
+            animal_other: r.animal_other ?? null,
+            emergency_type: r.emergency_type,
+            state: r.state as CareState,
+            updated_at: r.updated_at,
+            animal_name: r.animal_name,
+            recovery_updates: demo.updates
               .filter((u) => u.report_id === r.id)
-              .map((u) => u.created_at)
-              .sort()
-              .at(-1) ?? r.updated_at,
-        }))
+              .map((u) => ({ created_at: u.created_at, notes: u.notes, photo_url: u.photo_url ?? null })),
+          })
+        )
     : fetchedCases;
 
   const back = (
@@ -212,7 +235,8 @@ export default function ClinicProfile() {
     .filter((c) => c.state !== 'resolved')
     .map((c) => ({ c, clock: calculateFacilityInactivity(c.lastUpdateAt) }))
     .sort((a, b) => b.clock.elapsedDays - a.clock.elapsedDays);
-  const released = cases.filter((c) => c.state === 'resolved').slice(0, 10);
+  // Every animal that finished its recovery here, newest first
+  const released = cases.filter((c) => c.state === 'resolved').sort((a, b) => b.lastUpdateAt.localeCompare(a.lastUpdateAt));
   const due = inCare.filter(({ clock }) => clock.status !== 'active').length;
   const effective = effectiveAvailability(clinic.availability, clinic.availabilitySetAt);
   const mapsHref = `https://www.google.com/maps/search/?api=1&query=${clinic.latitude},${clinic.longitude}`;
@@ -305,28 +329,39 @@ export default function ClinicProfile() {
         </div>
       </dl>
 
-      <section aria-labelledby="clinic-care-heading" className="space-y-2">
+      <section aria-labelledby="clinic-care-heading" className="space-y-3">
         <h2 id="clinic-care-heading" className="text-[16px] font-semibold text-fg">
-          Animals in care
+          Animals in care ({inCare.length})
         </h2>
+        <p className="text-[12px] text-fg-muted">Tap an animal to read its whole story, with every update and photo from the clinic.</p>
         {inCare.length === 0 ? (
           <p className="text-[14px] text-fg-muted">No animals in care right now.</p>
         ) : (
-          <ul className="divide-y divide-border border-y border-border">
+          <ul className="space-y-3">
             {inCare.map(({ c, clock }) => (
               <li key={c.id}>
-                <Link href={`/animal/${c.id}`} className="block py-3 space-y-1.5 hover:bg-surface-muted -mx-4 px-4">
-                  <p className="text-[14px] font-semibold text-fg">
-                    {c.animalName ? `${c.animalName} · ${c.animal}` : c.animal}{' '}
-                    <span className="font-mono text-[12px] text-fg-muted">#{c.shortId}</span>
-                  </p>
-                  <p className="text-[12px] text-fg-muted">
-                    {CARE_STATE_LABELS[c.state]} · {c.type} · last update {day(c.lastUpdateAt)}
-                  </p>
-                  <p className={`text-[12px] font-bold ${clock.status === 'active' ? 'text-healing-fg' : 'text-claimed-fg'}`}>
-                    {clock.status === 'alert' ? 'Update overdue' : clock.badgeText}
-                  </p>
+                <Link href={`/animal/${c.id}`} className="block rounded-2xl border border-border bg-surface p-3 space-y-2 hover:bg-surface-muted">
+                  <div className="flex gap-3">
+                    <AnimalAvatar c={c} />
+                    <div className="min-w-0 flex-1 space-y-0.5">
+                      <p className="text-[16px] font-semibold text-fg truncate">{c.animalName ?? c.animal}</p>
+                      <p className="text-[12px] text-fg-muted truncate">
+                        {c.animalName ? `${c.animal} · ` : ''}
+                        {c.type} · <span className="font-mono">#{c.shortId}</span>
+                      </p>
+                      <p className="text-[12px] font-semibold text-fg">{CARE_STATE_LABELS[c.state]}</p>
+                      <p className={`text-[12px] font-bold ${clock.status === 'active' ? 'text-healing-fg' : 'text-claimed-fg'}`}>
+                        {clock.status === 'alert' ? 'Update overdue' : clock.badgeText}
+                      </p>
+                    </div>
+                  </div>
                   <DayWeave elapsedDays={clock.elapsedDays} />
+                  {c.latestNote && (
+                    <p className="text-[12px] text-fg-muted">
+                      <span className="font-semibold text-fg">{formatWhen(c.lastUpdateAt, false)}:</span> {c.latestNote}
+                    </p>
+                  )}
+                  <p className="text-[14px] font-semibold text-link underline underline-offset-4">View profile</p>
                 </Link>
               </li>
             ))}
@@ -335,21 +370,29 @@ export default function ClinicProfile() {
       </section>
 
       {released.length > 0 && (
-        <section aria-labelledby="clinic-released-heading" className="space-y-2">
+        <section aria-labelledby="clinic-released-heading" className="space-y-3">
           <h2 id="clinic-released-heading" className="text-[16px] font-semibold text-fg">
-            Recently released
+            Past animals ({released.length})
           </h2>
-          <ul className="divide-y divide-border border-y border-border">
+          <p className="text-[12px] text-fg-muted">Animals that finished their recovery here, newest first.</p>
+          <ul className="space-y-3">
             {released.map((c) => (
               <li key={c.id}>
-                <Link href={`/animal/${c.id}`} className="block py-3 hover:bg-surface-muted -mx-4 px-4">
-                  <p className="text-[14px] font-semibold text-fg">
-                    {c.animalName ? `${c.animalName} · ${c.animal}` : c.animal}{' '}
-                    <span className="font-mono text-[12px] text-fg-muted">#{c.shortId}</span>
-                  </p>
-                  <p className="text-[12px] text-fg-muted">
-                    Released {day(c.lastUpdateAt)} · {c.type}
-                  </p>
+                <Link href={`/animal/${c.id}`} className="block rounded-2xl border border-border bg-surface p-3 hover:bg-surface-muted">
+                  <div className="flex gap-3">
+                    <AnimalAvatar c={c} />
+                    <div className="min-w-0 flex-1 space-y-0.5">
+                      <p className="text-[16px] font-semibold text-fg truncate">{c.animalName ?? c.animal}</p>
+                      <p className="text-[12px] text-fg-muted truncate">
+                        {c.animalName ? `${c.animal} · ` : ''}
+                        {c.type} · <span className="font-mono">#{c.shortId}</span>
+                      </p>
+                      <p className="text-[12px] font-semibold text-resolved-fg">Recovered and released {formatWhen(c.lastUpdateAt, false)}</p>
+                      {c.admittedAt && <p className="text-[12px] text-fg-muted">Admitted {formatWhen(c.admittedAt, false)}</p>}
+                    </div>
+                  </div>
+                  {c.latestNote && <p className="mt-2 text-[12px] text-fg-muted">{c.latestNote}</p>}
+                  <p className="mt-2 text-[14px] font-semibold text-link underline underline-offset-4">Read the story</p>
                 </Link>
               </li>
             ))}
@@ -358,6 +401,20 @@ export default function ClinicProfile() {
       )}
 
       {back}
+    </div>
+  );
+}
+
+// An animal's picture: the newest photo its clinic took, or a drawing of a dog, a cat or a paw when there is none yet.
+function AnimalAvatar({ c }: { c: ClinicCase }) {
+  return (
+    <div className="w-[72px] h-[72px] shrink-0 rounded-2xl bg-surface-muted border border-border overflow-hidden flex items-center justify-center">
+      {c.photo ? (
+        // eslint-disable-next-line @next/next/no-img-element -- clinic photo from storage or a local data URL
+        <img src={recoveryPhotoSrc(c.photo)} alt={`${c.animalName ?? c.animal}, photo from the clinic`} loading="lazy" className="w-full h-full object-cover" />
+      ) : (
+        <AnimalGlyph kind={c.kind} size={54} />
+      )}
     </div>
   );
 }

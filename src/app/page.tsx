@@ -6,6 +6,7 @@ import AccountButton from '@/components/AccountButton';
 import DetailSheet from '@/components/DetailSheet';
 import ActiveCaseBar from '@/components/ActiveCaseBar';
 import ClinicPicker from '@/components/ClinicPicker';
+import CitizenHome from '@/components/CitizenHome';
 import AuthErrorNotice from '@/components/AuthErrorNotice';
 import { useConfirm } from '@/components/ConfirmSheet';
 import { DEMO_USER, useDemoData, useDemoMode, type DemoReport } from '@/lib/demo/demo';
@@ -20,7 +21,8 @@ import { KupkopMark } from '@/components/icons/TriageGlyph';
 import Wordmark from '@/components/Wordmark';
 import StageWeave from '@/components/StageWeave';
 import FeaturedCase from '@/components/FeaturedCase';
-import { calculateEscalation, claimLockMinutes, isOnLiveFeed, needsRescuer } from '@/lib/sos/escalation';
+import { calculateClaimTimer, calculateEscalation, claimLockMinutes, claimWindowMinutes, ESCALATION_CONFIG, isOnLiveFeed, needsRescuer } from '@/lib/sos/escalation';
+import { useShareRescuerLocation } from '@/lib/useShareRescuerLocation';
 import { animalLabel, emergencyLabel } from '@/lib/sos/labels';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -137,7 +139,7 @@ function toIncident(r: DemoReport): IncidentData {
   return {
     id: r.id,
     shortId: r.short_id,
-    animal: animalLabel(r.animal_type),
+    animal: animalLabel(r.animal_type, r.animal_other),
     type: emergencyLabel(r.emergency_type),
     state: (r.state as IncidentData['state']) || 'reported',
     location: locationStr,
@@ -153,6 +155,8 @@ function toIncident(r: DemoReport): IncidentData {
     claimedAt: r.claimed_at || null,
     createdAt: r.created_at || r.server_timestamp || null,
     facilityId: r.facility_id || null,
+    intakeConfirmedAt: r.intake_confirmed_at ?? null,
+    clinicReceivedAt: r.clinic_received_at ?? null,
     aiGraphic: r.ai_graphic === true,
     // These columns arrive with the D-042 migration; before it they are simply missing
     animalName: r.animal_name ?? null,
@@ -199,6 +203,8 @@ export default function HomePage() {
   // Case waiting for the rescuer to choose which clinic admitted it
   const [admitTarget, setAdmitTarget] = useState<IncidentData | null>(null);
   // 'headsup' = tell a clinic you are coming while on the way; 'admit' = the animal is at a clinic
+  // A signed-in citizen starts on their own reports; "See cases near you" shows this Feed (without claim buttons)
+  const [citizenView, setCitizenView] = useState<'mine' | 'nearby'>('mine');
   const [pickerMode, setPickerMode] = useState<'admit' | 'headsup'>('admit');
   const [admitting, setAdmitting] = useState(false);
   // Clock for relative labels; set from timers and fetches, never read during render
@@ -450,10 +456,18 @@ export default function HomePage() {
     return true;
   };
 
+  // Tells the person who reported the case about each step (claimed, on my way, arrived, told a clinic, admitted).
+  // The server checks that the step really happened and that the caller is the volunteer on the case. The demo shows it on screen instead.
+  const notifyReporter = (incident: IncidentData, event: 'claimed' | 'on_my_way' | 'arrived' | 'told_clinic' | 'admitted') => {
+    if (demoOn || !isLiveReport(incident)) return;
+    fetch('/api/push/case-update', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ reportId: incident.id, event }) }).catch(() => {});
+  };
+
   const handleClaimIncident = async (incident: IncidentData) => {
     if (isLiveReport(incident) && !(await callCaseFunction('claim_sos_report', { p_report_id: incident.id! }))) return;
     setDismissedCaseId(null);
     applyUpdate({ ...incident, state: 'claimed', claimedAt: new Date().toISOString(), claimedBy: profile.user?.id ?? null });
+    notifyReporter(incident, 'claimed');
   };
 
   // Quick claim from the feed row; on success the active case bar takes over
@@ -475,7 +489,7 @@ export default function HomePage() {
   const askClaim = (incident: IncidentData) =>
     askConfirm({
       title: `Claim case #${incident.shortId}?`,
-      message: `It will be locked to you for ${claimLockMinutes(incident.type)} minutes so two volunteers don't go to the same animal. Tap "On my way" to keep it, or release it if you cannot go.`,
+      message: `It is locked to you so two volunteers don't go to the same animal. You have ${ESCALATION_CONFIG.claimConfirmMinutes} minute to tap "On my way" (or "I'm already here"), or the case opens for others again. After that the lock lasts ${claimLockMinutes(incident.type)} minutes, restarting at each step.${demoOn ? '' : ' When you tap "On my way", your name and live location are shared with the person who reported it, and with a clinic once it says it is expecting you, until you admit or release it.'}`,
       confirmLabel: 'Yes, claim it',
       onConfirm: () => handleQuickClaim(incident),
     });
@@ -512,6 +526,7 @@ export default function HomePage() {
     if (isLiveReport(incident) && !(await callCaseFunction('claim_checkin', { p_report_id: incident.id!, p_kind: kind }))) return;
     const stamp = new Date().toISOString();
     applyUpdate({ ...incident, claimedAt: stamp, checkinKind: kind, checkinAt: stamp });
+    notifyReporter(incident, kind);
   };
 
   // The rescuer tells a clinic they are coming (real cases only: a sample case has nobody to tell)
@@ -538,11 +553,13 @@ export default function HomePage() {
 
   // Open again but held for the first volunteer on standby: the Claim button stays off for everyone else
   const claimHeldFor = (incident: IncidentData): boolean => {
-    if (!needsRescuer(incident.state, incident.claimedAt, incident.type)) return false;
+    if (!needsRescuer(incident.state, incident.claimedAt, incident.type, incident.checkinKind ?? null, incident.headsUpResponse === 'expecting')) return false;
     const phase = claimPhase({
       state: incident.state,
       claimedAt: incident.claimedAt,
       type: incident.type,
+      checkinKind: incident.checkinKind ?? null,
+      clinicExpecting: incident.headsUpResponse === 'expecting',
       releasedAt: incident.updatedAt,
       standby: incident.standby ?? [],
     });
@@ -558,6 +575,24 @@ export default function HomePage() {
       return;
     }
     if (!facilityId) {
+      // A volunteer can only admit to the clinic that confirmed the animal is there: no clinic to pick
+      if (incident.clinicReceivedAt && incident.headsUpFacilityId) {
+        const clinicId = incident.headsUpFacilityId;
+        const clinicName = decorate(incident).headsUpFacilityName ?? 'the clinic';
+        setSelectedIncident(null);
+        askConfirm({
+          title: `Admit #${incident.shortId} to ${clinicName}?`,
+          message: `${clinicName} confirmed the animal is there. Admitting hands the case over to the clinic and starts its 14-day care clock.`,
+          confirmLabel: 'Yes, admit it',
+          onConfirm: () => handleAdmitIncident(incident, clinicId),
+        });
+        return;
+      }
+      // Without the clinic's confirmation only an admin can admit (a clinic with no staff account); everyone else must wait
+      if (profile.role !== 'admin') {
+        setActionError('Ask the clinic to confirm the animal arrived first. You can mark it admitted once they do.');
+        return;
+      }
       setActionError(null);
       setSelectedIncident(null);
       setPickerMode('admit');
@@ -567,8 +602,9 @@ export default function HomePage() {
     setAdmitting(true);
     try {
       if (!(await callCaseFunction('admit_to_facility', { p_report_id: incident.id!, p_facility_id: facilityId }))) return;
-      applyUpdate({ ...incident, state: 'admitted', facilityId });
+      applyUpdate({ ...incident, state: 'admitted', facilityId, intakeConfirmedAt: incident.clinicReceivedAt ?? null });
       setAdmitTarget(null);
+      notifyReporter(incident, 'admitted');
     } finally {
       setAdmitting(false);
     }
@@ -598,9 +634,18 @@ export default function HomePage() {
       ) ?? null
     : null;
 
+  // While the volunteer holds a live claim, their position goes to the person who reported it (real cases only; the demo simulates it)
+  const claimLockLive =
+    !!activeCase && !calculateClaimTimer(activeCase.claimedAt, claimWindowMinutes(activeCase.type, activeCase.checkinKind ?? null, activeCase.headsUpResponse === 'expecting')).isExpired;
+  // Sharing starts when the volunteer taps "On my way" (that is the moment they agree to it), not at the claim
+  const locationShare = useShareRescuerLocation(
+    activeCase?.id ?? null,
+    !!activeCase && !demoOn && isLiveReport(activeCase) && claimLockLive && !!activeCase.checkinKind
+  );
+
   const showCounts = feedStatus === 'live' || feedStatus === 'sample';
   // An expired claim is open again: the database keeps it 'claimed' until someone claims it
-  const isOpen = (incident: IncidentData) => needsRescuer(incident.state, incident.claimedAt, incident.type);
+  const isOpen = (incident: IncidentData) => needsRescuer(incident.state, incident.claimedAt, incident.type, incident.checkinKind ?? null, incident.headsUpResponse === 'expecting');
 
   // The open sheet follows the live list, so a clinic's reply or a new standby shows without reopening it
   const selectedLive = selectedIncident ? (emergencies.find((e) => e.id === selectedIncident.id) ?? selectedIncident) : null;
@@ -664,6 +709,11 @@ export default function HomePage() {
           ? 'Reconnecting…'
           : 'Connecting…';
 
+  const isSignedInCitizen = !profile.loading && profile.role === 'citizen' && (demoOn || !!profile.user);
+  if (isSignedInCitizen && citizenView === 'mine') {
+    return <CitizenHome userId={profile.user?.id ?? null} onSeeNearby={() => setCitizenView('nearby')} />;
+  }
+
   return (
     <div className={`flex flex-col flex-1 pt-0 ${activeCase ? 'pb-56' : 'pb-6'}`}>
       {/* Pull-to-refresh indicator; only this pill moves so the fixed case bar is unaffected */}
@@ -721,6 +771,18 @@ export default function HomePage() {
           <AccountButton />
         </div>
       </header>
+
+      {isSignedInCitizen && (
+        <div className="px-4 pb-2">
+          <button
+            type="button"
+            onClick={() => setCitizenView('mine')}
+            className="min-h-[44px] inline-flex items-center text-[14px] font-semibold text-shell-fg underline underline-offset-4 cursor-pointer"
+          >
+            ← Back to my reports
+          </button>
+        </div>
+      )}
 
       {/* Summary: counts across all cases, independent of the filter. The need is the big number. */}
       {showCounts && (
@@ -917,6 +979,8 @@ export default function HomePage() {
                 <p className="text-[14px] text-fg-muted max-w-[280px]">
                   That&apos;s every case near you. New reports appear here as soon as they&apos;re filed.
                 </p>
+                {/* Volunteers, clinics and admins already have SOS and Rafa on the bottom bar, so the extra buttons are for citizens only */}
+                {profile.role === 'citizen' && (
                 <div className="flex flex-col gap-2 w-full max-w-[280px]">
                   <Link
                     href="/sos"
@@ -931,6 +995,7 @@ export default function HomePage() {
                     Ask Rafa for first aid
                   </Link>
                 </div>
+                )}
               </div>
             </>
           )}
@@ -950,6 +1015,8 @@ export default function HomePage() {
               onCheckin={(kind) => handleCheckin(activeCase, kind)}
               onTellClinic={isLiveReport(activeCase) ? () => handleTellClinic(activeCase) : undefined}
               onDismiss={() => setDismissedCaseId(activeCase.id ?? null)}
+              locationShare={locationShare}
+              adminOverride={profile.role === 'admin'}
             />
           </div>
         </div>
@@ -977,6 +1044,7 @@ export default function HomePage() {
       <ClinicPicker
         open={!!admitTarget}
         mode={pickerMode}
+        defaultFacilityId={admitTarget?.headsUpFacilityId ?? null}
         reportId={admitTarget && isLiveReport(admitTarget) ? admitTarget.id : undefined}
         caseLabel={admitTarget ? `${admitTarget.animal} · Case #${admitTarget.shortId}` : undefined}
         near={userPosition}
@@ -985,13 +1053,16 @@ export default function HomePage() {
         onPick={(facilityId) => admitTarget && handleAdmitIncident(admitTarget, facilityId)}
         onHeadsUpSent={(facilityId, etaMinutes) =>
           admitTarget &&
+          (notifyReporter(admitTarget, 'told_clinic'),
           applyUpdate({
             ...admitTarget,
             headsUpFacilityId: facilityId,
             headsUpEtaMinutes: etaMinutes,
             headsUpResponse: null,
             headsUpNote: null,
-          })
+            clinicReceivedAt: null,
+            claimedAt: new Date().toISOString(),
+          }))
         }
         onClose={closeClinicPicker}
       />

@@ -23,6 +23,7 @@ import {
   calculateFacilityInactivity,
   calculateEscalation,
   claimLockMinutes,
+  claimWindowMinutes,
   needsRescuer,
   formatWaited,
 } from '@/lib/sos/escalation';
@@ -34,6 +35,7 @@ import { useFocusTrap } from '@/lib/useFocusTrap';
 import FlagReport from '@/components/FlagReport';
 import CasePhoto from '@/components/CasePhoto';
 import HandoffPanel from '@/components/HandoffPanel';
+import ClaimSteps from '@/components/ClaimSteps';
 import StageWeave from '@/components/StageWeave';
 import { createClient } from '@/lib/supabase/client';
 
@@ -210,15 +212,16 @@ export default function DetailSheet({
   // Sample cases ("case-*") have no database row to read updates from or flag
   const isLive = !!incident.id && !incident.id.startsWith('case-');
   // An expired claim is open again for other volunteers
-  const open = needsRescuer(incident.state, incident.claimedAt, incident.type);
+  const clinicExpecting = incident.headsUpResponse === 'expecting';
+  const open = needsRescuer(incident.state, incident.claimedAt, incident.type, incident.checkinKind ?? null, clinicExpecting);
   const isMine = !!userId && incident.claimedBy === userId;
   // The lock is shorter for the cases where minutes matter most (15 / 30 / 60)
   const lockMinutes = claimLockMinutes(incident.type);
-  const lockTimer = calculateClaimTimer(incident.claimedAt, lockMinutes);
+  // Before the volunteer checks in only the short confirm window holds the claim
+  const lockTimer = calculateClaimTimer(incident.claimedAt, claimWindowMinutes(incident.type, incident.checkinKind ?? null, clinicExpecting));
   const isResponder = role === 'volunteer' || role === 'admin';
   const standbyList = incident.standby ?? [];
   const myStandbyPlace = standbyPosition(standbyList, userId);
-  const nextCheckin = !incident.checkinKind ? 'on_my_way' : incident.checkinKind === 'on_my_way' ? 'arrived' : null;
   const escalation = calculateEscalation(incident.createdAt, incident.type);
 
   const handleCallClick = () => {
@@ -397,7 +400,7 @@ export default function DetailSheet({
                     <span>Volunteer Claim Lock</span>
                   </div>
                   <span className="font-mono text-[12px] font-semibold tabular-nums">
-                    {lockTimer.isExpired ? 'Lock Expired' : lockTimer.formatted}
+                    {lockTimer.isExpired ? 'Lock Expired' : lockTimer.isUnlimited ? 'Clinic expecting' : lockTimer.formatted}
                   </span>
                 </div>
                 <div className="w-full bg-claimed-fg/15 h-1.5 rounded-full overflow-hidden">
@@ -522,32 +525,17 @@ export default function DetailSheet({
               ) : incident.state === 'claimed' ? (
                 isMine || role === 'admin' ? (
                   <div className="space-y-2">
-                    {isMine && isLive && nextCheckin && !lockTimer.isExpired && (
-                      <button
-                        type="button"
-                        onClick={() => onCheckin?.(incident, nextCheckin)}
-                        className="w-full min-h-[44px] rounded-xl border border-border bg-surface hover:bg-surface-muted text-fg font-semibold text-[14px] cursor-pointer"
-                      >
-                        {nextCheckin === 'on_my_way' ? `On my way (restarts the ${lockMinutes}-minute lock)` : "I've arrived (restarts the lock)"}
-                      </button>
-                    )}
-                    {isMine && isLive && !lockTimer.isExpired && (
-                      <button
-                        type="button"
-                        onClick={() => onTellClinic?.(incident)}
-                        className="w-full min-h-[44px] rounded-xl border border-border bg-surface hover:bg-surface-muted text-fg font-semibold text-[14px] cursor-pointer"
-                      >
-                        {incident.headsUpFacilityName ? 'Tell a different clinic' : 'Tell a clinic I’m coming'}
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => onAdmit?.(incident)}
-                      className="w-full min-h-[48px] bg-action hover:opacity-90 active:scale-[0.98] text-action-fg font-semibold text-[16px] rounded-xl flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer border-none"
-                    >
-                      <HeartPulse className="w-5 h-5" aria-hidden="true" />
-                      <span>Mark as Admitted (Clinic Handoff)</span>
-                    </button>
+                    {/* One step at a time: On my way, Arrived, Tell a clinic, then Admit */}
+                    <ClaimSteps
+                      caseId={incident.id}
+                      state={incident}
+                      lockMinutes={lockMinutes}
+                      canAct={isMine && isLive && !lockTimer.isExpired}
+                      adminOverride={role === 'admin'}
+                      onCheckin={onCheckin ? (kind) => onCheckin(incident, kind) : undefined}
+                      onTellClinic={onTellClinic ? () => onTellClinic(incident) : undefined}
+                      onAdmit={() => onAdmit?.(incident)}
+                    />
                     <button
                       type="button"
                       onClick={() => onReleaseClaim?.(incident)}
@@ -562,8 +550,8 @@ export default function DetailSheet({
                     <div className="w-full min-h-[48px] rounded-xl bg-surface-muted border border-border flex items-center justify-center gap-2 text-[14px] text-fg-muted font-normal">
                       <TriageGlyph state="claimed" size={14} className="text-claimed-fg shrink-0" />
                       <span>
-                        {claimerName ? `${claimerName} is on the way` : 'A rescuer is on the way'} ({lockTimer.remainingMinutes}m lock
-                        left)
+                        {claimerName ? `${claimerName} is on the way` : 'A rescuer is on the way'}{' '}
+                        {lockTimer.isUnlimited ? '(a clinic is expecting them)' : `(${lockTimer.remainingMinutes}m lock left)`}
                       </span>
                     </div>
                     {isLive && isResponder && userId && (
