@@ -115,6 +115,7 @@ export default function DemoPage() {
                 <iframe
                   title={`${p.label} screen`}
                   name={`${PANE_PREFIX}${p.id}`}
+                  allow="camera; geolocation"
                   src={p.src}
                   className="w-full h-[min(780px,calc(100vh-260px))] min-h-[560px] rounded-2xl border border-border bg-page"
                 />

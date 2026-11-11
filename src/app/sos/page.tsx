@@ -136,12 +136,6 @@ export default function SOSCameraPage() {
 
   // 2. Initialize Camera Stream (with IR camera avoidance and multi-device selection)
   const startCamera = useCallback(async (explicitDeviceId?: string) => {
-    // Demo mode only: a labelled fake lens, so the whole flow can be played without a camera
-    if (isDemoOn()) {
-      setCameraStatus('simulated');
-      setCameraError(null);
-      return;
-    }
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       setCameraStatus('unsupported');
       setCameraError('Camera API not accessible on this browser.');
@@ -322,7 +316,13 @@ export default function SOSCameraPage() {
 
     const timer = setTimeout(() => {
       if (!isCancelled) {
-        startCamera();
+        // Demo mode opens on the labelled fake lens so the flow plays without a camera; "Switch to Live Webcam" still opens the real one
+        if (isDemoOn()) {
+          setCameraStatus('simulated');
+          setCameraError(null);
+        } else {
+          startCamera();
+        }
         requestLocation();
       }
     }, 0);
@@ -958,7 +958,8 @@ export default function SOSCameraPage() {
                   locationEditedRef.current = false;
                   setDispatchError(null);
                   setDispatchStep('camera');
-                  startCamera();
+                  if (isDemoOn()) setCameraStatus('simulated');
+                  else startCamera();
                 }}
                 className="min-h-[44px] rounded-xl border border-border bg-surface text-fg font-semibold text-[12px] flex items-center justify-center gap-2 hover:bg-surface-muted transition-colors cursor-pointer"
               >
