@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { FlaskConical } from 'lucide-react';
 import { resetDemo, setDemoOn, useDemoMode } from '@/lib/demo/demo';
 import { useConfirm } from '@/components/ConfirmSheet';
+import { PANE_PREFIX } from '@/lib/storage';
 
 // Three screens of the same demo side by side, one per person in the story, so the whole flow can be
 // played from the start without switching roles. Each frame is the real app locked to one role (?pane=);
@@ -127,6 +128,7 @@ export default function DemoPage() {
               {ready ? (
                 <iframe
                   title={`${p.label} screen`}
+                  name={`${PANE_PREFIX}${p.id}`}
                   src={p.src}
                   className="w-full h-[min(780px,calc(100vh-260px))] min-h-[560px] rounded-2xl border border-border bg-page"
                 />

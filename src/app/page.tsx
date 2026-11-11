@@ -223,13 +223,14 @@ export default function HomePage() {
   // First visit on this device while signed out: show the landing page once.
   // It offers "Report an emergency now" up top, so reporting is never blocked behind it.
   useEffect(() => {
-    if (profile.loading || profile.user) return;
+    // Demo mode goes straight to the Feed (the three-screen demo loads this page in a frame)
+    if (profile.loading || profile.user || demoOn) return;
     try {
       if (!localStorage.getItem(WELCOME_SEEN_KEY)) router.replace('/welcome');
     } catch {
       // Storage unavailable: skip the landing page rather than show it on every visit
     }
-  }, [profile.loading, profile.user, router]);
+  }, [profile.loading, profile.user, demoOn, router]);
 
   // Re-render twice a minute so escalation labels and ordering stay current
   // (The first fetch sets `now`, so nothing is set synchronously here.)

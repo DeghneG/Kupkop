@@ -28,8 +28,12 @@ export type ViewAsRole = 'citizen' | 'volunteer' | 'facility' | 'admin';
 
 const VIEW_AS_ROLES: readonly string[] = ['citizen', 'volunteer', 'facility', 'admin'];
 
-/** Each frame of the three-screen demo keeps its own role here; sessionStorage is private to one frame. */
-export const PANE_KEY = 'kupkop-pane-role';
+/**
+ * Each frame of the three-screen demo keeps its own role in its window name. Not sessionStorage: same-origin frames
+ * of one tab share it, so they overwrote each other and set off each other's storage events in an endless loop.
+ * A window name belongs to one frame and fires no events.
+ */
+export const PANE_PREFIX = 'kupkop-pane:';
 
 /** A frame's role wins over the shared preview role; neither valid means no preview. Pure, so it can be tested. */
 export function resolveViewAs(pane: string | null, stored: string | null): ViewAsRole | null {
@@ -41,9 +45,12 @@ export function resolveViewAs(pane: string | null, stored: string | null): ViewA
 export function readPaneRole(): ViewAsRole | null {
   if (typeof window === 'undefined') return null;
   try {
-    const fromUrl = new URLSearchParams(window.location.search).get('pane');
-    if (fromUrl && VIEW_AS_ROLES.includes(fromUrl)) sessionStorage.setItem(PANE_KEY, fromUrl);
-    return resolveViewAs(sessionStorage.getItem(PANE_KEY), null);
+    if (!window.name.startsWith(PANE_PREFIX)) {
+      // A page opened as /?pane=volunteer becomes that pane, even outside the three-screen page
+      const fromUrl = new URLSearchParams(window.location.search).get('pane');
+      if (fromUrl && VIEW_AS_ROLES.includes(fromUrl)) window.name = PANE_PREFIX + fromUrl;
+    }
+    return window.name.startsWith(PANE_PREFIX) ? resolveViewAs(window.name.slice(PANE_PREFIX.length), null) : null;
   } catch {
     return null;
   }
